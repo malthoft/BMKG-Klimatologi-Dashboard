@@ -11,11 +11,11 @@ export function Card({ children, className = "", ...props }: CardProps) {
   return (
     <motion.div
       whileHover={{
-        y: -2,
-        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)",
+        y: -3,
+        boxShadow: "0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 4px 8px -2px rgba(0, 0, 0, 0.04)",
       }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className={`bg-surface p-[24px] rounded-md border border-border shadow-[0_1px_2px_rgba(0,0,0,0.05)] ${className}`}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={`bg-surface p-[24px] rounded-xl border border-border/70 shadow-[0_2px_8px_rgba(0,0,0,0.05)] ${className}`}
       {...props}
     >
       {children}
