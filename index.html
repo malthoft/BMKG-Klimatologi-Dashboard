@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard AWS Jawa Timur</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f4f7f6; color: #333; margin: 0; }
+        .header-container { text-align: center; margin-bottom: 25px; }
+        .big-date { font-size: 2em; font-weight: bold; color: #003366; margin-bottom: 5px; }
+        .live-clocks { font-size: 1.1em; color: #d9534f; font-weight: bold; display: flex; justify-content: center; gap: 20px; }
+
+        /* --- STYLING UNTUK HOME PAGE (Daftar Card) --- */
+        #home-page { display: block; max-width: 1200px; margin: 0 auto; }
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; justify-content: center; }
+        .station-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border-bottom: 4px solid transparent; }
+        .station-card:hover { transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); border-bottom: 4px solid #0056b3; }
+        .station-name { font-size: 1.1em; font-weight: bold; color: #003366; margin-bottom: 10px; text-transform: capitalize; }
+        .station-temp-badge { font-size: 1.8em; font-weight: bold; color: #d9534f; }
+        .temp-label { font-size: 0.8em; color: #888; }
+
+        /* --- STYLING UNTUK DETAIL PAGE --- */
+        #detail-page { display: none; }
+        .btn-back { background-color: #003366; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; margin-bottom: 20px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; }
+        .btn-back:hover { background-color: #001f3f; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); flex: 1; min-width: 300px; max-width: 450px; }
+        .table-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); width: 100%; max-width: 1000px; margin: 20px auto; }
+        h2 { margin-top: 0; color: #003366; text-align: center; }
+        h3 { font-size: 1em; color: #0056b3; margin-top: 20px; margin-bottom: 10px; border-bottom: 2px solid #0056b3; display: inline-block; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; font-size: 0.95em; }
+
+        .table-container-scroll { max-height: 450px; overflow-y: auto; overflow-x: auto; margin-top: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th { background-color: #1a3b5c; color: white; padding: 12px 10px; text-align: center; border: 1px solid #ddd; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4); }
+        td { padding: 10px; text-align: center; border: 1px solid #ddd; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f1f1; }
+        .empty-row { background-color: #e9ecef !important; color: #a0a0a0; }
+        .loading { color: #888; font-style: italic; text-align: center; margin-bottom: 15px; }
+    </style>
+</head>
+
+<body>
+
+    <div class="header-container">
+        <div class="big-date" id="big-date">Memuat Tanggal...</div>
+        <div class="live-clocks">
+            <span id="live-wib">--:--:-- WIB</span>
+            <span style="color: #666;">|</span>
+            <span id="live-utc">--:--:-- UTC</span>
+        </div>
+    </div>
+
+    <!-- Halaman 1: Daftar Semua Stasiun (Home) -->
+    <div id="home-page">
+        <h2 style="margin-bottom: 20px;">Daftar AWS Jawa Timur</h2>
+        <div id="cards-container" class="cards-grid">
+            <!-- Card stasiun akan di-render di sini oleh JavaScript -->
+        </div>
+    </div>
+
+    <!-- Halaman 2: Detail Data Stasiun (Detail) -->
+    <div id="detail-page">
+        <div style="max-width: 1000px; margin: 0 auto; text-align: left;">
+            <button class="btn-back" onclick="goHome()">⬅ Kembali ke Daftar</button>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <h2 id="detail-title">🌦️ Realtime AWS</h2>
+                <div id="status" class="loading">Mengambil data dari API...</div>
+                
+                <h3>📌 Info & Parameter Utama</h3>
+                <div class="data-row"><span>ID Stasiun:</span> <strong id="val-id_sta">--</strong></div>
+                <div class="data-row"><span>Suhu Udara:</span> <strong id="val-temp">-- °C</strong></div>
+                <div class="data-row"><span>Kelembaban (RH):</span> <strong id="val-rh">-- %</strong></div>
+                <div class="data-row"><span>Kecepatan Angin:</span> <strong id="val-ws">-- m/s</strong></div>
+                <div class="data-row"><span>Tekanan Udara:</span> <strong id="val-press">-- mbar</strong></div>
+                <div class="data-row"><span>Curah Hujan:</span> <strong id="val-rr">-- mm</strong></div>
+                <div class="data-row"><span>Radiasi Matahari:</span> <strong id="val-sr">-- W/m²</strong></div>
+                <div class="data-row"><span>Update Terakhir:</span> <strong id="val-time-wib">-- WIB</strong></div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <h2>📊 Data Per Jam (WIB) - Hari Ini</h2>
+            <div class="table-container-scroll">
+                <table id="hourly-table">
+                    <thead>
+                        <tr>
+                            <th>TANGGAL</th><th>JAM (WIB)</th><th>SUHU (°C)</th><th>KELEMBABAN (%)</th>
+                            <th>ANGIN (M/S)</th><th>ARAH (°)</th><th>HUJAN (MM)</th><th>TEKANAN (MBAR)</th><th>RADIASI (W/M²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hourly-tbody">
+                        <tr><td colspan="9" class="loading">Memuat data per jam...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <h2>🗓️ History Rata-Rata Harian (Kemarin)</h2>
+            <div class="table-container-scroll" style="max-height: 200px;">
+                <table id="daily-table">
+                    <thead>
+                        <tr>
+                            <th>TANGGAL</th><th>RATA SUHU (°C)</th><th>SUHU MAX (°C)</th>
+                            <th>SUHU MIN (°C)</th><th>RATA RH (%)</th><th>ANGIN MAX (M/S)</th><th>TOTAL HUJAN (MM)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-tbody">
+                        <tr><td colspan="7" class="loading">Memuat data history...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jdrqulgbprcfwokhpjqw.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkcnF1bGdicHJjZndva2hwanF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMDIyMTcsImV4cCI6MjEwMDg3ODIxN30.mU3G1wfid4SuCVRlfV34RdwFl4YExr4lK-8B8OY3yWg';
+
+        const HEADERS = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+        };
+
+        // Daftar Ke-23 Tabel Stasiun AWS Anda
+        const STATIONS = [
+            { id: 'aws_batu', name: 'Batu' }, { id: 'aws_bondowoso', name: 'Bondowoso' },
+            { id: 'aws_bromo', name: 'Bromo' }, { id: 'aws_kandat', name: 'Kandat' },
+            { id: 'aws_kanigoro', name: 'Kanigoro' }, { id: 'aws_karangan', name: 'Karangan' },
+            { id: 'aws_kediri', name: 'Kediri' }, { id: 'aws_lamongan', name: 'Lamongan' },
+            { id: 'aws_mayang', name: 'Mayang' }, { id: 'aws_panarukan', name: 'Panarukan' },
+            { id: 'aws_paron', name: 'Paron' }, { id: 'aws_sampang', name: 'Sampang' },
+            { id: 'aws_situbondo', name: 'Situbondo' }, { id: 'aws_smpk_jombang', name: 'SMPK Jombang' },
+            { id: 'aws_smpk_mojokerto', name: 'SMPK Mojokerto' }, { id: 'aws_smpk_nganjuk', name: 'SMPK Nganjuk' },
+            { id: 'aws_smpk_sebayi', name: 'SMPK Sebayi' }, { id: 'aws_stageof_karangkates', name: 'Stageof Karangkates' },
+            { id: 'aws_stageof_pasuruan', name: 'Stageof Pasuruan' }, { id: 'aws_stageof_sawahan', name: 'Stageof Sawahan' },
+            { id: 'aws_tanggul', name: 'Tanggul' }, { id: 'aws_tiris', name: 'Tiris' },
+            { id: 'aws_unida_gontor', name: 'Unida Gontor' }
+        ];
+
+        let activeTable = null; // Menyimpan nama tabel stasiun yang sedang dibuka
+        let detailRefreshInterval = null; // Menyimpan ID interval agar bisa dihentikan
+
+        // --- FUNGSI WAKTU ---
+        function updateLiveClock() {
+            const now = new Date();
+            const dateOpts = { timeZone: 'Asia/Jakarta', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('big-date').innerText = now.toLocaleDateString('id-ID', dateOpts);
+            const timeOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('live-wib').innerText = now.toLocaleTimeString('id-ID', { ...timeOpts, timeZone: 'Asia/Jakarta' }).replace(/\./g, ':') + ' WIB';
+            document.getElementById('live-utc').innerText = now.toLocaleTimeString('en-GB', { ...timeOpts, timeZone: 'UTC' }) + ' UTC';
+        }
+        setInterval(updateLiveClock, 1000);
+        updateLiveClock();
+
+        function parseToUTC(dbDate, dbTime) {
+            if (!dbDate || !dbTime) return null;
+            let cleanDate = dbDate.split('T')[0].trim();
+            let dateParts = cleanDate.split(/[-/]/);
+            if (dateParts.length === 3) {
+                if (dateParts[0].length <= 2) cleanDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                else cleanDate = `${dateParts[0]}-${dateParts[1]}-${dateParts[2]}`;
+            }
+            let cleanTime = dbTime.split('+')[0].split('-')[0].split('Z')[0].trim();
+            const utcString = `${cleanDate}T${cleanTime}Z`;
+            const dateObj = new Date(utcString);
+            return isNaN(dateObj) ? null : dateObj;
+        }
+
+        // --- FUNGSI RENDER HOME PAGE ---
+        function renderHomeCards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = ''; // Bersihkan kontainer
+            
+            STATIONS.forEach(station => {
+                const card = document.createElement('div');
+                card.className = 'station-card';
+                card.onclick = () => openDetail(station.id, station.name); // Saat diklik, buka detail stasiun tersebut
+
+                card.innerHTML = `
+                    <div class="station-name">${station.name}</div>
+                    <div class="station-temp-badge" id="temp-badge-${station.id}">-- °C</div>
+                    <div class="temp-label">Suhu Saat Ini</div>
+                `;
+                container.appendChild(card);
+                
+                // Fetch suhu asinkron tanpa memblokir halaman
+                fetchLatestTemp(station.id);
+            });
+        }
+
+        async function fetchLatestTemp(tableId) {
+            try {
+                // Hanya menarik kolom 'temp' untuk menghemat bandwidth
+                const res = await fetch(`${SUPABASE_URL}/rest/v1/${tableId}?select=temp&order=rec.desc&limit=1`, { headers: HEADERS });
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    document.getElementById(`temp-badge-${tableId}`).innerText = `${data[0].temp} °C`;
+                }
+            } catch (err) {
+                document.getElementById(`temp-badge-${tableId}`).innerText = "N/A";
+            }
+        }
+
+        // --- FUNGSI NAVIGASI ---
+        function openDetail(tableId, stationName) {
+            document.getElementById('home-page').style.display = 'none';
+            document.getElementById('detail-page').style.display = 'block';
+            document.getElementById('detail-title').innerText = `🌦️ Realtime AWS ${stationName}`;
+            
+            activeTable = tableId; // Simpan tabel aktif
+            
+            // Render ulang dan kosongkan tabel sebelum memuat baru
+            document.getElementById('status').innerText = "Mengambil data dari API...";
+            document.getElementById('hourly-tbody').innerHTML = '<tr><td colspan="9" class="loading">Memuat data per jam...</td></tr>';
+            document.getElementById('daily-tbody').innerHTML = '<tr><td colspan="7" class="loading">Memuat data history...</td></tr>';
+
+            // Tarik data dengan parameter nama tabel yang dinamis
+            fetchRealtimeData(activeTable);
+            fetchHourlyData(activeTable);
+            fetchDailyHistory(activeTable + "_daily"); // Memanggil tabel view history harian (Contoh: aws_bondowoso_daily)
+
+            // Atur agar auto-refresh bekerja di halaman detail yang spesifik
+            if(detailRefreshInterval) clearInterval(detailRefreshInterval);
+            detailRefreshInterval = setInterval(() => {
+                fetchRealtimeData(activeTable);
+                fetchHourlyData(activeTable);
+            }, 60000);
+        }
+
+        function goHome() {
+            document.getElementById('detail-page').style.display = 'none';
+            document.getElementById('home-page').style.display = 'block';
+            activeTable = null;
+            if(detailRefreshInterval) clearInterval(detailRefreshInterval);
+            renderHomeCards(); // Refresh suhu terbaru di card halaman utama
+        }
+
+        // --- FUNGSI PENARIKAN DATA DETAIL (Menerima parameter tableId) ---
+        async function fetchRealtimeData(tableId) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableId}?select=*&order=rec.desc&limit=1`, { headers: HEADERS });
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const d = data[0];
+                    document.getElementById('val-id_sta').innerText = d.id_sta;
+                    document.getElementById('val-temp').innerText = d.temp + " °C";
+                    document.getElementById('val-rh').innerText = d.rh + " %";
+                    document.getElementById('val-ws').innerText = d.ws + " m/s";
+                    document.getElementById('val-press').innerText = d.press + " mbar";
+                    document.getElementById('val-rr').innerText = d.rr + " mm";
+                    document.getElementById('val-sr').innerText = d.sr + " W/m²";
+
+                    const utcDate = parseToUTC(d.date, d.time);
+                    if (utcDate) {
+                        const timeOpts = { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+                        const timeStr = utcDate.toLocaleTimeString('id-ID', timeOpts).replace(/\./g, ':');
+                        const dateStr = utcDate.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric' });
+                        document.getElementById('val-time-wib').innerText = `${dateStr} ${timeStr} WIB`;
+                    }
+                    document.getElementById('status').innerText = "✅ Data Realtime Aktif";
+                    document.getElementById('status').style.color = "green";
+                }
+            } catch (err) {
+                console.error("Gagal realtime:", err);
+            }
+        }
+
+        async function fetchHourlyData(tableId) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${tableId}?select=*&order=rec.desc&limit=144`, { headers: HEADERS });
+                const data = await response.json();
+                const tbody = document.getElementById('hourly-tbody');
+                tbody.innerHTML = '';
+
+                const now = new Date();
+                const todayStr = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric' });
+                let hourlyMap = {};
+
+                if (data && data.length > 0) {
+                    data.forEach(d => {
+                        const utcDate = parseToUTC(d.date, d.time);
+                        if (!utcDate) return;
+                        const dateStr = utcDate.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric' });
+                        
+                        if (dateStr === todayStr) {
+                            const timeStrWIB = utcDate.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false });
+                            let timeParts = timeStrWIB.split(/[:.]/); 
+                            const hourInt = parseInt(timeParts[0], 10);
+                            const minuteInt = parseInt(timeParts[1], 10);
+
+                            if (!hourlyMap[hourInt] || minuteInt < hourlyMap[hourInt].minute) {
+                                hourlyMap[hourInt] = {
+                                    minute: minuteInt,
+                                    temp: d.temp, rh: d.rh, ws: d.ws, wd: d.wd, rr: d.rr, press: d.press, sr: d.sr
+                                };
+                            }
+                        }
+                    });
+                }
+
+                for (let i = 0; i < 24; i++) {
+                    const tr = document.createElement('tr');
+                    const hourString = i.toString().padStart(2, '0') + ':00'; 
+                    if (hourlyMap[i]) {
+                        const row = hourlyMap[i];
+                        tr.innerHTML = `<td>${todayStr}</td><td>${hourString}</td><td>${row.temp}</td><td>${row.rh}</td><td>${row.ws}</td><td>${row.wd}</td><td>${row.rr}</td><td>${row.press}</td><td>${row.sr}</td>`;
+                    } else {
+                        tr.className = 'empty-row';
+                        tr.innerHTML = `<td>${todayStr}</td><td>${hourString}</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td>`;
+                    }
+                    tbody.appendChild(tr);
+                }
+            } catch (err) {
+                document.getElementById('hourly-tbody').innerHTML = '<tr><td colspan="9" style="color:red;">Gagal memuat data per jam.</td></tr>';
+            }
+        }
+
+        async function fetchDailyHistory(dailyTableId) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${dailyTableId}?select=*&order=tanggal.desc&limit=1`, { headers: HEADERS });
+                const data = await response.json();
+                const tbody = document.getElementById('daily-tbody');
+                
+                if (data && data.length > 0) {
+                    const d = data[0];
+                    const tglSplit = d.tanggal.split('-');
+                    const tglFormat = `${tglSplit[2]}/${tglSplit[1]}/${tglSplit[0]}`;
+
+                    tbody.innerHTML = `<tr>
+                        <td><strong>${tglFormat}</strong></td><td>${d.avg_temp}</td><td style="color:red; font-weight:bold;">${d.max_temp}</td>
+                        <td style="color:blue; font-weight:bold;">${d.min_temp}</td><td>${d.avg_rh}</td><td>${d.max_ws}</td><td>${d.total_rr}</td>
+                    </tr>`;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7">Belum ada rekapan data history.</td></tr>';
+                }
+            } catch (err) {
+                document.getElementById('daily-tbody').innerHTML = '<tr><td colspan="7">Belum ada tabel history terdeteksi atau rekapan kosong.</td></tr>';
+            }
+        }
+
+        // Eksekusi fungsi pertama kali untuk menampilkan layar Home
+        renderHomeCards();
+        
+        // Refresh otomatis suhu di halaman Home setiap 2 menit agar API tidak terbebani
+        setInterval(() => {
+            if (document.getElementById('home-page').style.display !== 'none') {
+                renderHomeCards();
+            }
+        }, 120000); 
+
+    </script>
+</body>
+
+</html>
