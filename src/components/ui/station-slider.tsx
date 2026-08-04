@@ -110,7 +110,7 @@ export function StationSlider() {
     <div className="relative w-full overflow-hidden group py-4">
       <button 
         onClick={() => scroll('left')} 
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-surface border border-border w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-0"
+        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-surface border border-border w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity disabled:opacity-0"
       >
         <span className="material-symbols-outlined text-secondary">chevron_left</span>
       </button>
@@ -126,7 +126,7 @@ export function StationSlider() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="snap-start shrink-0 w-[240px]"
+            className="snap-start shrink-0 w-[200px] md:w-[240px]"
           >
             <Link href={`/realtime-data?station=${card.station.table_name}`}>
               <div className="bg-[#f0f5fc] hover:bg-[#e4eff9] border border-[#d6e5f5] rounded-2xl p-6 flex flex-col items-center justify-between min-h-[280px] cursor-pointer transition-colors text-center h-full shadow-sm">
@@ -155,7 +155,7 @@ export function StationSlider() {
 
       <button 
         onClick={() => scroll('right')} 
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-surface border border-border w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-surface border border-border w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
       >
         <span className="material-symbols-outlined text-secondary">chevron_right</span>
       </button>

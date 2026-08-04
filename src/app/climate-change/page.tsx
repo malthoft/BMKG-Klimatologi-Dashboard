@@ -5,13 +5,57 @@ import { Card } from "@/components/ui/card";
 import { AnimatedContainer } from "@/components/ui/animated-container";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useMemo, useState } from "react";
+
+// Generate dummy data for warming stripes (30 years)
+const generateStripesData = () => {
+  const data = [];
+  const startYear = 1994;
+  for (let i = 0; i < 30; i++) {
+    // Generate an anomaly value with an upward trend
+    const anomaly = (i * 0.04) + (Math.random() * 0.5 - 0.25);
+    data.push({ year: startYear + i, anomaly });
+  }
+  return data;
+};
+
+// Map anomaly value to a color from deep blue to deep red
+const getStripeColor = (anomaly: number) => {
+  if (anomaly < -0.4) return "#08306b";
+  if (anomaly < -0.2) return "#2171b5";
+  if (anomaly < 0) return "#6baed6";
+  if (anomaly < 0.2) return "#c6dbef";
+  if (anomaly < 0.4) return "#fee0d2";
+  if (anomaly < 0.6) return "#fc9272";
+  if (anomaly < 0.8) return "#de2d26";
+  return "#67000d";
+};
+
+// Generate dummy data for Normal vs Actual Temp
+const generateNormalVsActual = () => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  return months.map(month => {
+    // Normal is a base sine wave, Actual is slightly higher
+    const base = 23 + Math.sin(months.indexOf(month) / 11 * Math.PI) * 2;
+    return {
+      name: month,
+      normal: Number(base.toFixed(1)),
+      aktual: Number((base + 0.5 + Math.random() * 0.5).toFixed(1))
+    };
+  });
+};
 
 export default function ClimateChange() {
+  const stripesData = useMemo(() => generateStripesData(), []);
+  const normalVsActualData = useMemo(() => generateNormalVsActual(), []);
+  const [hoveredStripe, setHoveredStripe] = useState<{year: number, anomaly: number} | null>(null);
+
   return (
     <>
       <Header activeRoute="/climate-change" />
 
-      <main className="flex-grow w-full max-w-7xl mx-auto px-[32px] py-[64px] space-y-[64px]">
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] space-y-[64px]">
         {/* Hero Section */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-[64px] items-center">
           <div className="space-y-[24px]">
@@ -108,109 +152,107 @@ export default function ClimateChange() {
           </div>
         </section>
 
-        {/* Data Tables Section */}
+        {/* Visualisasi Iklim (Warming Stripes & Line Chart) */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-[16px]">
-          {/* Statistik Data Bulanan */}
+          {/* Warming Stripes */}
           <AnimatedContainer animation="slideInLeft" delay={0.4} once={false} className="h-full">
-            <Card className="flex flex-col gap-[16px] h-full overflow-hidden">
-              <div className="flex items-center justify-between mb-[8px]">
-                <H2 className="text-text-primary">Statistik Data Bulanan</H2>
-                <button className="text-text-secondary hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined">filter_list</span>
-                </button>
+            <Card className="flex flex-col gap-[16px] h-full">
+              <div className="mb-[8px]">
+                <H2 className="text-text-primary">Garis Pemanasan (Warming Stripes)</H2>
+                <p className="text-text-secondary text-sm mt-1">Anomali suhu rata-rata tahunan (1994 - 2023) di Jawa Timur.</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border text-text-secondary text-[0.875rem] font-medium">
-                      <th className="py-2 px-2">Bulan</th>
-                      <th className="py-2 px-2 text-right">Suhu Maksimum</th>
-                      <th className="py-2 px-2 text-right">Suhu Minimum</th>
-                      <th className="py-2 px-2 text-right">Suhu Rata-rata</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[1rem] tabular-nums text-text-primary divide-y divide-border">
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default">
-                      <td className="py-3 px-2">Januari</td>
-                      <td className="py-3 px-2 text-right">28,28</td>
-                      <td className="py-3 px-2 text-right">20,81</td>
-                      <td className="py-3 px-2 text-right font-medium text-primary">23,66</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default bg-surface-container-lowest">
-                      <td className="py-3 px-2">Februari</td>
-                      <td className="py-3 px-2 text-right">28,38</td>
-                      <td className="py-3 px-2 text-right">20,90</td>
-                      <td className="py-3 px-2 text-right font-medium text-primary">23,72</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default">
-                      <td className="py-3 px-2">Maret</td>
-                      <td className="py-3 px-2 text-right">28,64</td>
-                      <td className="py-3 px-2 text-right">20,58</td>
-                      <td className="py-3 px-2 text-right font-medium text-primary">23,70</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default bg-surface-container-lowest">
-                      <td className="py-3 px-2">April</td>
-                      <td className="py-3 px-2 text-right">28,82</td>
-                      <td className="py-3 px-2 text-right">20,57</td>
-                      <td className="py-3 px-2 text-right font-medium text-primary">23,93</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default">
-                      <td className="py-3 px-2">Mei</td>
-                      <td className="py-3 px-2 text-right">28,72</td>
-                      <td className="py-3 px-2 text-right">20,05</td>
-                      <td className="py-3 px-2 text-right font-medium text-primary">23,80</td>
-                    </tr>
-                  </tbody>
-                </table>
+              
+              <div className="relative w-full h-[200px] flex rounded-md overflow-hidden mt-4 shadow-inner" onMouseLeave={() => setHoveredStripe(null)}>
+                {stripesData.map((data, idx) => (
+                  <div 
+                    key={idx}
+                    className="flex-1 h-full transition-opacity hover:opacity-80 cursor-pointer"
+                    style={{ backgroundColor: getStripeColor(data.anomaly) }}
+                    onMouseEnter={() => setHoveredStripe(data)}
+                  ></div>
+                ))}
+                
+                {/* Tooltip Overlay */}
+                {hoveredStripe && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-surface/95 backdrop-blur-sm px-4 py-2 rounded-md shadow-md border border-border text-center pointer-events-none">
+                    <div className="font-bold text-text-primary text-lg">{hoveredStripe.year}</div>
+                    <div className={`font-semibold ${hoveredStripe.anomaly > 0 ? 'text-[#de2d26]' : 'text-[#2171b5]'}`}>
+                      {hoveredStripe.anomaly > 0 ? '+' : ''}{hoveredStripe.anomaly.toFixed(2)} °C
+                    </div>
+                  </div>
+                )}
               </div>
+              
+              <div className="flex justify-between text-xs text-text-secondary mt-2 font-bold">
+                <span>1994</span>
+                <span>2023</span>
+              </div>
+              <p className="text-sm text-text-secondary mt-4 bg-surface-container-low p-4 rounded-lg">
+                <span className="font-bold text-text-primary">Apa artinya?</span> Warna biru menunjukkan suhu lebih dingin dari rata-rata historis, sedangkan merah menunjukkan suhu lebih panas. Semakin pekat merahnya, semakin ekstrim pemanasannya.
+              </p>
             </Card>
           </AnimatedContainer>
 
-          {/* Tabel Data Suhu Udara Harian */}
+          {/* Normal vs Aktual Suhu */}
           <AnimatedContainer animation="slideInRight" delay={0.5} once={false} className="h-full">
-            <Card className="flex flex-col gap-[16px] h-full overflow-hidden">
-              <div className="flex items-center justify-between mb-[8px]">
-                <H2 className="text-text-primary">Data Suhu Udara Harian</H2>
-                <div className="flex items-center gap-2 text-text-secondary">
-                  <button className="hover:text-primary transition-colors"><span className="material-symbols-outlined">content_copy</span></button>
-                  <div className="flex items-center">
-                    <button className="hover:text-primary transition-colors"><span className="material-symbols-outlined">chevron_left</span></button>
-                    <button className="hover:text-primary transition-colors"><span className="material-symbols-outlined">chevron_right</span></button>
-                  </div>
-                  <button className="hover:text-primary transition-colors"><span className="material-symbols-outlined">last_page</span></button>
-                </div>
+            <Card className="flex flex-col gap-[16px] h-full">
+              <div className="mb-[8px]">
+                <H2 className="text-text-primary">Suhu Normal vs Aktual</H2>
+                <p className="text-text-secondary text-sm mt-1">Perbandingan suhu iklim normal bulanan dengan data aktual tahun ini.</p>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border text-text-secondary text-[0.875rem] font-medium">
-                      <th className="py-2 px-2 border-r border-border">Tanggal</th>
-                      <th className="py-2 px-2 border-r border-border">Suhu Min</th>
-                      <th className="py-2 px-2 border-r border-border text-right">Suhu Rata-rata</th>
-                      <th className="py-2 px-2 text-right">Suhu Max</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-[1rem] tabular-nums text-text-primary divide-y divide-border">
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default">
-                      <td className="py-3 px-2 border-r border-border">24 Agustus 1994</td>
-                      <td className="py-3 px-2 border-r border-border text-secondary">11,3</td>
-                      <td className="py-3 px-2 border-r border-border text-right font-medium">20,6</td>
-                      <td className="py-3 px-2 text-right text-warning">28,6</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default bg-surface-container-lowest">
-                      <td className="py-3 px-2 border-r border-border">4 September 2006</td>
-                      <td className="py-3 px-2 border-r border-border text-secondary">12,2</td>
-                      <td className="py-3 px-2 border-r border-border text-right font-medium">20,8</td>
-                      <td className="py-3 px-2 text-right text-warning">27,6</td>
-                    </tr>
-                    <tr className="hover:bg-surface-container-low transition-colors cursor-default">
-                      <td className="py-3 px-2 border-r border-border">19 Juli 1992</td>
-                      <td className="py-3 px-2 border-r border-border text-secondary">13,0</td>
-                      <td className="py-3 px-2 border-r border-border text-right font-medium">20,6</td>
-                      <td className="py-3 px-2 text-right text-warning">26,2</td>
-                    </tr>
-                  </tbody>
-                </table>
+              
+              <div className="w-full h-[250px] mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={normalVsActualData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fill: '#666666', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      dy={10}
+                    />
+                    <YAxis 
+                      tick={{ fill: '#666666', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                    />
+                    <Line 
+                      name="Suhu Normal (°C)"
+                      type="monotone" 
+                      dataKey="normal" 
+                      stroke="#9CA3AF" 
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Line 
+                      name="Suhu Aktual (°C)"
+                      type="monotone" 
+                      dataKey="aktual" 
+                      stroke="#FF5722" 
+                      strokeWidth={3}
+                      dot={{ r: 3, fill: '#FF5722' }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="flex justify-center gap-6 text-sm mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-0.5 border-t-2 border-dashed border-gray-400"></span>
+                  <span className="text-text-secondary">Normal</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-0.5 bg-[#FF5722]"></span>
+                  <span className="text-text-secondary">Aktual</span>
+                </div>
               </div>
             </Card>
           </AnimatedContainer>

@@ -17,7 +17,7 @@ export default function Home() {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-[32px] py-[64px] md:py-[96px] w-full grid grid-cols-1 lg:grid-cols-12 gap-[48px] lg:gap-[64px] items-center">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] md:py-[96px] w-full grid grid-cols-1 lg:grid-cols-12 gap-[48px] lg:gap-[64px] items-center">
           <div className="lg:col-span-7 flex flex-col gap-[24px] items-start">
             <H1 className="leading-[1.1]">
               <TextReveal text="Selamat Datang di BMKG Stasiun Klimatologi Malang" />
@@ -75,7 +75,7 @@ export default function Home() {
         </section>
 
         {/* AWS Station Slider Section */}
-        <section className="max-w-7xl mx-auto px-[32px] mb-[64px] md:mb-[96px] w-full">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] mb-[64px] md:mb-[96px] w-full">
           <AnimatedContainer animation="fadeInUp" delay={0.2} once={false}>
             <StationSlider />
           </AnimatedContainer>
@@ -83,7 +83,7 @@ export default function Home() {
 
         {/* Layanan Cepat (Quick Services) */}
         <section className="bg-tertiary border-t border-b border-border py-[64px] md:py-[96px] bg-opacity-30">
-          <div className="max-w-7xl mx-auto px-[32px] w-full">
+          <div className="max-w-7xl mx-auto px-4 md:px-[32px] w-full">
             <AnimatedContainer animation="fadeInUp" once={false} className="mb-[48px]">
               <H2>Layanan Cepat</H2>
             </AnimatedContainer>
@@ -127,7 +127,7 @@ export default function Home() {
         </section>
 
         {/* Latest Announcements */}
-        <section className="max-w-7xl mx-auto px-[32px] py-[64px] md:py-[96px] w-full">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] md:py-[96px] w-full">
           <AnimatedContainer animation="slideInLeft" once={false} className="mb-[48px]">
             <H2>Latest Announcements</H2>
           </AnimatedContainer>
@@ -167,7 +167,7 @@ export default function Home() {
 
         {/* Instagram Feed / Photos */}
         <section className="bg-tertiary py-[64px] md:py-[96px] border-t border-border bg-opacity-30">
-          <div className="max-w-7xl mx-auto px-[32px] w-full">
+          <div className="max-w-7xl mx-auto px-4 md:px-[32px] w-full">
             <AnimatedContainer animation="fadeInUp" once={false} className="mb-[48px] flex flex-col md:flex-row items-start md:items-center justify-between gap-[16px]">
               <H2 className="flex items-center gap-[12px]">
                 <span className="material-symbols-outlined text-primary text-[28px]">photo_camera</span>

@@ -10,6 +10,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { supabaseFetch } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { formatUTCtoWIB } from "@/lib/utils";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const getWeatherCondition = (temp: number, rh: number, rr: number) => {
   if (rr > 5) return { text: "Hujan Lebat", icon: "rainy" };
@@ -17,6 +18,31 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
   if (rh > 85) return { text: "Berawan Tebal", icon: "cloud" };
   if (rh > 70) return { text: "Cerah Berawan", icon: "partly_cloudy_day" };
   return { text: "Cerah", icon: "sunny" };
+};
+
+const METRIC_CONFIG = {
+  temp: { name: "Suhu Udara", unit: "°C", color: "#FF5722", icon: "thermostat" },
+  rh: { name: "Kelembapan", unit: "%", color: "#00BCD4", icon: "water_drop" },
+  ws: { name: "Kec. Angin", unit: "km/j", color: "#8BC34A", icon: "air" },
+  rr: { name: "Curah Hujan", unit: "mm", color: "#3F51B5", icon: "rainy" },
+  press: { name: "Tekanan Udara", unit: "hPa", color: "#9C27B0", icon: "speed" },
+  sr: { name: "Radiasi Matahari", unit: "W/m²", color: "#FFC107", icon: "wb_sunny" }
+};
+
+type MetricKey = keyof typeof METRIC_CONFIG;
+
+const getMinMax = (data: any[], key: string) => {
+  if (!data || data.length === 0) return { min: '--', max: '--' };
+  const values = data.map(d => Number(d[key])).filter(n => !isNaN(n));
+  if (values.length === 0) return { min: '--', max: '--' };
+  
+  // Format based on standard precision
+  const formatNum = (num: number) => Number.isInteger(num) ? num : Number(num.toFixed(1));
+  
+  return {
+    min: formatNum(Math.min(...values)),
+    max: formatNum(Math.max(...values))
+  };
 };
 
 function RealtimeContent() {
@@ -30,6 +56,12 @@ function RealtimeContent() {
   const [latestData, setLatestData] = useState<any>(null);
   const [hourlyData, setHourlyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("temp");
+
+  const filteredStations = stations.filter(st => st.station_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // 1. Load stations
   useEffect(() => {
@@ -68,7 +100,6 @@ function RealtimeContent() {
         const st = stations.find(s => s.table_name === selectedStation);
         if (st) setStationName(st.station_name);
 
-        // Fetch latest 1 record for hero metrics
         const latest = await supabaseFetch(selectedStation, "order=timestamp.desc&limit=1");
         if (latest && latest.length > 0) {
           setLatestData(latest[0]);
@@ -76,11 +107,23 @@ function RealtimeContent() {
           setLatestData(null);
         }
 
-        // Fetch today's data (limit 24 for hourly)
-        // In real app, we might want to group by hour, but for now just fetch recent 24
-        const todayStr = new Date().toISOString().split("T")[0]; // "2026-08-02"
-        const hourly = await supabaseFetch(selectedStation, `date=eq.${todayStr}&order=time.desc&limit=24`);
-        setHourlyData(hourly || []);
+        const rawData = await supabaseFetch(selectedStation, `order=timestamp.desc&limit=144`);
+        
+        const hourlyDataMap = new Map();
+        (rawData || []).forEach((d: any) => {
+          const wibTime = formatUTCtoWIB(d.time); 
+          const hour = wibTime.split(':')[0]; 
+          
+          if (!hourlyDataMap.has(hour)) {
+            hourlyDataMap.set(hour, {
+              ...d,
+              timeLabel: `${hour}:00`
+            });
+          }
+        });
+        
+        const formattedHourly = Array.from(hourlyDataMap.values()).reverse();
+        setHourlyData(formattedHourly);
 
       } catch (e) {
         console.error("Error loading realtime data", e);
@@ -94,41 +137,147 @@ function RealtimeContent() {
     loadData();
   }, [selectedStation, stations]);
 
-  const handleStationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newVal = e.target.value;
-    setSelectedStation(newVal);
-    router.push(`/realtime-data?station=${newVal}`);
+  const stats = {
+    temp: getMinMax(hourlyData, 'temp'),
+    rh: getMinMax(hourlyData, 'rh'),
+    ws: getMinMax(hourlyData, 'ws'),
+    rr: getMinMax(hourlyData, 'rr'),
+    press: getMinMax(hourlyData, 'press'),
+    sr: getMinMax(hourlyData, 'sr'),
   };
 
   const weather = latestData 
     ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
     : { text: "Offline", icon: "cloud_off" };
 
+  const getCardClass = (metric: MetricKey) => {
+    return `h-full flex flex-col justify-between cursor-pointer transition-all duration-300 border-[2px] rounded-xl overflow-hidden ${
+      selectedMetric === metric 
+        ? 'border-primary shadow-md bg-primary/5 scale-[1.02]' 
+        : 'border-border shadow-sm hover:shadow-md hover:border-primary/50'
+    }`;
+  };
+
+  const getCardFooter = (metric: MetricKey, value: any) => {
+    switch(metric) {
+      case 'temp':
+        return { label: "Kondisi Cuaca", value: weather.text };
+      case 'rh':
+        return { label: "Kategori", value: value > 80 ? "Lembab" : value < 50 ? "Kering" : "Normal" };
+      case 'ws':
+        return { label: "Arah Angin", value: `${latestData?.wd || 0}°` };
+      case 'rr':
+        return { label: "Intensitas", value: weather.text };
+      case 'press':
+        return { label: "Referensi", value: "Permukaan Laut" };
+      case 'sr':
+        return { label: "Status", value: value > 1 ? "Siang (Ada Sinar)" : "Malam (Gelap)" };
+      default:
+        return { label: "-", value: "-" };
+    }
+  };
+
+  const renderCard = (metric: MetricKey, value: any) => {
+    const config = METRIC_CONFIG[metric];
+    const footerInfo = getCardFooter(metric, value);
+    
+    return (
+      <AnimatedContainer animation="fadeInUp" once={false} className="w-full">
+        <div onClick={() => setSelectedMetric(metric)} className="h-full">
+          <Card className={getCardClass(metric)}>
+            <div className="flex-grow">
+              <div className="flex justify-between items-start mb-[16px]">
+                <h3 className={`font-bold flex items-center gap-[6px] text-sm md:text-base ${selectedMetric === metric ? 'text-primary' : 'text-text-secondary'}`}>
+                  <span className="material-symbols-outlined text-[18px] md:text-[20px]">{config.icon}</span> 
+                  {config.name}
+                </h3>
+                {selectedMetric === metric && (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                )}
+              </div>
+              <div className="text-[2rem] md:text-[2.5rem] font-bold tabular-nums text-text-primary leading-none mb-4">
+                {Math.round(value)} <span className="text-[1rem] md:text-[1.25rem] text-text-secondary font-normal">{config.unit}</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-auto">
+              <span className="text-[0.75rem] md:text-[0.875rem] text-text-secondary font-medium">{footerInfo.label}</span>
+              <span className="text-[0.75rem] md:text-[0.875rem] text-text-primary font-bold truncate max-w-[150px] text-right">{footerInfo.value}</span>
+            </div>
+          </Card>
+        </div>
+      </AnimatedContainer>
+    );
+  };
+
   return (
     <main className="flex-grow">
       {/* Header Section */}
-      <section className="max-w-7xl mx-auto px-[32px] py-[32px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[32px] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <AnimatedContainer animation="slideInLeft" once={false}>
-          <H1 className="mb-[8px] leading-[1.1]">Cuaca Saat Ini</H1>
-          <Body className="text-text-secondary">Pemantauan Realtime AWS BMKG</Body>
+          <H1 className="mb-[8px] leading-[1.1]">Kondisi Cuaca Terkini</H1>
+          <Body className="text-text-secondary">Detail pemantauan cuaca dan pengamatan stasiun</Body>
         </AnimatedContainer>
         
-        <AnimatedContainer animation="slideInRight" once={false}>
-          <select 
-            value={selectedStation} 
-            onChange={handleStationChange}
-            className="bg-surface border border-border text-text-primary text-[1rem] rounded-lg focus:ring-primary focus:border-primary block p-3 cursor-pointer outline-none min-w-[250px] font-medium shadow-sm"
-          >
-            {stations.map(st => (
-              <option key={st.id} value={st.table_name}>{st.station_name}</option>
-            ))}
-            {stations.length === 0 && <option value="">Memuat stasiun...</option>}
-          </select>
+        <AnimatedContainer animation="slideInRight" once={false} className="relative z-40">
+          <div className="relative min-w-[250px] w-full md:w-auto">
+            <button 
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full bg-surface border border-border text-text-primary text-[1rem] rounded-lg flex items-center justify-between p-3 cursor-pointer outline-none font-medium shadow-sm hover:border-primary transition-colors"
+            >
+              <span className="truncate">{stationName || "Memuat stasiun..."}</span>
+              <span className="material-symbols-outlined text-text-secondary">{isDropdownOpen ? "expand_less" : "expand_more"}</span>
+            </button>
+            
+            {isDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
+                <div className="absolute top-full right-0 left-0 mt-2 bg-surface border border-border rounded-lg shadow-[0_4px_12px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col z-50">
+                  <div className="p-2 border-b border-border bg-surface">
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-secondary text-[18px]">search</span>
+                      <input 
+                        type="text" 
+                        placeholder="Cari stasiun..." 
+                        className="w-full pl-8 pr-3 py-2 bg-[#f0f4f8] rounded-md outline-none text-sm text-text-primary focus:ring-1 focus:ring-primary transition-shadow"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-[220px] overflow-y-auto bg-surface">
+                    {filteredStations.length > 0 ? (
+                      filteredStations.map(st => (
+                        <div 
+                          key={st.id} 
+                          className={`px-4 py-3 cursor-pointer hover:bg-[#f0f4f8] transition-colors text-sm ${selectedStation === st.table_name ? "bg-primary/10 text-primary font-bold" : "text-text-primary font-medium"}`}
+                          onClick={() => {
+                            setSelectedStation(st.table_name);
+                            router.push(`/realtime-data?station=${st.table_name}`);
+                            setIsDropdownOpen(false);
+                            setSearchQuery("");
+                          }}
+                        >
+                          {st.station_name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-sm text-text-secondary">Tidak ada hasil</div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </AnimatedContainer>
       </section>
 
       {/* Live Metrics Bento Grid */}
-      <section className="max-w-7xl mx-auto px-[32px] mb-[64px]">
+      <section className="max-w-7xl mx-auto px-4 md:px-[32px] mb-[32px]">
         {loading ? (
           <div className="w-full h-[400px] flex items-center justify-center text-text-secondary">
             <span className="material-symbols-outlined animate-spin text-[48px] mb-4 text-primary">progress_activity</span>
@@ -138,144 +287,75 @@ function RealtimeContent() {
             Belum ada data tersedia untuk stasiun ini.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-[16px]">
-            {/* Suhu Udara */}
-            <div className="col-span-1 md:col-span-2 flex">
-              <AnimatedContainer animation="fadeInUp" delay={0.1} once={false} className="w-full">
-                <Card className="h-full flex flex-col justify-between">
-                  <div className="flex justify-between items-start mb-[24px]">
-                    <div>
-                      <div className="flex items-center gap-[8px] mb-[4px]">
-                        <H2>Suhu Udara</H2>
-                        <span className="bg-error text-background px-2 py-0.5 rounded-full text-[0.75rem] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 bg-background rounded-full animate-pulse"></span> Live
-                        </span>
-                      </div>
-                      <p className="text-text-secondary flex items-center gap-[4px] text-[0.875rem]">
-                        <span className="material-symbols-outlined text-[18px]">location_on</span> {stationName} ({formatUTCtoWIB(latestData.time)} WIB)
-                      </p>
-                    </div>
-                    <span className="material-symbols-outlined text-[48px] text-primary" data-weight="fill" style={{ fontVariationSettings: "'FILL' 1" }}>{weather.icon}</span>
-                  </div>
-                  <div className="flex flex-col md:flex-row items-start md:items-end gap-[16px] mb-[24px]">
-                    <span className="text-[4.5rem] font-bold tabular-nums tracking-tighter leading-none text-text-primary">{Math.round(latestData.temp)}°C</span>
-                    <span className="text-[1.125rem] text-text-secondary mb-2 font-medium">{weather.text}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-[16px] border-t border-border pt-[16px]">
-                    <div>
-                      <p className="text-[0.875rem] text-text-secondary mb-1">Suhu Maksimum</p>
-                      <p className="font-semibold tabular-nums text-text-primary">{latestData.temp_max}°C</p>
-                    </div>
-                    <div>
-                      <p className="text-[0.875rem] text-text-secondary mb-1">Suhu Minimum</p>
-                      <p className="font-semibold tabular-nums text-text-primary">{latestData.temp_min}°C</p>
-                    </div>
-                  </div>
-                </Card>
-              </AnimatedContainer>
-            </div>
-
-            {/* Kelembapan */}
-            <AnimatedContainer animation="fadeInUp" delay={0.2} once={false}>
-              <Card className="h-full flex flex-col justify-between">
-                <div>
-                  <h3 className="font-bold text-text-secondary mb-[16px] flex items-center gap-[8px]">
-                    <span className="material-symbols-outlined">water_drop</span> Kelembapan
-                  </h3>
-                  <div className="text-[2.25rem] font-bold tabular-nums mb-[16px] text-text-primary">{Math.round(latestData.rh)}%</div>
-                </div>
-                <div className="w-full bg-border rounded-full h-2.5">
-                  <div className="bg-primary h-2.5 rounded-full" style={{ width: `${Math.min(latestData.rh, 100)}%` }}></div>
-                </div>
-              </Card>
-            </AnimatedContainer>
-
-            {/* Kecepatan Angin */}
-            <AnimatedContainer animation="fadeInUp" delay={0.3} once={false}>
-              <Card className="h-full">
-                <h3 className="font-bold text-text-secondary mb-[16px] flex items-center gap-[8px]">
-                  <span className="material-symbols-outlined">air</span> Kecepatan Angin
-                </h3>
-                <div className="text-[2.25rem] font-bold tabular-nums mb-[8px] text-text-primary">
-                  {latestData.ws} <span className="text-[1.125rem] text-text-secondary font-normal">km/j</span>
-                </div>
-                <p className="text-[0.875rem] text-text-secondary flex items-center gap-[4px]">
-                  <span className="material-symbols-outlined text-[16px]">explore</span> Arah: {latestData.wd}°
-                </p>
-                <p className="text-[0.875rem] text-text-secondary flex items-center gap-[4px] mt-2 border-t border-border pt-2">
-                  Maksimum: {latestData.ws_max} km/j
-                </p>
-              </Card>
-            </AnimatedContainer>
-
-            {/* Curah Hujan */}
-            <AnimatedContainer animation="fadeInUp" delay={0.4} once={false}>
-              <Card className="h-full">
-                <h3 className="font-bold text-text-secondary mb-[16px] flex items-center gap-[8px]">
-                  <span className="material-symbols-outlined">rainy</span> Curah Hujan
-                </h3>
-                <div className="text-[2.25rem] font-bold tabular-nums mb-[8px] text-text-primary">
-                  {latestData.rr} <span className="text-[1.125rem] text-text-secondary font-normal">mm</span>
-                </div>
-                <p className="text-[0.875rem] text-text-secondary font-medium mt-4">
-                  Tekanan: {latestData.press} hPa
-                </p>
-                <p className="text-[0.875rem] text-text-secondary font-medium mt-1">
-                  Radiasi Matahari: {latestData.sr} W/m²
-                </p>
-              </Card>
-            </AnimatedContainer>
-            
-            {/* Peta Radar / Map (Placeholder) */}
-            <AnimatedContainer animation="scaleIn" delay={0.5} once={false}>
-              <div className="bg-surface border border-border rounded-lg shadow-sm overflow-hidden relative group min-h-[180px] h-full flex flex-col items-center justify-center">
-                 <span className="material-symbols-outlined text-[64px] text-border mb-2">map</span>
-                 <p className="text-secondary font-medium">Peta Lokasi AWS</p>
-              </div>
-            </AnimatedContainer>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-[12px] md:gap-[16px]">
+            {renderCard("temp", latestData.temp)}
+            {renderCard("rh", latestData.rh)}
+            {renderCard("ws", latestData.ws)}
+            {renderCard("rr", latestData.rr)}
+            {renderCard("press", latestData.press)}
+            {renderCard("sr", latestData.sr)}
           </div>
         )}
       </section>
 
-      {/* Hourly Data Table */}
+      {/* Interactive Trend Chart */}
       {!loading && hourlyData.length > 0 && (
-        <section className="max-w-7xl mx-auto px-[32px] mb-[96px]">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] mb-[96px]">
           <AnimatedContainer animation="fadeInUp" once={false}>
-            <div className="bg-surface rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-border overflow-hidden">
-              <div className="p-[24px] border-b border-border flex justify-between items-center bg-surface">
-                <H2>Data Klimatologi Per Jam</H2>
-                <button className="flex items-center gap-2 px-4 py-2 border border-border text-primary rounded-lg hover:bg-surface-container-low transition-colors text-[0.875rem] font-medium">
-                  <span className="material-symbols-outlined text-[18px]">download</span>
-                  Ekspor CSV
-                </button>
+            <div className="bg-surface rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-border p-4 md:p-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                <div>
+                  <H2 className="mb-2">Grafik Tren {METRIC_CONFIG[selectedMetric].name}</H2>
+                  <p className="text-text-secondary text-[0.875rem]">Fluktuasi dalam 24 jam terakhir. Klik card di atas untuk mengubah grafik.</p>
+                </div>
+                
+                {/* Min Max Indicator on Chart */}
+                <div className="flex flex-wrap gap-2 md:gap-4 w-full md:w-auto">
+                  <div className="px-3 py-2 bg-error/10 text-error rounded-lg flex-1 md:flex-none text-center">
+                    <p className="text-[0.65rem] uppercase font-bold opacity-80">Maksimum</p>
+                    <p className="font-bold text-sm md:text-base">{stats[selectedMetric].max} {METRIC_CONFIG[selectedMetric].unit}</p>
+                  </div>
+                  <div className="px-3 py-2 bg-primary/10 text-primary rounded-lg flex-1 md:flex-none text-center">
+                    <p className="text-[0.65rem] uppercase font-bold opacity-80">Minimum</p>
+                    <p className="font-bold text-sm md:text-base">{stats[selectedMetric].min} {METRIC_CONFIG[selectedMetric].unit}</p>
+                  </div>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                  <thead className="bg-surface-container-low text-text-secondary text-[0.875rem] font-medium border-b border-border">
-                    <tr>
-                      <th className="p-4">Waktu (WIB)</th>
-                      <th className="p-4">Suhu (°C)</th>
-                      <th className="p-4">Kelembaban (%)</th>
-                      <th className="p-4">Kec. Angin (km/j)</th>
-                      <th className="p-4">Arah Angin (°)</th>
-                      <th className="p-4">Tekanan (hPa)</th>
-                      <th className="p-4">Curah Hujan (mm)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="tabular-nums divide-y divide-border text-text-primary text-[0.875rem]">
-                    {hourlyData.map((data, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 font-medium">{formatUTCtoWIB(data.time)}</td>
-                        <td className="p-4">{data.temp}</td>
-                        <td className="p-4">{data.rh}</td>
-                        <td className="p-4">{data.ws}</td>
-                        <td className="p-4">{data.wd}</td>
-                        <td className="p-4">{data.press}</td>
-                        <td className="p-4">{data.rr}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              
+              <div className="w-full h-[250px] md:h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={hourlyData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis 
+                      dataKey="timeLabel" 
+                      tick={{ fill: '#666666', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      dy={10}
+                      minTickGap={15}
+                    />
+                    <YAxis 
+                      tick={{ fill: '#666666', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `${value}`}
+                    />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                      labelStyle={{ fontWeight: 'bold', color: '#000' }}
+                      formatter={(value: any) => [`${value} ${METRIC_CONFIG[selectedMetric].unit}`, METRIC_CONFIG[selectedMetric].name]}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey={selectedMetric} 
+                      stroke={METRIC_CONFIG[selectedMetric].color} 
+                      strokeWidth={3}
+                      dot={{ r: 3, strokeWidth: 2, fill: '#fff' }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      animationDuration={500}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </AnimatedContainer>

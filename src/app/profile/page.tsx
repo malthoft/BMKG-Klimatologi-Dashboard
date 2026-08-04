@@ -13,7 +13,7 @@ export default function Profile() {
 
       <main className="flex-grow w-full">
         {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-[32px] py-[64px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
           <div className="space-y-[16px]">
             <AnimatedContainer animation="slideInLeft" once={false}>
               <H1 className="leading-[1.1] text-text-primary">
@@ -45,7 +45,7 @@ export default function Profile() {
         </section>
 
         {/* Facilities Grid */}
-        <section className="max-w-7xl mx-auto px-[32px] py-[64px]">
+        <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px]">
           <AnimatedContainer animation="fadeInDown" once={false}>
             <H2 className="mb-[32px] text-center md:text-left">Tim &amp; Fasilitas</H2>
           </AnimatedContainer>
@@ -122,7 +122,7 @@ export default function Profile() {
 
         {/* Contact Section */}
         <section className="bg-surface-container-low py-[64px] border-t border-border">
-          <div className="max-w-7xl mx-auto px-[32px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
+          <div className="max-w-7xl mx-auto px-4 md:px-[32px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
             <div className="space-y-[24px]">
               <AnimatedContainer animation="slideInLeft" once={false}>
                 <H1 className="leading-[1.1] text-text-primary">Hubungi Kami</H1>

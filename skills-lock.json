@@ -19,6 +19,12 @@
       "skillPath": ".agents/skills/impeccable/SKILL.md",
       "computedHash": "61d3dfbf42e1e930fb3624cee4ebcd99667193e3d3aaca4cb663660293e7cae6"
     },
+    "responsive-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/ui-design/skills/responsive-design/SKILL.md",
+      "computedHash": "155eff4b1bc8d867ae6bea9900c485ab1081de0b4873c1900adb66bf62466aed"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

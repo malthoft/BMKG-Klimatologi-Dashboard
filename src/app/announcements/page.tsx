@@ -61,7 +61,7 @@ export default function AnnouncementsPage() {
   return (
     <>
       <Header activeRoute="/announcements" />
-      <main className="flex-grow w-full max-w-7xl mx-auto px-[32px] py-[64px] flex flex-col gap-[32px]">
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] flex flex-col gap-[32px]">
         {/* Page Header */}
         <section className="flex flex-col gap-[8px] max-w-3xl">
           <AnimatedContainer animation="slideInLeft" once={false}>
