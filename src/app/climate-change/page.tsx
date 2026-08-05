@@ -8,13 +8,19 @@ import { Footer } from "@/components/layout/footer";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useState } from "react";
 
+// Deterministic pseudo-random number generator for SSR Hydration
+const pseudoRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
 // Generate dummy data for warming stripes (30 years)
 const generateStripesData = () => {
   const data = [];
   const startYear = 1994;
   for (let i = 0; i < 30; i++) {
-    // Generate an anomaly value with an upward trend
-    const anomaly = (i * 0.04) + (Math.random() * 0.5 - 0.25);
+    const rand = pseudoRandom(i + 123);
+    const anomaly = (i * 0.04) + (rand * 0.5 - 0.25);
     data.push({ year: startYear + i, anomaly });
   }
   return data;
@@ -35,13 +41,14 @@ const getStripeColor = (anomaly: number) => {
 // Generate dummy data for Normal vs Actual Temp
 const generateNormalVsActual = () => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-  return months.map(month => {
+  return months.map((month, i) => {
     // Normal is a base sine wave, Actual is slightly higher
-    const base = 23 + Math.sin(months.indexOf(month) / 11 * Math.PI) * 2;
+    const base = 23 + Math.sin(i / 11 * Math.PI) * 2;
+    const rand = pseudoRandom(i + 456);
     return {
       name: month,
       normal: Number(base.toFixed(1)),
-      aktual: Number((base + 0.5 + Math.random() * 0.5).toFixed(1))
+      aktual: Number((base + 0.5 + rand * 0.5).toFixed(1))
     };
   });
 };

@@ -13,10 +13,10 @@ function TopBar() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      
+
       const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
       const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-      
+
       const dayName = days[now.getDay()];
       const date = now.getDate();
       const monthName = months[now.getMonth()];
@@ -28,7 +28,7 @@ function TopBar() {
         mm: String(now.getMinutes()).padStart(2, '0'),
         ss: String(now.getSeconds()).padStart(2, '0'),
       });
-      
+
       setUtcTime({
         hh: String(now.getUTCHours()).padStart(2, '0'),
         mm: String(now.getUTCMinutes()).padStart(2, '0'),
@@ -83,7 +83,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: "/realtime-data", label: "Data Realtime" },
+    { href: "/realtime-data", label: "Kondisi Cuaca" },
     { href: "/climate-change", label: "Perubahan Iklim" },
     { href: "/profile", label: "Profil" },
     { href: "/announcements", label: "Pengumuman" },
@@ -99,10 +99,10 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
   return (
     <>
       <TopBar />
-      <motion.header 
-        initial={{ opacity: 0, y: -30 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }} 
+      <motion.header
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="bg-surface w-full z-50 sticky top-0 border-b border-border shadow-sm"
       >
         <div className="flex justify-between items-center w-full px-[32px] py-[16px] max-w-7xl mx-auto">
@@ -123,7 +123,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
           </nav>
 
           {/* Mobile Hamburger Button */}
-          <button 
+          <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle Menu"
             className="md:hidden text-primary p-2 rounded-md hover:bg-tertiary transition-colors"
@@ -147,11 +147,10 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-                    activeRoute === link.href
+                  className={`py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeRoute === link.href
                       ? "bg-tertiary text-primary font-semibold"
                       : "text-text-secondary hover:bg-tertiary/50 hover:text-primary"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
