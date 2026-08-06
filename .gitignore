@@ -42,3 +42,9 @@ next-env.d.ts
 
 # agents
 .agents
+
+# Excluded by User
+public/api.php
+*.sql
+AGENTS.md
+CLAUDE.md
