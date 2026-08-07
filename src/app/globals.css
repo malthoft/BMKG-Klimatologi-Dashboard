@@ -1,28 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #0A84FF;
-  --color-secondary: #007AFF;
-  --color-tertiary: #E5F2FF;
-  --color-background: #FFFFFF;
-  --color-surface: #FFFFFF;
-  --color-footer-bg: #0B192C;
-  --color-text-primary: #000000;
-  --color-text-secondary: #666666;
-  --color-border: #E5E7EB;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-error: #FF3B30;
+  --color-primary: #2563eb;
+  --color-secondary: #92b6f0;
+  --color-tertiary: #d1dff6;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-footer-bg: #0f172a;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-border: #cbd5e1;
+  --color-success: #16a34a;
+  --color-warning: #f59e0b;
+  --color-error: #dc2626;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-full: 9999px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-feature-settings: "tnum" on; /* Tabular numerals for weather data */
+  font-feature-settings: "tnum" on;
 }

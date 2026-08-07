@@ -36,7 +36,11 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
 
 const CARDS_PER_PAGE = 6;
 
-export function StationSlider() {
+interface StationSliderProps {
+  onStationSelect?: (tableName: string) => void;
+}
+
+export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
   const [cards, setCards] = useState<StationCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -180,8 +184,8 @@ export function StationSlider() {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pb-1"
         >
-          {pageCards.map((card, idx) => (
-            <Link key={idx} href={`/realtime-data?station=${card.station.table_name}`}>
+          {pageCards.map((card, idx) => {
+            const inner = (
               <div className="bg-gradient-to-b from-[#EAF2FF] to-[#F5F8FF] hover:from-[#DCEAFF] hover:to-[#EBF2FF] border border-[#D0DFEF] rounded-2xl p-5 flex flex-col items-center justify-between min-h-[220px] cursor-pointer transition-all duration-300 text-center h-full hover:shadow-lg hover:border-primary/40 group">
                 <div className="w-full">
                   <h4 className="font-bold text-text-primary text-[0.95rem] leading-tight truncate">
@@ -212,8 +216,18 @@ export function StationSlider() {
                   <p className="text-[0.75rem] text-text-secondary font-semibold mt-1">{card.condition}</p>
                 </div>
               </div>
-            </Link>
-          ))}
+            );
+
+            return onStationSelect ? (
+              <div key={idx} onClick={() => onStationSelect(card.station.table_name)} className="h-full">
+                {inner}
+              </div>
+            ) : (
+              <Link key={idx} href={`/realtime-data?station=${card.station.table_name}`} className="h-full block">
+                {inner}
+              </Link>
+            );
+          })}
         </motion.div>
       </AnimatePresence>
 

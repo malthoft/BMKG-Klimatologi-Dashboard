@@ -11,70 +11,110 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { supabaseFetch } from "@/lib/supabase";
 import { formatUTCtoWIB } from "@/lib/utils";
+import { FALLBACK_STATIONS } from "@/lib/constants";
 
-interface HeroWeatherData {
-  stationName: string;
-  temp: number;
-  rh: number;
-  ws: number;
-  rr: number;
-  press: number;
-  sr: number;
-  condition: string;
-  icon: string;
-  time: string;
-  date: string;
-}
+const getWeatherCondition = (temp: number, rh: number, rr: number) => {
+  if (rr > 5) return { text: "Hujan Lebat", icon: "rainy" };
+  if (rr > 0) return { text: "Hujan Ringan", icon: "rainy" };
+  if (rh > 85) return { text: "Berawan Tebal", icon: "cloud" };
+  if (rh > 70) return { text: "Cerah Berawan", icon: "partly_cloudy_day" };
+  return { text: "Cerah", icon: "sunny" };
+};
 
-const DEFAULT_WEATHER: HeroWeatherData = {
-  stationName: "Malang Utama",
-  temp: 26,
-  rh: 75,
-  ws: 12,
-  rr: 0,
-  press: 1013,
-  sr: 0,
-  condition: "Cerah Berawan",
-  icon: "partly_cloudy_day",
-  time: "--:--",
-  date: "",
+const HeroFeatureCards = () => {
+  return (
+    <div className="w-full max-w-[420px] flex flex-col gap-4 animate-fade-in shrink-0 mt-8 lg:mt-0">
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+          <span className="material-symbols-outlined text-[24px]">verified</span>
+        </div>
+        <div>
+          <h3 className="font-bold text-text-primary text-[15px] mb-1">Akurasi Standar BMKG</h3>
+          <p className="text-sm text-text-secondary leading-snug">Data dikalibrasi dan divalidasi sesuai standar operasional resmi BMKG.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow ml-0 lg:ml-6">
+        <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center text-success shrink-0">
+          <span className="material-symbols-outlined text-[24px]">update</span>
+        </div>
+        <div>
+          <h3 className="font-bold text-text-primary text-[15px] mb-1">Update Otomatis</h3>
+          <p className="text-sm text-text-secondary leading-snug">Pemantauan kondisi cuaca secara realtime tanpa henti 24/7.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow ml-0 lg:ml-12">
+        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-700 shrink-0">
+          <span className="material-symbols-outlined text-[24px]">database</span>
+        </div>
+        <div>
+          <h3 className="font-bold text-text-primary text-[15px] mb-1">Database Terintegrasi</h3>
+          <p className="text-sm text-text-secondary leading-snug">Arsip data observasi dan iklim historis yang aman di cloud.</p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function Home() {
-  const [heroWeather, setHeroWeather] = useState<HeroWeatherData>(DEFAULT_WEATHER);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
 
-  const loadHeroData = useCallback(async () => {
-    try {
-      const latest = await supabaseFetch("aws_batu", "order=timestamp.desc&limit=1");
-      if (latest && latest.length > 0) {
-        const d = latest[0];
-        let cond = "Cerah";
-        let icon = "sunny";
-        if (d.rr > 5) { cond = "Hujan Lebat"; icon = "rainy"; }
-        else if (d.rr > 0) { cond = "Hujan Ringan"; icon = "rainy"; }
-        else if (d.rh > 85) { cond = "Berawan Tebal"; icon = "cloud"; }
-        else if (d.rh > 70) { cond = "Cerah Berawan"; icon = "partly_cloudy_day"; }
+  // --- Realtime Data States ---
+  const [stations, setStations] = useState<any[]>([]);
+  const [selectedStation, setSelectedStation] = useState<string>("");
+  const [stationName, setStationName] = useState<string>("Memuat...");
+  const [latestData, setLatestData] = useState<any>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-        setHeroWeather({
-          stationName: "AWS Batu (Malang)",
-          temp: Math.round(d.temp),
-          rh: Math.round(d.rh),
-          ws: parseFloat((d.ws || 0).toFixed(1)),
-          rr: parseFloat((d.rr || 0).toFixed(1)),
-          press: Math.round(d.press || 0),
-          sr: parseFloat((d.sr || 0).toFixed(1)),
-          condition: cond,
-          icon: icon,
-          time: d.time ? formatUTCtoWIB(d.time) : "--:--",
-          date: d.date || "",
-        });
+  const filteredStations = stations.filter(st => st.station_name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  useEffect(() => {
+    async function init() {
+      try {
+        let sts = await supabaseFetch("stations", "show_on_realtime=eq.true");
+        if (!sts || sts.length === 0) {
+          sts = FALLBACK_STATIONS;
+        }
+        setStations(sts);
+        
+        if (sts && sts.length > 0) {
+          setSelectedStation(sts[0].table_name);
+          setStationName(sts[0].station_name);
+        }
+      } catch (e) {
+        console.error("Error loading stations", e);
       }
-    } catch (e) {
-      console.error("Error loading hero weather", e);
     }
+    init();
   }, []);
+
+  useEffect(() => {
+    if (!selectedStation) return;
+    
+    async function loadData() {
+      try {
+        const st = stations.find(s => s.table_name === selectedStation);
+        if (st) setStationName(st.station_name);
+
+        const latest = await supabaseFetch(selectedStation, "order=timestamp.desc&limit=1");
+        if (latest && latest.length > 0) {
+          setLatestData(latest[0]);
+        } else {
+          setLatestData(null);
+        }
+      } catch (e) {
+        console.error("Error loading realtime data", e);
+        setLatestData(null);
+      }
+    }
+    
+    loadData();
+    const interval = setInterval(loadData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [selectedStation, stations]);
 
   const loadAnnouncements = useCallback(async () => {
     try {
@@ -114,15 +154,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadHeroData();
     loadAnnouncements();
+  }, [loadAnnouncements]);
 
-    const refreshInterval = setInterval(() => {
-      loadHeroData();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(refreshInterval);
-  }, [loadHeroData, loadAnnouncements]);
+  const weather = latestData 
+    ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
+    : { text: "Offline", icon: "cloud_off" };
 
   const getBadgeVariant = (cat: string): "error" | "success" | "neutral" | "warning" => {
     switch (cat) {
@@ -160,6 +197,14 @@ export default function Home() {
     }
   };
 
+  const handleStationSelect = (tableName: string) => {
+    setSelectedStation(tableName);
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  };
+
   return (
     <>
       <Header activeRoute="/" />
@@ -168,67 +213,128 @@ export default function Home() {
         {/* ═══════════════════════════════════════════════════ */}
         {/* 1. CUACA TERKINI — Clean Modern Blue Gradient Card */}
         {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 pt-6 pb-2 w-full">
+        <section id="cuaca-realtime" className="max-w-7xl mx-auto px-6 md:px-8 pt-6 pb-2 w-full scroll-mt-[80px]">
           <AnimatedContainer animation="fadeInUp" once={false} className="w-full">
-            <div className="bg-gradient-to-r from-[#0056B3] via-[#0A84FF] to-[#00A3FF] text-white rounded-3xl p-6 md:p-8 shadow-xl border border-white/20 relative overflow-hidden w-full">
+            <div className="bg-gradient-to-r from-[#b2cbf2] via-[#c2d6f6] to-[#e2ebf8] text-slate-900 rounded-3xl p-6 md:p-8 shadow-lg border border-white/80 relative w-full overflow-visible">
               {/* Ambient Glow */}
-              <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-cyan-400/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+                <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/40 rounded-full blur-2xl" />
+                <div className="absolute -left-16 -bottom-16 w-64 h-64 bg-blue-300/40 rounded-full blur-2xl" />
+              </div>
 
-              <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 lg:gap-8 w-full">
+              <div className="relative z-10 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 xl:gap-8 w-full">
                 {/* Left: Main temperature display */}
                 <div className="flex items-center gap-5 shrink-0">
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/25 shadow-inner shrink-0">
-                    <span
-                      className="material-symbols-outlined text-[64px] md:text-[76px] text-amber-300 drop-shadow-md"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      {heroWeather.icon}
-                    </span>
+                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gradient-to-br from-white/95 via-white/85 to-blue-50/70 backdrop-blur-xl flex items-center justify-center border border-white shadow-md relative overflow-hidden shrink-0 group hover:shadow-xl hover:scale-105 transition-all duration-300">
+                    {/* Inner glowing halo */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/25 via-sky-300/20 to-transparent blur-sm rounded-3xl group-hover:scale-125 transition-transform duration-500" />
+                    
+                    {/* Floating weather icon */}
+                    <div className="relative z-10 flex items-center justify-center animate-float">
+                      <span
+                        className="material-symbols-outlined text-[54px] md:text-[66px] text-amber-500 drop-shadow-[0_8px_16px_rgba(245,158,11,0.5)] group-hover:rotate-6 transition-transform duration-300"
+                        style={{ fontVariationSettings: "'FILL' 1, 'wght' 600" }}
+                      >
+                        {weather.icon}
+                      </span>
+                    </div>
+
+                    {/* Glass glare highlight */}
+                    <div className="absolute -top-10 -left-10 w-20 h-20 bg-white/50 rounded-full blur-md pointer-events-none" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-white/20 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-white/30 whitespace-nowrap">
+                      <span className="bg-blue-900/10 text-blue-900 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-blue-900/20 whitespace-nowrap">
                         CUACA TERKINI
                       </span>
                     </div>
-                    <div className="text-[48px] md:text-[60px] font-black leading-none tracking-tight whitespace-nowrap">
-                      {heroWeather.temp}°<span className="text-[28px] md:text-[36px] font-bold text-white/70">C</span>
+                    <div className="text-[48px] md:text-[60px] font-black leading-none tracking-tight text-slate-900 whitespace-nowrap">
+                      {latestData ? Math.round(latestData.temp) : "--"}°<span className="text-[28px] md:text-[36px] font-bold text-slate-600">C</span>
                     </div>
-                    <p className="text-white/90 font-semibold text-base mt-1 whitespace-nowrap">{heroWeather.condition}</p>
+                    <p className="text-slate-700 font-bold text-base mt-1 whitespace-nowrap">{weather.text}</p>
                   </div>
                 </div>
 
                 {/* Center: Station & Location Info */}
-                <div className="flex flex-col gap-1.5 lg:border-l lg:border-white/20 lg:pl-8">
-                  <div className="flex items-center gap-2 text-white/90 text-sm font-bold whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[18px] text-cyan-200">location_on</span>
-                    {heroWeather.stationName}
+                <div className="flex flex-col gap-1.5 xl:border-l xl:border-slate-800/15 xl:pl-8 relative z-20 shrink-0">
+                  <div className="flex items-center gap-2 text-slate-900 text-sm font-bold whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[18px] text-blue-700">location_on</span>
+                    
+                    <div className="relative z-30">
+                      <button 
+                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                        className="bg-white/70 hover:bg-white border border-white/90 text-slate-900 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer outline-none transition-all shadow-xs text-sm"
+                      >
+                        <span>{stationName}</span>
+                        <span className="material-symbols-outlined text-[16px] text-slate-600">{isDropdownOpen ? "expand_less" : "expand_more"}</span>
+                      </button>
+
+                      {isDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
+                          <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col z-50 min-w-[260px] text-slate-900 font-normal">
+                            <div className="p-2 border-b border-slate-100 bg-slate-50">
+                              <div className="relative">
+                                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+                                <input 
+                                  type="text" 
+                                  placeholder="Cari stasiun..." 
+                                  className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 transition-shadow"
+                                  value={searchQuery}
+                                  onChange={(e) => setSearchQuery(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <div className="max-h-[220px] overflow-y-auto bg-white">
+                              {filteredStations.length > 0 ? (
+                                filteredStations.map(st => (
+                                  <div 
+                                    key={st.id} 
+                                    className={`px-3.5 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors text-xs ${selectedStation === st.table_name ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 font-medium"}`}
+                                    onClick={() => {
+                                      setSelectedStation(st.table_name);
+                                      setIsDropdownOpen(false);
+                                      setSearchQuery("");
+                                    }}
+                                  >
+                                    {st.station_name}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-3 text-center text-xs text-slate-400">Tidak ada hasil</div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-white/70 text-xs font-medium whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[14px]">schedule</span>
-                    {heroWeather.date && <span>{heroWeather.date}</span>}
-                    <span>Pukul {heroWeather.time} WIB</span>
+
+                  <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold whitespace-nowrap">
+                    <span className="material-symbols-outlined text-[14px] text-blue-700">schedule</span>
+                    {latestData?.date && <span>{latestData.date}</span>}
+                    <span>Pukul {latestData?.time ? formatUTCtoWIB(latestData.time) : "--:--"} WIB</span>
                   </div>
                 </div>
 
                 {/* Right: Parameter Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
+                <div className="flex flex-wrap xl:flex-nowrap justify-start xl:justify-end gap-2 md:gap-3 shrink-0 w-full xl:w-auto">
                   {[
-                    { icon: "water_drop", label: "Kelembaban", value: `${heroWeather.rh}%`, color: "text-sky-200" },
-                    { icon: "air", label: "Angin", value: `${heroWeather.ws} km/h`, color: "text-teal-200" },
-                    { icon: "rainy", label: "Curah Hujan", value: `${heroWeather.rr} mm`, color: "text-blue-200" },
-                    { icon: "speed", label: "Tekanan", value: heroWeather.press > 0 ? `${heroWeather.press} hPa` : "--", color: "text-amber-200" },
+                    { icon: "water_drop", label: "Kelembaban", value: latestData ? `${Math.round(latestData.rh)}%` : "--", color: "text-blue-700" },
+                    { icon: "air", label: "Angin", value: latestData ? `${parseFloat((latestData.ws || 0).toFixed(1))} km/h` : "--", color: "text-teal-700" },
+                    { icon: "rainy", label: "Curah Hujan", value: latestData ? `${parseFloat((latestData.rr || 0).toFixed(1))} mm` : "--", color: "text-indigo-700" },
+                    { icon: "speed", label: "Tekanan", value: (latestData && latestData.press > 0) ? `${Math.round(latestData.press)} hPa` : "--", color: "text-amber-700" },
                   ].map((param) => (
                     <div
                       key={param.label}
-                      className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-3 min-w-[105px] flex flex-col items-start justify-center shadow-xs"
+                      className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl px-4 py-3 md:py-4 flex flex-col items-start justify-center shadow-xs min-w-[130px] flex-1 xl:flex-none"
                     >
-                      <div className="flex items-center gap-1.5 mb-1 whitespace-nowrap">
-                        <span className={`material-symbols-outlined text-[16px] ${param.color}`}>{param.icon}</span>
-                        <span className="text-[0.65rem] text-white/70 font-semibold uppercase tracking-wider">{param.label}</span>
+                      <div className="flex items-center gap-1.5 mb-1.5 whitespace-nowrap w-full">
+                        <span className={`material-symbols-outlined text-[18px] shrink-0 ${param.color}`}>{param.icon}</span>
+                        <span className="text-[0.65rem] md:text-[0.7rem] text-slate-700 font-bold uppercase tracking-wider">{param.label}</span>
                       </div>
-                      <span className="text-base font-extrabold text-white tracking-tight whitespace-nowrap">{param.value}</span>
+                      <span className="text-xl font-extrabold text-slate-900 tracking-tight w-full">{param.value}</span>
                     </div>
                   ))}
                 </div>
@@ -237,30 +343,13 @@ export default function Home() {
           </AnimatedContainer>
         </section>
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* 2. COUNTER STATISTICS STRIP (NEW INFORMATION ITEMS) */}
-        {/* ═══════════════════════════════════════════════════ */}
-        <section className="bg-surface border-b border-border py-6 w-full">
-          <div className="max-w-7xl mx-auto px-6 md:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center w-full">
-            {[
-              { value: "23 AWS", label: "Stasiun Otomatis Aktif", color: "text-primary" },
-              { value: "10 Menit", label: "Interval Update Realtime", color: "text-amber-500" },
-              { value: "30+ Tahun", label: "Arsip Data Klimatologi", color: "text-emerald-500" },
-              { value: "Jawa Timur", label: "Wilayah Operasional Resmi", color: "text-sky-500" },
-            ].map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center justify-center">
-                <span className="text-xl sm:text-2xl md:text-3xl font-black text-text-primary whitespace-nowrap">{stat.value}</span>
-                <span className="text-xs text-text-secondary font-semibold mt-1 whitespace-nowrap">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 3. HERO WELCOME SECTION */}
+        {/* 2. HERO WELCOME SECTION */}
         {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 py-10 md:py-14 w-full">
-          <div className="w-full max-w-[800px] flex flex-col gap-4">
+        <section className="max-w-7xl mx-auto px-6 md:px-8 py-10 md:py-14 w-full flex flex-col lg:flex-row items-center justify-between gap-10">
+          <div className="w-full lg:flex-1 flex flex-col gap-4">
             <div>
               <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wider whitespace-nowrap">
                 STASIUN KLIMATOLOGI MALANG
@@ -281,7 +370,7 @@ export default function Home() {
               <div className="flex flex-wrap gap-3 mt-2">
                 <Link href="/realtime-data">
                   <button className="bg-primary text-white hover:bg-secondary px-6 py-3 rounded-lg font-semibold text-[1rem] transition-colors inline-flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
-                    Jelajahi Data Iklim
+                    Pantau Cuaca Realtime
                     <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
                   </button>
                 </Link>
@@ -293,19 +382,23 @@ export default function Home() {
               </div>
             </AnimatedContainer>
           </div>
-        </section>
-
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* 4. AWS STATION GRID */}
-        {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 md:pb-16 w-full">
-          <AnimatedContainer animation="fadeInUp" delay={0.1} once={false} className="w-full">
-            <StationSlider />
+          
+          <AnimatedContainer animation="slideInRight" delay={0.3} once={false} className="w-full lg:w-auto flex justify-center lg:justify-end">
+             <HeroFeatureCards />
           </AnimatedContainer>
         </section>
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 5. LAYANAN CEPAT — 2×2 grid */}
+        {/* 3. AWS STATION GRID */}
+        {/* ═══════════════════════════════════════════════════ */}
+        <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 md:pb-16 w-full">
+          <AnimatedContainer animation="fadeInUp" delay={0.1} once={false} className="w-full">
+            <StationSlider onStationSelect={handleStationSelect} />
+          </AnimatedContainer>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════ */}
+        {/* 4. LAYANAN CEPAT — 2×2 grid */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/40 py-12 md:py-16 border-t border-b border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
@@ -324,12 +417,20 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-[850px] mx-auto w-full">
               {[
                 {
-                  href: "/realtime-data",
+                  href: "#cuaca-realtime",
                   icon: "sensors",
                   subtitle: "23 Stasiun Aktif",
-                  title: "Data Realtime",
+                  title: "Cuaca Realtime",
                   desc: "Pantau parameter suhu, kelembaban, dan curah hujan terkini dari seluruh jaringan AWS.",
-                  cta: "Buka Data",
+                  cta: "Lihat Pemantauan",
+                },
+                {
+                  href: "/realtime-data",
+                  icon: "analytics",
+                  subtitle: "Laporan Harian",
+                  title: "Data Pengamatan",
+                  desc: "Akses rangkuman data pengamatan cuaca harian dan informasi cuaca ekstrim.",
+                  cta: "Lihat Laporan",
                 },
                 {
                   href: "/climate-change",
@@ -338,14 +439,6 @@ export default function Home() {
                   title: "Perubahan Iklim",
                   desc: "Pantau proyeksi perubahan iklim jangka panjang dan tren suhu wilayah Jawa Timur.",
                   cta: "Pelajari Lebih Lanjut",
-                },
-                {
-                  href: "/history",
-                  icon: "history",
-                  subtitle: "Arsip Terpadu",
-                  title: "Data Historis",
-                  desc: "Akses arsip data cuaca historis untuk riset, sektor pertanian, dan perencanaan.",
-                  cta: "Lihat Arsip",
                 },
                 {
                   href: "/announcements",
@@ -380,7 +473,7 @@ export default function Home() {
         </section>
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 6. PENGUMUMAN TERBARU — With color accent */}
+        {/* 5. PENGUMUMAN TERBARU — With color accent */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="max-w-7xl mx-auto px-6 md:px-8 py-12 md:py-16 w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 w-full">
@@ -431,7 +524,7 @@ export default function Home() {
         </section>
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 7. GALERI BMKG — Updated IG link */}
+        {/* 6. GALERI BMKG — Updated IG link */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">

@@ -83,7 +83,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: "/realtime-data", label: "Kondisi Cuaca" },
+    { href: "/realtime-data", label: "Data Pengamatan" },
     { href: "/climate-change", label: "Perubahan Iklim" },
     { href: "/profile", label: "Profil" },
     { href: "/announcements", label: "Pengumuman" },
