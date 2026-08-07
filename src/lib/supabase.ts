@@ -10,6 +10,25 @@ export const supabaseHeaders = {
 
 export async function supabaseFetch(tableName: string, query: string = "") {
   try {
+    // Redirect AWS Realtime Data queries to custom API (althof.site/api.php)
+    if (tableName.startsWith("aws_")) {
+      const limitMatch = query.match(/limit=(\d+)/);
+      const limit = limitMatch ? limitMatch[1] : "144";
+      const apiUrl = `https://althof.site/api.php?station=${tableName}&limit=${limit}`;
+      
+      try {
+        const apiRes = await fetch(apiUrl, { cache: "no-store" });
+        if (apiRes.ok) {
+          const data = await apiRes.json();
+          if (Array.isArray(data)) {
+            return data;
+          }
+        }
+      } catch (apiErr) {
+        console.warn(`Custom API fetch failed for ${tableName}, falling back to Supabase direct:`, apiErr);
+      }
+    }
+
     const res = await fetch(`${SUPABASE_URL}/${tableName}${query ? `?${query}` : ''}`, {
       method: "GET",
       headers: supabaseHeaders,
@@ -23,7 +42,11 @@ export async function supabaseFetch(tableName: string, query: string = "") {
       }
       throw new Error(errorText);
     }
-    return await res.json();
+    const data = await res.json();
+    if (tableName === "stations" && Array.isArray(data)) {
+      return data.filter((st: any) => st.table_name !== "aws_tanggul");
+    }
+    return data;
   } catch (error) {
     console.error(`Error fetching from ${tableName}:`, error);
     return null;

@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warming Stripes - BMKG Jawa Timur</title>
+    <meta name="description"
+        content="Visualisasi Warming Stripes (Pita Pemanasan Iklim) untuk wilayah Jawa Timur berdasarkan data anomali suhu BMKG.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- PapaParse CSV Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bmkg-primary: #1a3a6b;
+            --bmkg-secondary: #2563eb;
+            --bmkg-accent: #0ea5e9;
+            --bmkg-dark: #0f1b33;
+            --bmkg-topbar: #1e3a5f;
+            --bmkg-nav-bg: #ffffff;
+            --bmkg-body-bg: #f0f4f8;
+            --bmkg-card-bg: #ffffff;
+            --bmkg-text-primary: #1e293b;
+            --bmkg-text-secondary: #64748b;
+            --bmkg-text-muted: #94a3b8;
+            --bmkg-border: #e2e8f0;
+            --bmkg-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
+            --bmkg-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1), 0 12px 40px rgba(0, 0, 0, 0.06);
+            --stripe-card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bmkg-body-bg);
+            color: var(--bmkg-text-primary);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ========== TOP INFO BAR ========== */
+        .topbar {
+            background: var(--bmkg-topbar);
+            color: #fff;
+            font-size: 0.75rem;
+            padding: 6px 0;
+            letter-spacing: 0.02em;
+        }
+
+        .topbar-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .topbar-date {
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #60a5fa;
+        }
+
+        .topbar-time {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .topbar-time span {
+            color: #93c5fd;
+        }
+
+        .topbar-time .time-value {
+            color: #60a5fa;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ========== NAVIGATION BAR ========== */
+        .navbar {
+            background: var(--bmkg-nav-bg);
+            border-bottom: 1px solid var(--bmkg-border);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 68px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+            color: var(--bmkg-primary);
+        }
+
+        .navbar-logo {
+            width: 44px;
+            height: 44px;
+        }
+
+        .navbar-logo svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .navbar-brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .navbar-brand-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--bmkg-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .navbar-brand-subtitle {
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: var(--bmkg-text-secondary);
+            letter-spacing: 0.02em;
+        }
+
+        .navbar-nav {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            list-style: none;
+        }
+
+        .navbar-nav a {
+            text-decoration: none;
+            color: var(--bmkg-text-primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .navbar-nav a:hover {
+            background: #f1f5f9;
+            color: var(--bmkg-secondary);
+        }
+
+        .navbar-nav a.active {
+            color: var(--bmkg-secondary);
+            background: #eff6ff;
+        }
+
+        .navbar-contact {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: var(--bmkg-nav-bg);
+            border: 1.5px solid var(--bmkg-border);
+            border-radius: 24px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--bmkg-text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .navbar-contact:hover {
+            border-color: var(--bmkg-secondary);
+            color: var(--bmkg-secondary);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+        }
+
+        /* ========== BREADCRUMB ========== */
+        .breadcrumb-section {
+            background: #fff;
+            border-bottom: 1px solid var(--bmkg-border);
+            padding: 14px 0;
+        }
+
+        .breadcrumb-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+        }
+
+        .breadcrumb-inner a {
+            color: var(--bmkg-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .breadcrumb-inner a:hover {
+            color: var(--bmkg-primary);
+            text-decoration: underline;
+        }
+
+        .breadcrumb-sep {
+            color: var(--bmkg-text-muted);
+            font-size: 0.7rem;
+        }
+
+        .breadcrumb-current {
+            color: var(--bmkg-text-secondary);
+            font-weight: 500;
+        }
+
+        /* ========== PAGE HEADER ========== */
+        .page-header {
+            text-align: center;
+            padding: 48px 24px 40px;
+            background: #fff;
+        }
+
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--bmkg-text-primary);
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header p {
+            font-size: 0.92rem;
+            color: var(--bmkg-text-secondary);
+            max-width: 650px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ========== MAIN CONTENT ========== */
+        .main-content {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px 24px 80px;
+        }
+
+        /* ========== LOCATION SELECTOR CARD ========== */
+        .location-card {
+            background: var(--bmkg-card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--bmkg-border);
+            box-shadow: var(--bmkg-shadow);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .location-card:hover {
+            box-shadow: var(--bmkg-shadow-lg);
+        }
+
+        .location-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .location-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .location-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--bmkg-secondary);
+        }
+
+        .location-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--bmkg-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+
+        .location-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--bmkg-text-primary);
+        }
+
+        .location-select-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .location-select-wrapper label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--bmkg-text-secondary);
+            white-space: nowrap;
+        }
+
+        .location-select {
+            min-width: 280px;
+            padding: 10px 40px 10px 16px;
+            border: 1.5px solid var(--bmkg-border);
+            border-radius: 10px;
+            background: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--bmkg-text-primary);
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+        }
+
+        .location-select:hover {
+            border-color: var(--bmkg-secondary);
+        }
+
+        .location-select:focus {
+            border-color: var(--bmkg-secondary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .data-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .data-badge.active {
+            background: #ecfdf5;
+            color: #059669;
+            border: 1px solid #a7f3d0;
+        }
+
+        .data-badge.inactive {
+            background: #f8fafc;
+            color: #94a3b8;
+            border: 1px solid #e2e8f0;
+        }
+
+        .data-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .data-badge.active .data-badge-dot {
+            background: #10b981;
+            animation: pulse-dot 2s infinite;
+        }
+
+        .data-badge.inactive .data-badge-dot {
+            background: #94a3b8;
+        }
+
+        @keyframes pulse-dot {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* ========== WARMING STRIPES CARD ========== */
+        .stripes-card {
+            background: var(--stripe-card-bg);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: var(--bmkg-shadow-lg);
+            border: 1px solid var(--bmkg-border);
+        }
+
+        .stripes-header {
+            padding: 28px 32px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .stripes-title-area {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .stripes-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #fff1f2, #fef3c7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .stripes-icon svg {
+            width: 20px;
+            height: 20px;
+            color: #f43f5e;
+        }
+
+        .stripes-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--bmkg-text-primary);
+            letter-spacing: -0.01em;
+        }
+
+        .stripes-subtitle {
+            font-size: 0.8rem;
+            color: var(--bmkg-text-secondary);
+            margin-top: 4px;
+            line-height: 1.5;
+        }
+
+        /* Mode Toggle Buttons */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid var(--bmkg-border);
+        }
+
+        .mode-toggle-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--bmkg-text-secondary);
+            padding: 0 10px;
+            white-space: nowrap;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+
+        .mode-btn.active {
+            background: #e11d48;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(225, 29, 72, 0.3);
+        }
+
+        .mode-btn.inactive {
+            background: transparent;
+            color: #94a3b8;
+        }
+
+        .mode-btn.inactive:hover {
+            background: #e2e8f0;
+            color: var(--bmkg-text-primary);
+        }
+
+        /* Chart Container */
+        .stripes-chart-wrapper {
+            padding: 0 20px 12px;
+        }
+
+        .stripes-chart {
+            width: 100%;
+            height: 280px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #f8fafc;
+            border: 1px solid var(--bmkg-border);
+        }
+
+        /* Hover Info Bar */
+        .hover-bar {
+            background: #f8fafc;
+            border-top: 1px solid var(--bmkg-border);
+            padding: 20px 32px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .hover-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .hover-year-badge {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #fff1f2, #fef3c7);
+            border: 1px solid #fecdd3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: #e11d48;
+        }
+
+        .hover-meta-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--bmkg-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hover-meta-label svg {
+            width: 14px;
+            height: 14px;
+            color: #f43f5e;
+        }
+
+        .hover-location-year {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--bmkg-text-primary);
+            margin-top: 4px;
+        }
+
+        .hover-right {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .hover-stat-label {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--bmkg-text-secondary);
+        }
+
+        .hover-stat-value {
+            font-size: 1.35rem;
+            font-weight: 900;
+            margin-top: 2px;
+        }
+
+        .hover-stat-value.anomaly {
+            color: #e11d48;
+        }
+
+        .hover-stat-value.anomaly.cold {
+            color: #0284c7;
+        }
+
+        .hover-stat-value.actual {
+            color: #d97706;
+        }
+
+        .hover-divider {
+            width: 1px;
+            height: 36px;
+            background: var(--bmkg-border);
+        }
+
+        /* KPI Summary Row */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0;
+            border-top: 1px solid var(--bmkg-border);
+        }
+
+        .kpi-item {
+            padding: 20px 28px;
+            border-right: 1px solid var(--bmkg-border);
+            transition: background 0.2s ease;
+        }
+
+        .kpi-item:last-child {
+            border-right: none;
+        }
+
+        .kpi-item:hover {
+            background: #f1f5f9;
+        }
+
+        .kpi-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--bmkg-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+
+        .kpi-value {
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .kpi-value.emerald {
+            color: #059669;
+        }
+
+        .kpi-value.sky {
+            color: #0284c7;
+        }
+
+        .kpi-value.rose {
+            color: #e11d48;
+        }
+
+        .kpi-value.amber {
+            color: #d97706;
+        }
+
+        .kpi-desc {
+            font-size: 0.72rem;
+            color: var(--bmkg-text-secondary);
+            margin-top: 4px;
+        }
+
+        /* ========== UPLOAD AREA ========== */
+        .upload-card {
+            background: var(--bmkg-card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--bmkg-border);
+            box-shadow: var(--bmkg-shadow);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .upload-info h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--bmkg-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .upload-info p {
+            font-size: 0.82rem;
+            color: var(--bmkg-text-secondary);
+        }
+
+        .upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            background: var(--bmkg-secondary);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .upload-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* ========== MODAL ========== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 200;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-box {
+            background: #fff;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 100%;
+            padding: 36px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--bmkg-border);
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--bmkg-text-secondary);
+        }
+
+        .modal-close:hover {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #ef4444;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+        }
+
+        .modal-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: #eff6ff;
+            color: var(--bmkg-secondary);
+            font-size: 0.72rem;
+            font-weight: 700;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .modal-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--bmkg-text-primary);
+            margin-bottom: 6px;
+        }
+
+        .modal-desc {
+            font-size: 0.82rem;
+            color: var(--bmkg-text-secondary);
+            line-height: 1.5;
+        }
+
+        .modal-dropzone {
+            border: 2px dashed var(--bmkg-border);
+            border-radius: 14px;
+            padding: 36px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: #fafbfc;
+            margin-bottom: 16px;
+        }
+
+        .modal-dropzone:hover {
+            border-color: var(--bmkg-secondary);
+            background: #eff6ff;
+        }
+
+        .modal-dropzone svg {
+            width: 40px;
+            height: 40px;
+            color: var(--bmkg-secondary);
+            margin-bottom: 10px;
+        }
+
+        .modal-dropzone-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--bmkg-text-primary);
+            margin-bottom: 4px;
+        }
+
+        .modal-dropzone-desc {
+            font-size: 0.78rem;
+            color: var(--bmkg-text-secondary);
+        }
+
+        .modal-or {
+            font-size: 0.78rem;
+            color: var(--bmkg-text-muted);
+            margin-bottom: 12px;
+        }
+
+        .modal-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid var(--bmkg-border);
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.78rem;
+            color: var(--bmkg-text-primary);
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.2s;
+            background: #fafbfc;
+        }
+
+        .modal-textarea:focus {
+            border-color: var(--bmkg-secondary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .modal-error {
+            display: none;
+            padding: 10px 16px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            color: #dc2626;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 12px;
+        }
+
+        .modal-error.show {
+            display: block;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-btn-cancel {
+            padding: 10px 20px;
+            border: 1px solid var(--bmkg-border);
+            border-radius: 10px;
+            background: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--bmkg-text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .modal-btn-process {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 10px;
+            background: var(--bmkg-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-process:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        /* ========== FOOTER ========== */
+        .footer {
+            background: var(--bmkg-dark);
+            color: #94a3b8;
+            padding: 32px 0;
+            text-align: center;
+            font-size: 0.78rem;
+        }
+
+        .footer a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ========== LOADING STATE ========== */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(37, 99, 235, 0.2);
+            border-top-color: var(--bmkg-secondary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .navbar-nav {
+                display: none;
+            }
+
+            .topbar-inner {
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .location-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .location-select {
+                min-width: 100%;
+            }
+
+            .stripes-header {
+                padding: 20px 20px 16px;
+            }
+
+            .hover-bar {
+                padding: 16px 20px;
+            }
+
+            .hover-right {
+                gap: 20px;
+            }
+
+            .kpi-row {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .kpi-item {
+                border-right: none;
+                border-bottom: 1px solid var(--bmkg-border);
+            }
+
+            .kpi-item:nth-child(odd) {
+                border-right: 1px solid var(--bmkg-border);
+            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ========== TOP INFO BAR ========== -->
+    <div class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-date" id="topbarDate">KAMIS, 6 AGUSTUS 2026</div>
+            <div class="topbar-time">
+                <span>STANDAR WAKTU INDONESIA</span>
+                <span class="time-value" id="topbarWIB">--:--:--</span>
+                <span>/</span>
+                <span class="time-value" id="topbarUTC">--:--:-- UTC</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== NAVIGATION BAR ========== -->
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="#" class="navbar-brand">
+                <div class="navbar-logo">
+                    <!-- Simplified BMKG-style logo (wave layers) -->
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="48" height="48" rx="10" fill="#1a3a6b" />
+                        <path d="M8 30c4-4 8-4 12 0s8 4 12 0 8-4 12 0" stroke="#60a5fa" stroke-width="2.5"
+                            stroke-linecap="round" fill="none" opacity="0.5" />
+                        <path d="M8 24c4-4 8-4 12 0s8 4 12 0 8-4 12 0" stroke="#93c5fd" stroke-width="2.5"
+                            stroke-linecap="round" fill="none" opacity="0.7" />
+                        <path d="M8 18c4-4 8-4 12 0s8 4 12 0 8-4 12 0" stroke="#bfdbfe" stroke-width="2.5"
+                            stroke-linecap="round" fill="none" />
+                    </svg>
+                </div>
+                <div class="navbar-brand-text">
+                    <span class="navbar-brand-title">BADAN METEOROLOGI,</span>
+                    <span class="navbar-brand-subtitle">KLIMATOLOGI, DAN GEOFISIKA</span>
+                </div>
+            </a>
+
+            <ul class="navbar-nav">
+                <li><a href="#">Profil</a></li>
+                <li><a href="#">Cuaca</a></li>
+                <li><a href="#" class="active">Iklim</a></li>
+                <li><a href="#">Kualitas Udara</a></li>
+                <li><a href="#">Gempa Bumi</a></li>
+                <li><a href="#">Geofisika</a></li>
+            </ul>
+
+            <button class="navbar-contact">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+                Contact Center 196
+            </button>
+        </div>
+    </nav>
+
+    <!-- ========== BREADCRUMB ========== -->
+    <div class="breadcrumb-section">
+        <div class="breadcrumb-inner">
+            <a href="#">Beranda</a>
+            <span class="breadcrumb-sep">›</span>
+            <a href="#">Iklim</a>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-current">Warming Stripes</span>
+        </div>
+    </div>
+
+    <!-- ========== PAGE HEADER ========== -->
+    <div class="page-header">
+        <h1>Warming Stripes</h1>
+        <p>Visualisasi Pita Pemanasan Iklim berdasarkan data anomali suhu untuk wilayah Jawa Timur, disediakan oleh
+            Badan Meteorologi, Klimatologi, dan Geofisika.</p>
+    </div>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <div class="main-content">
+
+        <!-- Upload Card -->
+        <div class="upload-card" id="uploadCard">
+            <div class="upload-info">
+                <h3>📂 Sumber Data Anomali Suhu</h3>
+                <p>Unggah file CSV untuk memuat data anomali suhu. Data akan otomatis diproses dan divisualisasikan.</p>
+            </div>
+            <button class="upload-btn" onclick="toggleModal(true)">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                Unggah CSV
+            </button>
+        </div>
+
+        <!-- Location Selector Card -->
+        <div class="location-card">
+            <div class="location-info">
+                <div class="location-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                        <circle cx="12" cy="10" r="3" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="location-label">Pilih Lokasi Pengamatan</div>
+                    <div class="location-title" id="currentLocationTitle">Menunggu data...</div>
+                </div>
+            </div>
+
+            <div class="location-select-wrapper">
+                <label for="citySelect">Lokasi:</label>
+                <select id="citySelect" class="location-select" onchange="updateDashboard()" disabled>
+                    <option value="">-- Menunggu Data CSV --</option>
+                </select>
+                <div class="data-badge inactive" id="dataBadge">
+                    <span class="data-badge-dot"></span>
+                    <span id="dataBadgeText">Belum Ada Data</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warming Stripes Visualization Card -->
+        <div class="stripes-card" style="position: relative;">
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+            </div>
+
+            <!-- Stripes Header -->
+            <div class="stripes-header">
+                <div class="stripes-title-area">
+                    <div class="stripes-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path
+                                d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="stripes-title">Warming Stripes (Pita Pemanasan Iklim)</div>
+                        <div class="stripes-subtitle">Arahkan kursor tepat di atas pita warna untuk melihat pop-up
+                            informasi secara langsung.</div>
+                    </div>
+                </div>
+
+                <div class="mode-toggle">
+                    <span class="mode-toggle-label">Tampilan Pita:</span>
+                    <button id="btnModeDiscrete" class="mode-btn active" onclick="setStripeMode('discrete')">Batang Per
+                        Tahun</button>
+                    <button id="btnModeSmooth" class="mode-btn inactive" onclick="setStripeMode('smooth')">Gradient
+                        Smooth</button>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="stripes-chart-wrapper">
+                <div id="stripesChart" class="stripes-chart"></div>
+            </div>
+
+            <!-- Hover Info Bar -->
+            <div class="hover-bar">
+                <div class="hover-left">
+                    <div class="hover-year-badge" id="hoverYearBadge">--</div>
+                    <div>
+                        <div class="hover-meta-label">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 3v18h18" />
+                                <path d="m19 9-5 5-4-4-3 3" />
+                            </svg>
+                            Detail Hover Real-Time
+                        </div>
+                        <div class="hover-location-year" id="hoverLocationYear">--</div>
+                    </div>
+                </div>
+
+                <div class="hover-right">
+                    <div>
+                        <div class="hover-stat-label">Deviasi Anomali</div>
+                        <div class="hover-stat-value anomaly" id="hoverAnomalyVal">-- °C</div>
+                    </div>
+                    <div class="hover-divider"></div>
+                    <div>
+                        <div class="hover-stat-label">Estimasi Suhu Aktual</div>
+                        <div class="hover-stat-value actual" id="hoverActualVal">-- °C</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Summary Row -->
+            <div class="kpi-row">
+                <div class="kpi-item">
+                    <div class="kpi-label">Karakteristik Data</div>
+                    <div class="kpi-value emerald" id="infoType">--</div>
+                    <div class="kpi-desc" id="infoDesc">--</div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">Suhu Normal Baseline</div>
+                    <div class="kpi-value sky" id="infoBaseline">-- °C</div>
+                    <div class="kpi-desc">Rata-rata Keseluruhan Tahun</div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">Laju Pemanasan Lokal</div>
+                    <div class="kpi-value rose" id="infoRate">-- °C / Dekade</div>
+                    <div class="kpi-desc">Tren linier per 10 tahun</div>
+                </div>
+                <div class="kpi-item">
+                    <div class="kpi-label">Rekor Anomali Tertinggi</div>
+                    <div class="kpi-value amber" id="infoMax">-- °C</div>
+                    <div class="kpi-desc" id="infoMaxYear">Tahun puncak</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== FOOTER ========== -->
+    <footer class="footer">
+        <div>&copy; 2026 Badan Meteorologi, Klimatologi, dan Geofisika &mdash; Visualisasi Warming Stripes Jawa Timur
+        </div>
+        <div style="margin-top: 6px;">Data bersumber dari <a href="https://www.bmkg.go.id"
+                target="_blank">bmkg.go.id</a></div>
+    </footer>
+
+    <!-- ========== UPLOAD MODAL ========== -->
+    <div class="modal-overlay" id="uploadModal">
+        <div class="modal-box">
+            <button class="modal-close" onclick="toggleModal(false)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" x2="6" y1="6" y2="18" />
+                    <line x1="6" x2="18" y1="6" y2="18" />
+                </svg>
+            </button>
+
+            <div class="modal-header">
+                <div class="modal-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3" />
+                        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+                        <path d="M3 12A9 3 0 0 0 21 12" />
+                    </svg>
+                    Input Data
+                </div>
+                <div class="modal-title">Unggah Berkas CSV</div>
+                <div class="modal-desc">Website akan otomatis mendeteksi kolom waktu dan wilayah dari CSV Anda, lalu
+                    mengagregasi data menjadi visualisasi tahunan.</div>
+            </div>
+
+            <div class="modal-dropzone" onclick="document.getElementById('csvFileInput').click()">
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none"
+                    onchange="handleFileUpload(event)">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                <div class="modal-dropzone-title">Klik untuk memilih berkas CSV</div>
+                <div class="modal-dropzone-desc">Pastikan ada kolom Waktu (Tanggal/Tahun) dan kolom-kolom wilayah.</div>
+            </div>
+
+            <div class="modal-or">Atau tempelkan (paste) teks CSV di bawah ini:</div>
+
+            <textarea id="csvTextArea" class="modal-textarea" rows="4"
+                placeholder="TAHUN,SURABAYA,MALANG&#10;1991,-0.533,-0.351&#10;1992,-0.335,-0.256&#10;..."></textarea>
+
+            <div class="modal-error" id="uploadError"></div>
+
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" onclick="toggleModal(false)">Batal</button>
+                <button class="modal-btn-process" onclick="processTextCSV()">Proses Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== JAVASCRIPT ========== -->
+    <script>
+        // ===== Clock Update =====
+        function updateClock() {
+            const now = new Date();
+            const days = ['MINGGU', 'SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'SABTU'];
+            const months = ['JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'];
+
+            document.getElementById('topbarDate').textContent =
+                `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+            const pad = n => String(n).padStart(2, '0');
+            document.getElementById('topbarWIB').textContent =
+                `${pad(now.getHours())} : ${pad(now.getMinutes())} : ${pad(now.getSeconds())}`;
+
+            const utc = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+            document.getElementById('topbarUTC').textContent =
+                `${pad(utc.getHours())} : ${pad(utc.getMinutes())} : ${pad(utc.getSeconds())} UTC`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ===== Global State =====
+        let activeYears = [];
+        let activeCitiesData = {};
+        let stripeDisplayMode = 'discrete';
+        let isDataLoaded = false;
+
+        // Climate Central Official Warming Stripes Color Scale
+        const climateColorscale = [
+            [0.00, '#08306b'],
+            [0.18, '#2b8cbe'],
+            [0.36, '#7bccc4'],
+            [0.50, '#f7f7f7'],
+            [0.64, '#feb24c'],
+            [0.82, '#f46d43'],
+            [1.00, '#67000d']
+        ];
+
+        // ===== Dropdown Initialization =====
+        function initDropdown() {
+            const select = document.getElementById('citySelect');
+            const badge = document.getElementById('dataBadge');
+            const badgeText = document.getElementById('dataBadgeText');
+
+            select.innerHTML = '';
+            const cities = Object.keys(activeCitiesData);
+
+            if (cities.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = "";
+                opt.innerText = "-- Menunggu Data CSV --";
+                select.appendChild(opt);
+                select.disabled = true;
+                badge.className = 'data-badge inactive';
+                badgeText.textContent = 'Belum Ada Data';
+                document.getElementById('currentLocationTitle').textContent = 'Menunggu data...';
+            } else {
+                cities.forEach(cityName => {
+                    const opt = document.createElement('option');
+                    opt.value = cityName;
+                    opt.innerText = cityName;
+                    select.appendChild(opt);
+                });
+                select.disabled = false;
+                badge.className = 'data-badge active';
+                badgeText.textContent = `${cities.length} Lokasi Aktif`;
+                document.getElementById('currentLocationTitle').textContent = cities[0];
+            }
+        }
+
+        // ===== Stripe Mode Toggle =====
+        function setStripeMode(mode) {
+            if (!isDataLoaded) return;
+            stripeDisplayMode = mode;
+
+            document.getElementById('btnModeDiscrete').className =
+                mode === 'discrete' ? 'mode-btn active' : 'mode-btn inactive';
+            document.getElementById('btnModeSmooth').className =
+                mode === 'smooth' ? 'mode-btn active' : 'mode-btn inactive';
+
+            updateDashboard();
+        }
+
+        // ===== Main Dashboard Update =====
+        function updateDashboard() {
+            if (!isDataLoaded) return;
+            const city = document.getElementById('citySelect').value;
+            if (!activeCitiesData[city]) return;
+
+            const cityData = activeCitiesData[city];
+            const anomalies = cityData.anomalies;
+            const baseline = cityData.baseline;
+
+            // Update location title
+            document.getElementById('currentLocationTitle').textContent = city;
+
+            // Update KPI
+            document.getElementById('infoType').innerText = cityData.type;
+            document.getElementById('infoDesc').innerText = cityData.desc;
+            document.getElementById('infoBaseline').innerText = `${baseline.toFixed(2)} °C`;
+            document.getElementById('infoRate').innerText = `${cityData.rate >= 0 ? '+' : ''}${cityData.rate.toFixed(3)} °C`;
+
+            const maxAnom = Math.max(...anomalies);
+            const minAnom = Math.min(...anomalies);
+            const maxYear = activeYears[anomalies.indexOf(maxAnom)];
+            const minYear = activeYears[anomalies.indexOf(minAnom)];
+
+            document.getElementById('infoMax').innerText = `${maxAnom >= 0 ? '+' : ''}${maxAnom.toFixed(2)} °C`;
+            document.getElementById('infoMaxYear').innerText = `Puncak: ${maxYear} (${(baseline + maxAnom).toFixed(2)}°C)`;
+
+            // Dynamic scale bounds
+            const absMax = Math.max(Math.abs(maxAnom), Math.abs(minAnom), 0.4);
+            const zBound = Math.ceil(absMax * 10) / 10;
+
+            // Custom data for hover
+            const customDataArray = activeYears.map((y, idx) => {
+                const act = (baseline + anomalies[idx]).toFixed(2);
+                const status = anomalies[idx] >= 0 ? '🔴 Lebih Panas' : '🔵 Lebih Dingin';
+                return [act, status];
+            });
+
+            let stripeTraces = [];
+
+            if (stripeDisplayMode === 'smooth') {
+                stripeTraces = [{
+                    z: [anomalies],
+                    x: activeYears,
+                    y: ['Pita Suhu'],
+                    type: 'heatmap',
+                    colorscale: climateColorscale,
+                    zmin: -zBound,
+                    zmax: zBound,
+                    zsmooth: 'best',
+                    customdata: [customDataArray],
+                    hovertemplate:
+                        '<extra></extra>' +
+                        '<b>Tahun %{x}</b><br>' +
+                        'Suhu Estimasi: <b>%{customdata[0]} °C</b><br>' +
+                        'Deviasi Anomali: <b>%{z:+.2f} °C</b><br>' +
+                        'Status: %{customdata[1]}',
+                    showscale: true,
+                    colorbar: {
+                        title: { text: 'Anomali (°C)', font: { family: 'Inter', size: 11, color: '#64748b' } },
+                        tickfont: { family: 'Inter', size: 10, color: '#64748b' },
+                        orientation: 'h',
+                        y: -0.38,
+                        len: 0.75,
+                        thickness: 12
+                    }
+                }];
+            } else {
+                stripeTraces = [{
+                    x: activeYears,
+                    y: activeYears.map(() => 1),
+                    type: 'bar',
+                    marker: {
+                        color: anomalies,
+                        colorscale: climateColorscale,
+                        cmin: -zBound,
+                        cmax: zBound,
+                        showscale: true,
+                        colorbar: {
+                            title: { text: 'Anomali (°C)', font: { family: 'Inter', size: 11, color: '#64748b' } },
+                            tickfont: { family: 'Inter', size: 10, color: '#64748b' },
+                            orientation: 'h',
+                            y: -0.38,
+                            len: 0.75,
+                            thickness: 12
+                        }
+                    },
+                    customdata: customDataArray,
+                    hovertemplate:
+                        '<extra></extra>' +
+                        '<b>Tahun %{x}</b><br>' +
+                        'Suhu Estimasi: <b>%{customdata[0]} °C</b><br>' +
+                        'Deviasi Anomali: <b>%{marker.color:+.2f} °C</b><br>' +
+                        'Status: %{customdata[1]}',
+                    width: 0.98
+                }];
+            }
+
+            const stripeAnnotations = [
+                {
+                    x: maxYear,
+                    y: stripeDisplayMode === 'smooth' ? 'Pita Suhu' : 1,
+                    text: `🔥 Max: ${maxYear}`,
+                    showarrow: true,
+                    arrowhead: 2,
+                    ax: 0,
+                    ay: -35,
+                    bgcolor: 'rgba(225, 29, 72, 0.9)',
+                    font: { family: 'Inter', size: 10, color: '#ffffff', weight: 'bold' },
+                    bordercolor: '#f43f5e',
+                    borderwidth: 1,
+                    borderpad: 4
+                },
+                {
+                    x: minYear,
+                    y: stripeDisplayMode === 'smooth' ? 'Pita Suhu' : 1,
+                    text: `❄️ Min: ${minYear}`,
+                    showarrow: true,
+                    arrowhead: 2,
+                    ax: 0,
+                    ay: 35,
+                    bgcolor: 'rgba(14, 165, 233, 0.9)',
+                    font: { family: 'Inter', size: 10, color: '#ffffff', weight: 'bold' },
+                    bordercolor: '#38bdf8',
+                    borderwidth: 1,
+                    borderpad: 4
+                }
+            ];
+
+            const stripeLayout = {
+                autosize: true,
+                margin: { l: 20, r: 20, t: 40, b: 70 },
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                annotations: stripeAnnotations,
+                hoverlabel: {
+                    bgcolor: '#ffffff',
+                    bordercolor: '#e2e8f0',
+                    font: { family: 'Inter', size: 12, color: '#1e293b' }
+                },
+                xaxis: {
+                    tickmode: 'linear',
+                    dtick: activeYears.length > 40 ? 5 : 2,
+                    tickangle: 0,
+                    tickfont: { family: 'Inter', size: 11, color: '#475569', weight: 'bold' },
+                    showgrid: true,
+                    gridcolor: 'rgba(226, 232, 240, 0.8)'
+                },
+                yaxis: { showticklabels: false, showgrid: false, fixedrange: true }
+            };
+
+            Plotly.newPlot('stripesChart', stripeTraces, stripeLayout, { responsive: true, displayModeBar: false }).then(() => {
+                setupHoverEvents('stripesChart', city, anomalies, baseline);
+            });
+
+            // Set hover banner to latest year
+            const lastIdx = activeYears.length - 1;
+            updateHoverUI(city, activeYears[lastIdx], anomalies[lastIdx], baseline);
+        }
+
+        // ===== Hover Events =====
+        function setupHoverEvents(chartId, city, anomalies, baseline) {
+            const elem = document.getElementById(chartId);
+            elem.on('plotly_hover', function (data) {
+                if (data && data.points && data.points.length > 0) {
+                    const year = data.points[0].x;
+                    const idx = activeYears.indexOf(year);
+                    if (idx !== -1) updateHoverUI(city, year, anomalies[idx], baseline);
+                }
+            });
+        }
+
+        function updateHoverUI(city, year, anomaly, baseline) {
+            const actual = baseline + anomaly;
+            document.getElementById('hoverYearBadge').innerText = year;
+            document.getElementById('hoverLocationYear').innerText = `${city} — Tahun ${year}`;
+
+            const anomElem = document.getElementById('hoverAnomalyVal');
+            anomElem.innerText = (anomaly >= 0 ? "+" : "") + anomaly.toFixed(2) + " °C";
+            anomElem.className = `hover-stat-value anomaly${anomaly < 0 ? ' cold' : ''}`;
+
+            document.getElementById('hoverActualVal').innerText = `${actual.toFixed(2)} °C`;
+        }
+
+        // ===== Modal Control =====
+        function toggleModal(show) {
+            const modal = document.getElementById('uploadModal');
+            if (show) {
+                modal.classList.add('show');
+            } else {
+                modal.classList.remove('show');
+                document.getElementById('uploadError').classList.remove('show');
+            }
+        }
+
+        function handleFileUpload(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                parseAndApplyCSV(e.target.result);
+            };
+            reader.readAsText(file);
+            evt.target.value = '';
+        }
+
+        function processTextCSV() {
+            const text = document.getElementById('csvTextArea').value.trim();
+            if (!text) {
+                showError("Silakan masukkan teks CSV atau pilih berkas CSV.");
+                return;
+            }
+            parseAndApplyCSV(text);
+        }
+
+        function showError(msg) {
+            const err = document.getElementById('uploadError');
+            err.textContent = msg;
+            err.classList.add('show');
+        }
+
+        function parseAndApplyCSV(csvText) {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+                complete: function (results) {
+                    if (!results.data || results.data.length === 0) {
+                        showError("Format CSV tidak dapat dibaca atau berkas kosong.");
+                        return;
+                    }
+
+                    const rows = results.data;
+                    const firstRow = rows[0];
+                    const keys = Object.keys(firstRow);
+
+                    // Auto-detect time column
+                    let timeCol = keys.find(k => /tanggal|tahun|date|year|waktu|time/i.test(k));
+                    if (!timeCol) {
+                        timeCol = keys.find(k => typeof firstRow[k] === 'number' && firstRow[k] > 1800 && firstRow[k] < 2100);
+                    }
+                    if (!timeCol) {
+                        showError("Tidak dapat mendeteksi kolom waktu. Pastikan ada kolom bernama 'Tanggal', 'Tahun', 'Date', atau berisi angka tahun.");
+                        return;
+                    }
+
+                    const regionCols = keys.filter(k => k !== timeCol);
+                    if (regionCols.length === 0) {
+                        showError("CSV harus memiliki minimal satu kolom nilai suhu selain kolom waktu.");
+                        return;
+                    }
+
+                    // Group by year
+                    const yearlyData = {};
+                    rows.forEach(r => {
+                        const timeValue = r[timeCol];
+                        if (timeValue === null || timeValue === undefined || timeValue === '') return;
+
+                        let year;
+                        if (typeof timeValue === 'string') {
+                            const yearMatch = timeValue.match(/(19|20)\d{2}/);
+                            year = yearMatch ? parseInt(yearMatch[0]) : parseInt(timeValue);
+                        } else {
+                            year = parseInt(timeValue);
+                        }
+                        if (isNaN(year)) return;
+
+                        if (!yearlyData[year]) {
+                            yearlyData[year] = {};
+                            regionCols.forEach(col => yearlyData[year][col] = []);
+                        }
+
+                        regionCols.forEach(col => {
+                            const val = parseFloat(r[col]);
+                            if (!isNaN(val)) yearlyData[year][col].push(val);
+                        });
+                    });
+
+                    const sortedYears = Object.keys(yearlyData).map(Number).sort((a, b) => a - b);
+                    if (sortedYears.length < 2) {
+                        showError("Data terlalu sedikit. Minimal harus mencakup 2 tahun berbeda.");
+                        return;
+                    }
+
+                    const newCitiesData = {};
+                    regionCols.forEach(col => {
+                        const annualMeans = [];
+                        sortedYears.forEach(year => {
+                            const temps = yearlyData[year][col];
+                            if (temps.length > 0) {
+                                annualMeans.push(temps.reduce((a, b) => a + b, 0) / temps.length);
+                            } else {
+                                annualMeans.push(null);
+                            }
+                        });
+
+                        // Interpolate missing
+                        for (let i = 0; i < annualMeans.length; i++) {
+                            if (annualMeans[i] === null) {
+                                const prev = annualMeans.slice(0, i).reverse().find(v => v !== null) || 27;
+                                const next = annualMeans.slice(i + 1).find(v => v !== null) || prev;
+                                annualMeans[i] = (prev + next) / 2;
+                            }
+                        }
+
+                        const overallAvg = annualMeans.reduce((a, b) => a + b, 0) / annualMeans.length;
+                        const isAnomalyData = Math.abs(overallAvg) < 5;
+                        const base = isAnomalyData ? 27.5 : parseFloat(overallAvg.toFixed(2));
+                        let anomalies = isAnomalyData ? annualMeans : annualMeans.map(v => v - base);
+                        anomalies = anomalies.map(v => parseFloat(v.toFixed(3)));
+
+                        // Linear regression
+                        const n = sortedYears.length;
+                        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+                        for (let i = 0; i < n; i++) {
+                            sumX += i;
+                            sumY += anomalies[i];
+                            sumXY += i * anomalies[i];
+                            sumX2 += i * i;
+                        }
+                        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) || 0;
+                        const ratePerDecade = parseFloat((slope * 10).toFixed(3));
+
+                        newCitiesData[col.toUpperCase()] = {
+                            baseline: base,
+                            type: "Data Anomali Suhu",
+                            desc: `${col} (${sortedYears[0]} - ${sortedYears[sortedYears.length - 1]})`,
+                            rate: ratePerDecade,
+                            anomalies: anomalies
+                        };
+                    });
+
+                    // Apply
+                    activeYears = sortedYears;
+                    activeCitiesData = newCitiesData;
+                    isDataLoaded = true;
+
+                    initDropdown();
+                    updateDashboard();
+                    toggleModal(false);
+
+                    // Hide upload card after successful load
+                    document.getElementById('uploadCard').style.display = 'none';
+                }
+            });
+        }
+
+        // ===== Auto-load CSV on page load =====
+        function autoLoadCSV() {
+            const primaryCSV = 'Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv';
+            const fallbackCSV = 'Hasil_Anomali_Suhu_1991_2025.csv';
+
+            fetch(primaryCSV)
+                .then(response => {
+                    if (!response.ok) return fetch(fallbackCSV);
+                    return response;
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('CSV not found');
+                    return response.text();
+                })
+                .then(csvText => {
+                    parseAndApplyCSV(csvText);
+                })
+                .catch(err => {
+                    console.log('Auto-load CSV skipped, waiting for manual upload:', err.message);
+                    initDropdown();
+                });
+        }
+
+        // Initialize
+        autoLoadCSV();
+    </script>
+</body>
+
+</html>

@@ -5,7 +5,7 @@ import { AnimatedContainer } from "@/components/ui/animated-container";
 export function Footer() {
   return (
     <footer className="bg-footer-bg full-width mt-auto">
-      <AnimatedContainer animation="fadeInUp" once={false} className="w-full py-[64px] px-4 md:px-[32px] flex flex-col md:flex-row justify-between items-start gap-[48px] max-w-7xl mx-auto">
+      <AnimatedContainer animation="fadeInUp" once={true} className="w-full py-[64px] px-4 md:px-[32px] flex flex-col md:flex-row justify-between items-start gap-[48px] max-w-7xl mx-auto">
         <div className="flex flex-col gap-[12px] md:w-1/3">
           <div className="text-[1.5rem] font-bold text-background flex items-center gap-[12px]">
             <span className="material-symbols-outlined text-background text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>cloud</span>

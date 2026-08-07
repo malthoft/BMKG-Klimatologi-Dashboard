@@ -41,7 +41,7 @@ export function AnimatedContainer({
   animation = "fadeInUp",
   delay = 0,
   duration = 0.6,
-  once = false,
+  once = true,
   className = "",
   ...props
 }: AnimatedContainerProps) {
@@ -50,7 +50,7 @@ export function AnimatedContainer({
       variants={animations[animation]}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once, margin: "-50px" }}
+      viewport={{ once: true, amount: 0.1 }}
       transition={{ duration, delay, ease: [0.16, 1, 0.3, 1] }}
       className={className}
       {...props}

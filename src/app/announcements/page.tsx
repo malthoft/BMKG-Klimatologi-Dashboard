@@ -64,7 +64,7 @@ export default function AnnouncementsPage() {
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] flex flex-col gap-[32px]">
         {/* Page Header */}
         <section className="flex flex-col gap-[8px] max-w-3xl">
-          <AnimatedContainer animation="slideInLeft" once={false}>
+          <AnimatedContainer animation="slideInLeft" once={true}>
             <H1 className="leading-[1.1] text-text-primary">Pengumuman &amp; Berita</H1>
             <Body className="text-text-secondary mt-2">
               Tetap terinformasi dengan pembaruan terbaru, peringatan dini, dan kegiatan dari BMKG Malang.
@@ -116,7 +116,7 @@ export default function AnnouncementsPage() {
           {!loading && filtered.length === 0 && <div className="col-span-full py-12 text-center text-text-secondary">Tidak ada pengumuman yang sesuai.</div>}
           
           {filtered.map((ann, idx) => (
-            <AnimatedContainer key={ann.id} animation="fadeInUp" delay={0.1 * (idx % 3)} once={false}>
+            <AnimatedContainer key={ann.id} animation="fadeInUp" delay={0.1 * (idx % 3)} once={true}>
               {ann.category === 'instagram' ? (
                 /* Type B: Instagram Card */
                 <article className="bg-surface border border-border rounded-[16px] overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow group h-full relative min-h-[350px]">

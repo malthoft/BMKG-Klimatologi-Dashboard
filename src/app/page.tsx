@@ -63,8 +63,8 @@ export default function Home() {
 
   // --- Realtime Data States ---
   const [stations, setStations] = useState<any[]>([]);
-  const [selectedStation, setSelectedStation] = useState<string>("");
-  const [stationName, setStationName] = useState<string>("Memuat...");
+  const [selectedStation, setSelectedStation] = useState<string>("aws_malang");
+  const [stationName, setStationName] = useState<string>("AWS Malang");
   const [latestData, setLatestData] = useState<any>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,11 +78,18 @@ export default function Home() {
         if (!sts || sts.length === 0) {
           sts = FALLBACK_STATIONS;
         }
+        sts = sts.filter((st: any) => st.table_name !== "aws_tanggul");
         setStations(sts);
         
         if (sts && sts.length > 0) {
-          setSelectedStation(sts[0].table_name);
-          setStationName(sts[0].station_name);
+          const malang = sts.find((s: any) => s.table_name === "aws_malang");
+          if (malang) {
+            setSelectedStation("aws_malang");
+            setStationName(malang.station_name);
+          } else {
+            setSelectedStation(sts[0].table_name);
+            setStationName(sts[0].station_name);
+          }
         }
       } catch (e) {
         console.error("Error loading stations", e);
@@ -214,7 +221,7 @@ export default function Home() {
         {/* 1. CUACA TERKINI — Clean Modern Blue Gradient Card */}
         {/* ═══════════════════════════════════════════════════ */}
         <section id="cuaca-realtime" className="max-w-7xl mx-auto px-6 md:px-8 pt-6 pb-2 w-full scroll-mt-[80px]">
-          <AnimatedContainer animation="fadeInUp" once={false} className="w-full">
+          <AnimatedContainer animation="fadeInUp" once={true} className="w-full">
             <div className="bg-gradient-to-r from-[#b2cbf2] via-[#c2d6f6] to-[#e2ebf8] text-slate-900 rounded-3xl p-6 md:p-8 shadow-lg border border-white/80 relative w-full overflow-visible">
               {/* Ambient Glow */}
               <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
@@ -360,13 +367,13 @@ export default function Home() {
               Portal Informasi Cuaca &amp; Iklim Jawa Timur
             </h1>
 
-            <AnimatedContainer animation="fadeInUp" delay={0.15} once={false} className="w-full">
+            <AnimatedContainer animation="fadeInUp" delay={0.15} once={true} className="w-full">
               <p className="text-text-secondary text-[1.05rem] md:text-[1.15rem] leading-relaxed w-full">
                 Menyediakan data cuaca dan iklim terpercaya, akurat, dan up-to-date untuk masyarakat Malang Raya dan sekitarnya. Pantau kondisi lingkungan Anda setiap saat.
               </p>
             </AnimatedContainer>
 
-            <AnimatedContainer animation="fadeInUp" delay={0.25} once={false} className="w-full">
+            <AnimatedContainer animation="fadeInUp" delay={0.25} once={true} className="w-full">
               <div className="flex flex-wrap gap-3 mt-2">
                 <Link href="/realtime-data">
                   <button className="bg-primary text-white hover:bg-secondary px-6 py-3 rounded-lg font-semibold text-[1rem] transition-colors inline-flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
@@ -383,7 +390,7 @@ export default function Home() {
             </AnimatedContainer>
           </div>
           
-          <AnimatedContainer animation="slideInRight" delay={0.3} once={false} className="w-full lg:w-auto flex justify-center lg:justify-end">
+          <AnimatedContainer animation="slideInRight" delay={0.3} once={true} className="w-full lg:w-auto flex justify-center lg:justify-end">
              <HeroFeatureCards />
           </AnimatedContainer>
         </section>
@@ -392,7 +399,7 @@ export default function Home() {
         {/* 3. AWS STATION GRID */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 md:pb-16 w-full">
-          <AnimatedContainer animation="fadeInUp" delay={0.1} once={false} className="w-full">
+          <AnimatedContainer animation="fadeInUp" delay={0.1} once={true} className="w-full">
             <StationSlider onStationSelect={handleStationSelect} />
           </AnimatedContainer>
         </section>
@@ -402,7 +409,7 @@ export default function Home() {
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/40 py-12 md:py-16 border-t border-b border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
-            <AnimatedContainer animation="fadeInUp" once={false} className="mb-10 w-full">
+            <AnimatedContainer animation="fadeInUp" once={true} className="mb-10 w-full">
               <div className="text-center w-full max-w-[650px] mx-auto">
                 <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-2 block whitespace-nowrap">
                   Akses Informasi Praktis
@@ -449,7 +456,7 @@ export default function Home() {
                   cta: "Baca Berita",
                 },
               ].map((svc, idx) => (
-                <AnimatedContainer key={svc.href} animation="fadeInUp" delay={0.1 * idx} once={false} className="w-full">
+                <AnimatedContainer key={svc.href} animation="fadeInUp" delay={0.1 * idx} once={true} className="w-full">
                   <Link href={svc.href} className="block h-full w-full">
                     <Card className="h-full flex flex-row items-start gap-5 group cursor-pointer hover:border-primary/50 transition-all duration-300 hover:shadow-lg w-full">
                       <div className="w-14 h-14 bg-tertiary rounded-xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
@@ -492,7 +499,7 @@ export default function Home() {
               <div className="py-10 text-center text-text-secondary">Memuat pengumuman...</div>
             ) : (
               announcements.map((ann, idx) => (
-                <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={false} className="w-full">
+                <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full">
                   <Link href="/announcements" className="block w-full">
                     <div className={`bg-surface border border-border/70 hover:border-primary/40 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-5 hover:shadow-lg transition-all cursor-pointer group border-l-4 ${getCategoryAccent(ann.category)} w-full`}>
                       <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center shrink-0">
@@ -528,7 +535,7 @@ export default function Home() {
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
-            <AnimatedContainer animation="fadeInUp" once={false} className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
+            <AnimatedContainer animation="fadeInUp" once={true} className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
               <div>
                 <h2 className="text-[1.5rem] font-bold text-text-primary flex items-center gap-3">
                   <span className="material-symbols-outlined text-primary text-[28px]">photo_camera</span>
@@ -554,7 +561,7 @@ export default function Home() {
                 "https://lh3.googleusercontent.com/aida-public/AB6AXuB8O3CFQkxw6oXSvVy8OB3ifIp10xLRDbsZkER7D3N-yZIF_EpnEuU2MfT0cFnF1gYhVs5at1a4BwYnnIJn1xZvV0eykd4MKzzlPJiANr1UMTV1qJbnE3JGUtZYRLzNHIcTqindw7gVlrLrQG3nenM_Y47T2kB8mHeyGx-hpfgh6zWedPSK1FjmEdvjWVUhZ_VqOxwuInZAcGf_4gHjV5l7mc0PommD3B2CzOq7Dt-fAsO4KlQh47QeY-neyPQRglyQX0pGtDlKcl4",
                 "https://lh3.googleusercontent.com/aida-public/AB6AXuAZYSwKCAYFrlQl0bLneconT-K1mTmNpk0iW2zBCN9eje1bPFp1Qyn-8hpgspuxWY4IO5ZTHiWZCaEArr9ZNSk6Hkr2EEhuXqHXM0e4zPTznzTkyU1L05ngBB6MMFWMHVQFkCQ9-D2DhYzQeNfJY7O_NnqgMB-PrPerppcfS0HlWJiNCenIXJI_olYZ7YaPCgPlxuzOqyGlMwUkg0loSfCSF6w06TglFKefpJkqukV6l84h-yAB4V0BD8kSekSAlj7DlxRH95mc2vQ",
               ].map((src, idx) => (
-                <AnimatedContainer key={idx} animation="scaleIn" delay={0.08 * idx} once={false} className="w-full">
+                <AnimatedContainer key={idx} animation="scaleIn" delay={0.08 * idx} once={true} className="w-full">
                   <div className="aspect-square bg-surface rounded-2xl overflow-hidden relative group shadow-sm border border-border/70 w-full">
                     <img
                       alt={`Galeri BMKG ${idx + 1}`}

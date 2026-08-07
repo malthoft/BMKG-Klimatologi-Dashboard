@@ -15,17 +15,17 @@ export default function Profile() {
         {/* Hero Section */}
         <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
           <div className="space-y-[16px]">
-            <AnimatedContainer animation="slideInLeft" once={false}>
+            <AnimatedContainer animation="slideInLeft" once={true}>
               <H1 className="leading-[1.1] text-text-primary">
                 Stasiun Klimatologi Jawa Timur
               </H1>
             </AnimatedContainer>
-            <AnimatedContainer animation="slideInLeft" delay={0.1} once={false}>
+            <AnimatedContainer animation="slideInLeft" delay={0.1} once={true}>
               <Body className="text-text-secondary mt-[8px]">
                 Sebagai Unit Pelaksana Teknis (UPT) di lingkungan Badan Meteorologi, Klimatologi, dan Geofisika, Stasiun Klimatologi Jawa Timur di Karangploso, Malang, memiliki peran krusial dalam melaksanakan pengamatan, pengelolaan data, pelayanan informasi, serta pemeliharaan alat-alat meteorologi dan klimatologi. Kami berdedikasi untuk menyediakan informasi cuaca dan iklim yang akurat dan terpercaya demi keselamatan dan kesejahteraan masyarakat.
               </Body>
             </AnimatedContainer>
-            <AnimatedContainer animation="slideInLeft" delay={0.2} once={false}>
+            <AnimatedContainer animation="slideInLeft" delay={0.2} once={true}>
               <button className="inline-flex items-center gap-[8px] bg-primary text-background px-[24px] py-[12px] rounded-lg font-medium hover:bg-secondary transition-colors mt-[16px]">
                 <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
                 Visi &amp; Misi
@@ -33,7 +33,7 @@ export default function Profile() {
             </AnimatedContainer>
           </div>
           
-          <AnimatedContainer animation="scaleIn" delay={0.3} once={false} className="h-full">
+          <AnimatedContainer animation="scaleIn" delay={0.3} once={true} className="h-full">
             <div className="rounded-[12px] overflow-hidden shadow-sm border border-border h-full">
               <img 
                 alt="Gedung BMKG" 
@@ -46,14 +46,14 @@ export default function Profile() {
 
         {/* Facilities Grid */}
         <section className="max-w-7xl mx-auto px-4 md:px-[32px] py-[64px]">
-          <AnimatedContainer animation="fadeInDown" once={false}>
+          <AnimatedContainer animation="fadeInDown" once={true}>
             <H2 className="mb-[32px] text-center md:text-left">Tim &amp; Fasilitas</H2>
           </AnimatedContainer>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-[16px] auto-rows-fr">
             {/* Card 1 (Large, spans 2 cols on md) */}
             <div className="md:col-span-2">
-              <AnimatedContainer animation="fadeInUp" delay={0.1} once={false} className="h-full">
+              <AnimatedContainer animation="fadeInUp" delay={0.1} once={true} className="h-full">
                 <article className="rounded-[12px] overflow-hidden relative group min-h-[300px] h-full shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-border">
                   <div className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBDRiEhbee-9BQaY2cwM4B0jdKiuDK0zqGKvY1s74Sq7Ygwb-kgruAjWdZZDw7VCwIvIKGc3Msz-Z8ifm1d6VNaFUAcMocKbvSCzshNe7puFPVHYui-fCY5CGpDo_WNw0_XNxCH40NAM1hhvNz1Y_DtKIk_gK26FvmWO-NwHk_0aK16zOO-RDXuySIoeVsYXrlKTuAjSwYxxHF243oj9YKZQ3Inxxg6xOu3D-7BHCVAm-tBoQH5DVnVL3CjeWWL_GAM6HJcvS_5PJ4')" }}></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
@@ -68,7 +68,7 @@ export default function Profile() {
             </div>
 
             {/* Card 2 */}
-            <AnimatedContainer animation="fadeInUp" delay={0.2} once={false} className="h-full">
+            <AnimatedContainer animation="fadeInUp" delay={0.2} once={true} className="h-full">
               <Card className="h-full flex flex-col justify-center items-start gap-[16px] hover:bg-surface-container-low transition-colors group cursor-default">
                 <div className="bg-primary/10 text-primary p-3 rounded-full inline-flex transition-transform group-hover:scale-110">
                   <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>engineering</span>
@@ -83,7 +83,7 @@ export default function Profile() {
             </AnimatedContainer>
 
             {/* Card 3 */}
-            <AnimatedContainer animation="fadeInUp" delay={0.3} once={false} className="h-full">
+            <AnimatedContainer animation="fadeInUp" delay={0.3} once={true} className="h-full">
               <Card className="h-full flex flex-col justify-center items-start gap-[16px] hover:bg-surface-container-low transition-colors group cursor-default">
                 <div className="bg-secondary/10 text-secondary p-3 rounded-full inline-flex transition-transform group-hover:scale-110">
                   <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>sensors</span>
@@ -99,7 +99,7 @@ export default function Profile() {
 
             {/* Card 4 (Spans 2 cols on md) */}
             <div className="md:col-span-2">
-              <AnimatedContainer animation="fadeInUp" delay={0.4} once={false} className="h-full">
+              <AnimatedContainer animation="fadeInUp" delay={0.4} once={true} className="h-full">
                 <article className="rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-border bg-surface flex flex-col md:flex-row group h-full">
                   <div className="md:w-1/2 min-h-[250px] relative overflow-hidden">
                     <img 
@@ -124,7 +124,7 @@ export default function Profile() {
         <section className="bg-surface-container-low py-[64px] border-t border-border">
           <div className="max-w-7xl mx-auto px-4 md:px-[32px] grid grid-cols-1 md:grid-cols-2 gap-[64px] items-center">
             <div className="space-y-[24px]">
-              <AnimatedContainer animation="slideInLeft" once={false}>
+              <AnimatedContainer animation="slideInLeft" once={true}>
                 <H1 className="leading-[1.1] text-text-primary">Hubungi Kami</H1>
                 <Body className="text-text-secondary mt-[8px]">
                   Kami siap membantu menyediakan layanan informasi dan data iklim yang Anda butuhkan.
@@ -132,7 +132,7 @@ export default function Profile() {
               </AnimatedContainer>
               
               <address className="not-italic space-y-[16px] text-text-primary">
-                <AnimatedContainer animation="fadeInUp" delay={0.1} once={false}>
+                <AnimatedContainer animation="fadeInUp" delay={0.1} once={true}>
                   <div className="flex items-start gap-[16px] p-[16px] bg-surface rounded-lg shadow-sm border border-border group hover:border-primary transition-colors cursor-default">
                     <span className="material-symbols-outlined text-primary mt-1 group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>location_on</span>
                     <div>
@@ -144,7 +144,7 @@ export default function Profile() {
                   </div>
                 </AnimatedContainer>
 
-                <AnimatedContainer animation="fadeInUp" delay={0.2} once={false}>
+                <AnimatedContainer animation="fadeInUp" delay={0.2} once={true}>
                   <div className="flex items-center gap-[16px] p-[16px] bg-surface rounded-lg shadow-sm border border-border group hover:border-primary transition-colors cursor-default">
                     <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>phone</span>
                     <div>
@@ -154,7 +154,7 @@ export default function Profile() {
                   </div>
                 </AnimatedContainer>
 
-                <AnimatedContainer animation="fadeInUp" delay={0.3} once={false}>
+                <AnimatedContainer animation="fadeInUp" delay={0.3} once={true}>
                   <div className="flex items-center gap-[16px] p-[16px] bg-surface rounded-lg shadow-sm border border-border group hover:border-primary transition-colors cursor-default">
                     <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>mail</span>
                     <div>
@@ -166,7 +166,7 @@ export default function Profile() {
               </address>
             </div>
             
-            <AnimatedContainer animation="scaleIn" delay={0.4} once={false} className="h-full min-h-[300px] md:min-h-[400px]">
+            <AnimatedContainer animation="scaleIn" delay={0.4} once={true} className="h-full min-h-[300px] md:min-h-[400px]">
               <div className="w-full h-full rounded-[12px] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-border bg-border flex items-center justify-center relative">
                 <img 
                   alt="Peta Lokasi BMKG Malang" 

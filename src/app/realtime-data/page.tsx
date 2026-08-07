@@ -153,7 +153,7 @@ export default function PengamatanHarian() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
           
           <div className="max-w-7xl mx-auto px-6 md:px-8 relative z-10">
-            <AnimatedContainer animation="fadeInUp" once={false}>
+            <AnimatedContainer animation="fadeInUp" once={true}>
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 w-full">
                 <div className="w-full md:max-w-[700px]">
                   <span className="inline-block bg-white/20 text-white border border-white/30 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wider mb-4 shadow-sm backdrop-blur-sm">
@@ -198,7 +198,7 @@ export default function PengamatanHarian() {
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                 {getMetricCards(dailyData).map((card, idx) => (
-                  <AnimatedContainer key={idx} animation="fadeInUp" delay={0.1 * idx} once={false}>
+                  <AnimatedContainer key={idx} animation="fadeInUp" delay={0.1 * idx} once={true}>
                     <Card className="h-full border border-border/70 hover:border-primary/40 shadow-sm hover:shadow-lg transition-all duration-300 p-5 rounded-2xl bg-surface group flex flex-col justify-between">
                       <div className="flex items-start justify-between mb-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${card.bg} ${card.color} group-hover:scale-110 transition-transform duration-300`}>
@@ -226,7 +226,7 @@ export default function PengamatanHarian() {
               </div>
 
               {/* Summary Banner */}
-              <AnimatedContainer animation="fadeInUp" delay={0.2} once={false}>
+              <AnimatedContainer animation="fadeInUp" delay={0.2} once={true}>
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5 md:p-6 shadow-sm flex items-start gap-4">
                   <div className="bg-white rounded-full p-2 shadow-sm shrink-0">
                     <span className="material-symbols-outlined text-primary text-[28px]">info</span>
@@ -243,7 +243,7 @@ export default function PengamatanHarian() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
                   
                   {/* Chart 1: Suhu vs Kelembaban */}
-                  <AnimatedContainer animation="slideInLeft" once={false}>
+                  <AnimatedContainer animation="slideInLeft" once={true}>
                     <Card className="p-5 md:p-6 shadow-md border-border rounded-2xl">
                       <h3 className="text-lg font-bold text-text-primary mb-1">Grafik Suhu & Kelembaban</h3>
                       <p className="text-sm text-text-secondary mb-6">Periode Pengamatan: 07:00 - 22:00 WIB</p>
@@ -276,7 +276,7 @@ export default function PengamatanHarian() {
                   </AnimatedContainer>
 
                   {/* Chart 2: Tekanan vs Angin */}
-                  <AnimatedContainer animation="slideInRight" once={false}>
+                  <AnimatedContainer animation="slideInRight" once={true}>
                     <Card className="p-5 md:p-6 shadow-md border-border rounded-2xl">
                       <h3 className="text-lg font-bold text-text-primary mb-1">Grafik Tekanan & Kecepatan Angin</h3>
                       <p className="text-sm text-text-secondary mb-6">Periode Pengamatan: 07:00 - 22:00 WIB</p>

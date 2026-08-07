@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
+import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
+import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("stations");
@@ -12,9 +14,15 @@ export default function AdminPage() {
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
 
+  // --- Climate CSV Admin States ---
+  const [csvText, setCsvText] = useState("");
+  const [climatePreview, setClimatePreview] = useState<ClimateParsedResult | null>(null);
+  const [csvMessage, setCsvMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   useEffect(() => {
     loadStations();
     loadAnnouncements();
+    loadClimateData();
   }, []);
 
   const loadStations = async () => {
@@ -28,6 +36,100 @@ export default function AdminPage() {
   const loadAnnouncements = async () => {
     const anns = await supabaseFetch("announcements", "order=published_at.desc");
     setAnnouncements(anns || []);
+  };
+
+  const loadClimateData = async () => {
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("climate_csv_data") : null;
+      if (stored) {
+        setCsvText(stored);
+        const parsed = parseCSVText(stored);
+        setClimatePreview(parsed);
+        return;
+      }
+      // Fallback
+      const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
+      if (res.ok) {
+        const text = await res.text();
+        setCsvText(text);
+        const parsed = parseCSVText(text);
+        setClimatePreview(parsed);
+      }
+    } catch (e) {
+      console.error("Gagal memuat data iklim di admin", e);
+    }
+  };
+
+  const handleFileUpload = (evt: React.ChangeEvent<HTMLInputElement>) => {
+    const file = evt.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        setCsvText(text);
+        processCSV(text);
+      }
+    };
+    reader.readAsText(file);
+    evt.target.value = "";
+  };
+
+  const processCSV = (textToProcess: string) => {
+    setCsvMessage(null);
+    try {
+      const parsed = parseCSVText(textToProcess);
+      setClimatePreview(parsed);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("climate_csv_data", textToProcess);
+      }
+      setCsvMessage({
+        type: "success",
+        text: `Berhasil memproses dan mempublikasikan data! Terdeteksi ${Object.keys(parsed.regionsData).length} lokasi/kabupaten periode ${parsed.years[0]} - ${parsed.years[parsed.years.length - 1]}.`,
+      });
+    } catch (err: any) {
+      setCsvMessage({
+        type: "error",
+        text: err.message || "Gagal memproses file CSV.",
+      });
+    }
+  };
+
+  const handleClearCSV = () => {
+    if (confirm("Apakah Anda yakin ingin mengosongkan semua data CSV iklim?")) {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("climate_csv_data");
+      }
+      setCsvText("");
+      setClimatePreview(null);
+      setCsvMessage({
+        type: "success",
+        text: "Data CSV iklim berhasil dikosongkan.",
+      });
+    }
+  };
+
+  const handleResetDefaultCSV = async () => {
+    if (confirm("Apakah Anda yakin ingin mengembalikan data ke dataset default (38 Kabupaten/Kota)?")) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("climate_csv_data");
+        }
+        const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
+        if (res.ok) {
+          const text = await res.text();
+          setCsvText(text);
+          const parsed = parseCSVText(text);
+          setClimatePreview(parsed);
+          setCsvMessage({
+            type: "success",
+            text: "Data iklim berhasil dikembalikan ke dataset sampel 38 Kabupaten/Kota bawaan.",
+          });
+        }
+      } catch (e) {
+        alert("Gagal mereset CSV default.");
+      }
+    }
   };
 
   const handleAddStation = async (e: React.FormEvent) => {
@@ -103,10 +205,6 @@ export default function AdminPage() {
           <p className="text-[14px] text-secondary mt-1">BMKG Malang</p>
         </div>
         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          <a className="flex items-center gap-4 px-4 py-2 rounded-lg text-secondary hover:bg-surface-container-low hover:text-primary transition-colors cursor-pointer">
-            <span className="material-symbols-outlined">dashboard</span>
-            <span className="text-[14px] font-medium">Dashboard</span>
-          </a>
           <a 
             onClick={() => setActiveTab('stations')}
             className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'stations' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
@@ -121,9 +219,12 @@ export default function AdminPage() {
             <span className="material-symbols-outlined">campaign</span>
             <span className="text-[14px] font-medium">Announcements</span>
           </a>
-          <a className="flex items-center gap-4 px-4 py-2 rounded-lg text-secondary hover:bg-surface-container-low hover:text-primary transition-colors cursor-pointer">
-            <span className="material-symbols-outlined">settings</span>
-            <span className="text-[14px] font-medium">Settings</span>
+          <a 
+            onClick={() => setActiveTab('climate')}
+            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'climate' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+          >
+            <span className="material-symbols-outlined">thermostat</span>
+            <span className="text-[14px] font-medium">Visualisasi Iklim (CSV)</span>
           </a>
         </nav>
       </aside>
@@ -137,7 +238,9 @@ export default function AdminPage() {
           </div>
           <div className="hidden md:block">
             <h2 className="text-[28px] font-semibold text-text-primary">
-              {activeTab === 'stations' ? 'Manage Stations (AWS)' : 'Announcements'}
+              {activeTab === 'stations' && 'Manage Stations (AWS)'}
+              {activeTab === 'announcements' && 'Announcements'}
+              {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
             </h2>
           </div>
           <div className="flex items-center gap-6">
@@ -248,37 +351,25 @@ export default function AdminPage() {
                     <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text"/>
                   </div>
                   <div>
-                    <label className="block text-[14px] mb-1">Konten / Deskripsi</label>
-                    <textarea required value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm h-24" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[14px] mb-1">Kategori</label>
-                      <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm">
-                        <option value="info">Info</option>
-                        <option value="peringatan_dini">Peringatan Dini</option>
-                        <option value="kegiatan">Kegiatan</option>
-                        <option value="buletin">Buletin</option>
-                        <option value="instagram">Instagram</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[14px] mb-1">Prioritas</label>
-                      <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm">
-                        <option value="normal">Normal</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
+                    <label className="block text-[14px] mb-1">Kategori</label>
+                    <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="info">Informasi Umum</option>
+                      <option value="peringatan_dini">Peringatan Dini</option>
+                      <option value="kegiatan">Kegiatan BMKG</option>
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-[14px] mb-1">Image URL (Optional)</label>
-                    <input value={newAnnouncement.image_url} onChange={e => setNewAnnouncement({...newAnnouncement, image_url: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text"/>
+                    <label className="block text-[14px] mb-1">Prioritas</label>
+                    <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="normal">Normal</option>
+                      <option value="tinggi">Tinggi (Merah)</option>
+                    </select>
                   </div>
-                  <div className="flex items-center gap-2 mt-4">
-                    <input type="checkbox" id="featured" checked={newAnnouncement.is_featured} onChange={e => setNewAnnouncement({...newAnnouncement, is_featured: e.target.checked})} />
-                    <label htmlFor="featured" className="text-sm">Jadikan Hero / Featured</label>
+                  <div>
+                    <label className="block text-[14px] mb-1">Isi Konten</label>
+                    <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm"/>
                   </div>
-                  <div className="pt-4">
+                  <div className="pt-2 mt-auto">
                     <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Publikasikan</button>
                   </div>
                 </form>
@@ -287,24 +378,136 @@ export default function AdminPage() {
               {/* Daftar Pengumuman */}
               <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
                 <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Pengumuman</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {announcements.map(ann => (
-                    <div key={ann.id} className="border border-border rounded-lg p-4 relative group">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ann.priority === 'high' ? 'bg-error/10 text-error' : 'bg-primary/10 text-primary'}`}>
-                          {ann.category}
-                        </span>
-                        <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-error opacity-0 group-hover:opacity-100"><span className="material-symbols-outlined text-sm">delete</span></button>
+                    <div key={ann.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-primary tracking-wider">{ann.category}</span>
+                        <h4 className="font-bold text-text-primary text-base mt-1">{ann.title}</h4>
+                        <p className="text-xs text-text-secondary line-clamp-2 mt-1">{ann.content}</p>
                       </div>
-                      <h4 className="font-bold text-on-surface mb-1">{ann.title}</h4>
-                      <p className="text-sm text-secondary line-clamp-2">{ann.content}</p>
+                      <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
                     </div>
                   ))}
-                  {announcements.length === 0 && <p className="text-secondary col-span-2 text-center py-8">Belum ada pengumuman.</p>}
+                  {announcements.length === 0 && <p className="text-sm text-text-secondary">Belum ada pengumuman.</p>}
                 </div>
               </div>
             </section>
           )}
+
+          {activeTab === 'climate' && (
+            <section className="space-y-8">
+              {/* CSV Upload & Management Panel */}
+              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
+                  <div>
+                    <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Warming Stripes</h3>
+                    <p className="text-sm text-secondary mt-1">
+                      Unggah berkas CSV baru atau masukan teks CSV. Sistem akan otomatis mendeteksi kolom tahun dan wilayah, kemudian mempublikasikan ke halaman Perubahan Iklim publik.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResetDefaultCSV}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
+                      <span>Reset ke Data Default (38 Kabupaten)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearCSV}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">delete_sweep</span>
+                      <span>Kosongkan Data</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* File Dropzone & Text Area */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* File Dropzone */}
+                  <div
+                    onClick={() => document.getElementById("adminCsvInput")?.click()}
+                    className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
+                  >
+                    <input
+                      type="file"
+                      id="adminCsvInput"
+                      accept=".csv"
+                      style={{ display: "none" }}
+                      onChange={handleFileUpload}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <span className="material-symbols-outlined text-3xl">upload_file</span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
+                      <p className="text-xs text-text-secondary mt-1">Format .csv dengan kolom Waktu (Tahun) dan Kolom Wilayah</p>
+                    </div>
+                  </div>
+
+                  {/* Manual CSV Textarea */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                      Atau Tempelkan (Paste) Teks Raw CSV:
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={csvText}
+                      onChange={(e) => setCsvText(e.target.value)}
+                      placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,-0.338,-0.834&#10;..."
+                      className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => processCSV(csvText)}
+                      className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
+                    >
+                      <span className="material-symbols-outlined text-base">publish</span>
+                      Proses &amp; Publikasikan Data CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Message Alert */}
+                {csvMessage && (
+                  <div
+                    className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-3 ${
+                      csvMessage.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-red-50 text-red-800 border border-red-200"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-lg">
+                      {csvMessage.type === "success" ? "check_circle" : "error"}
+                    </span>
+                    <span>{csvMessage.text}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Live Preview Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-2xl">preview</span>
+                  <h3 className="text-[1.5rem] font-bold text-text-primary">Live Preview Tampilan Publik</h3>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Berikut adalah pratinjau langsung (*live preview*) dari grafik Warming Stripes dan kartu statistik yang akan dilihat oleh masyarakat umum pada halaman <code>/climate-change</code>.
+                </p>
+
+                <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
+                  <WarmingStripesViewer parsedData={climatePreview} />
+                </div>
+              </div>
+            </section>
+          )}
+
         </div>
       </main>
     </div>
