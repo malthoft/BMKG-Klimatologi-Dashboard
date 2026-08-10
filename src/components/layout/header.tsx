@@ -9,10 +9,30 @@ function TopBar() {
   const [wibTime, setWibTime] = useState({ hh: "--", mm: "--", ss: "--" });
   const [utcTime, setUtcTime] = useState({ hh: "--", mm: "--", ss: "--" });
   const [blink, setBlink] = useState(true);
+  const [isBmkgSynced, setIsBmkgSynced] = useState(false);
 
   useEffect(() => {
+    let deltaD = 0; // Difference in ms between BMKG Server and client Date.now()
+
+    const syncBmkgTime = async () => {
+      try {
+        const res = await fetch("/api/bmkg-time");
+        const data = await res.json();
+        if (data.success && data.timestamp) {
+          deltaD = data.timestamp - Date.now();
+          setIsBmkgSynced(true);
+        }
+      } catch (err) {
+        console.warn("Failed to sync with BMKG time server, falling back to local time:", err);
+      }
+    };
+
+    syncBmkgTime();
+
     const updateTime = () => {
-      const now = new Date();
+      // Calculate server-synced current Date
+      const syncedTimestamp = Date.now() + deltaD;
+      const now = new Date(syncedTimestamp);
 
       const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
       const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -24,15 +44,15 @@ function TopBar() {
       setDateStr(`${dayName}, ${date} ${monthName} ${year}`);
 
       setWibTime({
-        hh: String(now.getHours()).padStart(2, '0'),
-        mm: String(now.getMinutes()).padStart(2, '0'),
-        ss: String(now.getSeconds()).padStart(2, '0'),
+        hh: String(now.getHours()).padStart(2, "0"),
+        mm: String(now.getMinutes()).padStart(2, "0"),
+        ss: String(now.getSeconds()).padStart(2, "0"),
       });
 
       setUtcTime({
-        hh: String(now.getUTCHours()).padStart(2, '0'),
-        mm: String(now.getUTCMinutes()).padStart(2, '0'),
-        ss: String(now.getUTCSeconds()).padStart(2, '0'),
+        hh: String(now.getUTCHours()).padStart(2, "0"),
+        mm: String(now.getUTCMinutes()).padStart(2, "0"),
+        ss: String(now.getUTCSeconds()).padStart(2, "0"),
       });
 
       setBlink((prev) => !prev);
@@ -56,7 +76,7 @@ function TopBar() {
           <span className="tracking-wide text-text-primary font-semibold">{dateStr}</span>
         </div>
 
-        {/* Jam Digital WIB & UTC */}
+        {/* Jam Digital WIB & UTC (Synced to BMKG NTP Server) */}
         <div className="flex items-center gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-3.5 py-1 rounded-full border border-[#C5DCFA] shadow-2xs">
             <span className="material-symbols-outlined text-[16px] text-amber-500">schedule</span>
@@ -64,6 +84,9 @@ function TopBar() {
             <span className="font-mono font-bold text-primary tracking-wider">
               {wibTime.hh}<span className={colonClass}>:</span>{wibTime.mm}<span className={colonClass}>:</span>{wibTime.ss}
             </span>
+            {isBmkgSynced && (
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-1" title="Tersinkronisasi dengan Server Jam BMKG (time.bmkg.go.id)"></span>
+            )}
           </div>
 
           <div className="hidden md:flex items-center gap-1.5 bg-white/60 px-3 py-1 rounded-full border border-[#D6E5F5] text-text-secondary">
