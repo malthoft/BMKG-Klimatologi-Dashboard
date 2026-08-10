@@ -6,7 +6,6 @@ import { Footer } from "@/components/layout/footer";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedContainer } from "@/components/ui/animated-container";
-import { ScrollToTop } from "@/components/ui/scroll-to-top";
 import { supabaseFetch } from "@/lib/supabase";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -150,7 +149,7 @@ export default function PengamatanHarian() {
       <main className="flex-grow w-full bg-[#f8fafc]">
         
         {/* Banner Section */}
-        <section className="bg-primary text-white pt-24 md:pt-32 pb-16 md:pb-20 relative overflow-hidden">
+        <section className="bg-primary text-white pt-6 md:pt-8 pb-10 md:pb-12 relative overflow-hidden">
           {/* Ambient Glow */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
           
@@ -184,7 +183,7 @@ export default function PengamatanHarian() {
           </div>
         </section>
 
-        <section className="max-w-7xl mx-auto px-6 md:px-8 -mt-8 relative z-20 pb-16">
+        <section className="max-w-7xl mx-auto px-6 md:px-8 -mt-8 relative z-20 pb-8 md:pb-10">
           {loading ? (
             <div className="bg-surface rounded-2xl shadow-lg p-16 flex flex-col items-center justify-center">
               <span className="material-symbols-outlined animate-spin text-[48px] text-primary mb-4">progress_activity</span>
@@ -318,7 +317,6 @@ export default function PengamatanHarian() {
       </main>
 
       <Footer />
-      <ScrollToTop />
     </>
   );
 }

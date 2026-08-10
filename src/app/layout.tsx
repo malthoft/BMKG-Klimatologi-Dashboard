@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { WhatsappFab } from "@/components/ui/whatsapp-fab";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -8,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BMKG Malang Public Portal",
-  description: "Clean, accessible, and data-driven public weather portal for all generations.",
+  title: "Staklim Malang - Monitoring Cuaca",
+  description: "Portal monitoring data cuaca realtime Stasiun Klimatologi Malang",
 };
 
 export default function RootLayout({
@@ -28,7 +29,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <WhatsappFab />
+      </body>
     </html>
   );
 }

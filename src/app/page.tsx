@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedContainer } from "@/components/ui/animated-container";
 import { StationSlider } from "@/components/ui/station-slider";
-import { ScrollToTop } from "@/components/ui/scroll-to-top";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { supabaseFetch } from "@/lib/supabase";
@@ -21,36 +20,96 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
   return { text: "Cerah", icon: "sunny" };
 };
 
-const HeroFeatureCards = () => {
+const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
+  const e = (rh / 100) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
+  const apparentTemp = temp + 0.33 * e - 4.00;
+  const feelsLike = Math.round(apparentTemp);
+  
+  let statusText = "Nyaman";
+  let statusColor = "text-green-500";
+  let bgGradient = "from-green-500/20 to-emerald-500/5";
+  let icon = "mood";
+
+  if (feelsLike >= 32 && feelsLike < 39) {
+    statusText = "Cukup Gerah";
+    statusColor = "text-amber-500";
+    bgGradient = "from-amber-500/20 to-orange-500/5";
+    icon = "local_fire_department";
+  } else if (feelsLike >= 39) {
+    statusText = "Sangat Panas (Bahaya)";
+    statusColor = "text-red-500";
+    bgGradient = "from-red-500/20 to-rose-500/5";
+    icon = "warning";
+  } else if (feelsLike < 25) {
+    statusText = "Sejuk";
+    statusColor = "text-blue-500";
+    bgGradient = "from-blue-500/20 to-cyan-500/5";
+    icon = "ac_unit";
+  }
+
   return (
-    <div className="w-full max-w-[420px] flex flex-col gap-4 animate-fade-in shrink-0 mt-8 lg:mt-0">
-      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-          <span className="material-symbols-outlined text-[24px]">verified</span>
+    <div className="w-full max-w-[380px] flex flex-col gap-4 animate-fade-in shrink-0 mt-8 lg:mt-0">
+      <div className={`bg-white/90 backdrop-blur-xl rounded-[1.5rem] p-6 shadow-lg border-2 border-white/80 ring-1 ring-slate-100/50 relative group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:border-blue-100/60 hover:-translate-y-1 transition-all duration-500`}>
+        {/* Isolated Overflow Hidden wrapper for the blur effect */}
+        <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none">
+          <div className={`absolute -right-8 -top-8 w-48 h-48 bg-gradient-to-br ${bgGradient} rounded-full blur-[40px] group-hover:scale-125 transition-transform duration-700 opacity-80`}></div>
         </div>
-        <div>
-          <h3 className="font-bold text-text-primary text-[15px] mb-1">Akurasi Standar BMKG</h3>
-          <p className="text-sm text-text-secondary leading-snug">Data dikalibrasi dan divalidasi sesuai standar operasional resmi BMKG.</p>
-        </div>
-      </div>
+        
+        <div className="relative z-10 flex flex-col">
+          <div className="flex items-center justify-between mb-4 relative">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white shadow-sm border border-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
+              <span className="material-symbols-outlined text-[14px]">thermostat</span>
+              Suhu Terasa
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className={`material-symbols-outlined ${statusColor} text-[16px] animate-pulse`}>{icon}</span>
+                <span className={`font-bold text-[12px] ${statusColor}`}>{statusText}</span>
+              </div>
+              <div className="relative group/info ml-1 cursor-help">
+                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 transition-colors">
+                  <span className="material-symbols-outlined text-blue-500 text-[14px]">info</span>
+                </div>
+                
+                {/* Tooltip Content - Unrestricted by overflow */}
+                <div className="absolute right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 text-left pointer-events-none">
+                  <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
+                    Indikator Suhu Terasa
+                  </div>
+                  <ul className="flex flex-col gap-2 text-slate-600 font-medium mt-3">
+                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400"></span><span className="text-blue-500">Sejuk</span></span> <span className="font-mono text-slate-400">&lt; 25°C</span></li>
+                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400"></span><span className="text-green-500">Nyaman</span></span> <span className="font-mono text-slate-400">25 - 31.9°C</span></li>
+                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"></span><span className="text-amber-500">Gerah</span></span> <span className="font-mono text-slate-400">32 - 38.9°C</span></li>
+                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400"></span><span className="text-red-500">Bahaya</span></span> <span className="font-mono text-slate-400">&ge; 39°C</span></li>
+                  </ul>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 leading-relaxed font-normal">
+                    Suhu yang dirasakan tubuh akibat efek kelembaban.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center mb-5 mt-1 ml-1">
+            <div className="flex items-start gap-1">
+              <span className={`text-[4rem] leading-none font-black tracking-tighter ${statusColor} drop-shadow-sm`}>
+                {feelsLike || 0}
+              </span>
+              <span className={`text-[1.5rem] font-bold ${statusColor} mt-1.5`}>°C</span>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow ml-0 lg:ml-6">
-        <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center text-success shrink-0">
-          <span className="material-symbols-outlined text-[24px]">update</span>
-        </div>
-        <div>
-          <h3 className="font-bold text-text-primary text-[15px] mb-1">Update Otomatis</h3>
-          <p className="text-sm text-text-secondary leading-snug">Pemantauan kondisi cuaca secara realtime tanpa henti 24/7.</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-border flex items-start gap-4 hover:shadow-md transition-shadow ml-0 lg:ml-12">
-        <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-700 shrink-0">
-          <span className="material-symbols-outlined text-[24px]">database</span>
-        </div>
-        <div>
-          <h3 className="font-bold text-text-primary text-[15px] mb-1">Database Terintegrasi</h3>
-          <p className="text-sm text-text-secondary leading-snug">Arsip data observasi dan iklim historis yang aman di cloud.</p>
+          <div className="w-full bg-white rounded-2xl p-3.5 flex justify-between items-center border border-slate-100 shadow-sm">
+            <div className="flex flex-col items-center w-1/2 border-r border-slate-100">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Suhu Asli</span>
+              <span className="font-bold text-slate-700 text-lg flex items-center gap-0.5">{Math.round(temp) || 0}<span className="text-sm font-semibold text-slate-400">°C</span></span>
+            </div>
+            <div className="flex flex-col items-center w-1/2">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Kelembaban</span>
+              <span className="font-bold text-slate-700 text-lg flex items-center gap-0.5">{Math.round(rh) || 0}<span className="text-sm font-semibold text-slate-400">%</span></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -357,7 +416,7 @@ export default function Home() {
         {/* ═══════════════════════════════════════════════════ */}
         {/* 2. HERO WELCOME SECTION */}
         {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 py-10 md:py-14 w-full flex flex-col lg:flex-row items-center justify-between gap-10">
+        <section className="max-w-7xl mx-auto px-6 md:px-8 py-6 md:py-8 w-full flex flex-col lg:flex-row items-center justify-between gap-10">
           <div className="w-full lg:flex-1 flex flex-col gap-4">
             <div>
               <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wider whitespace-nowrap">
@@ -378,9 +437,9 @@ export default function Home() {
             <AnimatedContainer animation="fadeInUp" delay={0.25} once={true} className="w-full">
               <div className="flex flex-wrap gap-3 mt-2">
                 <Link href="/realtime-data">
-                  <button className="bg-primary text-white hover:bg-secondary px-6 py-3 rounded-lg font-semibold text-[1rem] transition-colors inline-flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
-                    Pantau Cuaca Realtime
-                    <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+                  <button className="bg-primary text-white hover:bg-secondary px-6 py-3 rounded-full font-semibold text-[1rem] transition-all hover:-translate-y-1 inline-flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
+                    Lihat Data Pengamatan
+                    <span className="material-symbols-outlined text-[20px]">explore</span>
                   </button>
                 </Link>
                 <Link href="/profile">
@@ -393,99 +452,26 @@ export default function Home() {
           </div>
           
           <AnimatedContainer animation="slideInRight" delay={0.3} once={true} className="w-full lg:w-auto flex justify-center lg:justify-end">
-             <HeroFeatureCards />
+             <HeatIndexCard temp={latestData?.temp ?? 0} rh={latestData?.rh ?? 0} />
           </AnimatedContainer>
         </section>
 
         {/* ═══════════════════════════════════════════════════ */}
         {/* 3. AWS STATION GRID */}
         {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 pb-12 md:pb-16 w-full">
+        <section className="max-w-7xl mx-auto px-6 md:px-8 pb-6 md:pb-8 w-full">
           <AnimatedContainer animation="fadeInUp" delay={0.1} once={true} className="w-full">
             <StationSlider onStationSelect={handleStationSelect} />
           </AnimatedContainer>
         </section>
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* 4. LAYANAN CEPAT — 2×2 grid */}
-        {/* ═══════════════════════════════════════════════════ */}
-        <section className="bg-tertiary/40 py-12 md:py-16 border-t border-b border-border w-full">
-          <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
-            <AnimatedContainer animation="fadeInUp" once={true} className="mb-10 w-full">
-              <div className="text-center w-full max-w-[650px] mx-auto">
-                <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-2 block whitespace-nowrap">
-                  Akses Informasi Praktis
-                </span>
-                <h2 className="text-[1.75rem] font-bold text-text-primary leading-tight w-full">Layanan Cepat Stasiun</h2>
-                <p className="text-text-secondary mt-2 text-[0.95rem] leading-relaxed w-full">
-                  Jelajahi berbagai fitur utama portal klimatologi untuk kebutuhan informasi cuaca, analisis tren, dan pengumuman resmi.
-                </p>
-              </div>
-            </AnimatedContainer>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-[850px] mx-auto w-full">
-              {[
-                {
-                  href: "#cuaca-realtime",
-                  icon: "sensors",
-                  subtitle: "23 Stasiun Aktif",
-                  title: "Cuaca Realtime",
-                  desc: "Pantau parameter suhu, kelembaban, dan curah hujan terkini dari seluruh jaringan AWS.",
-                  cta: "Lihat Pemantauan",
-                },
-                {
-                  href: "/realtime-data",
-                  icon: "analytics",
-                  subtitle: "Laporan Harian",
-                  title: "Data Pengamatan",
-                  desc: "Akses rangkuman data pengamatan cuaca harian dan informasi cuaca ekstrim.",
-                  cta: "Lihat Laporan",
-                },
-                {
-                  href: "/climate-change",
-                  icon: "thermostat",
-                  subtitle: "Analisis Tren",
-                  title: "Perubahan Iklim",
-                  desc: "Pantau proyeksi perubahan iklim jangka panjang dan tren suhu wilayah Jawa Timur.",
-                  cta: "Pelajari Lebih Lanjut",
-                },
-                {
-                  href: "/announcements",
-                  icon: "campaign",
-                  subtitle: "Update Terkini",
-                  title: "Pengumuman & Berita",
-                  desc: "Dapatkan peringatan dini cuaca, buletin klimatologi, dan agenda resmi stasiun.",
-                  cta: "Baca Berita",
-                },
-              ].map((svc, idx) => (
-                <AnimatedContainer key={svc.href} animation="fadeInUp" delay={0.1 * idx} once={true} className="w-full">
-                  <Link href={svc.href} className="block h-full w-full">
-                    <Card className="h-full flex flex-row items-start gap-5 group cursor-pointer hover:border-primary/50 transition-all duration-300 hover:shadow-lg w-full">
-                      <div className="w-14 h-14 bg-tertiary rounded-xl flex items-center justify-center text-primary shrink-0 group-hover:bg-primary group-hover:text-white transition-colors duration-300 shadow-sm">
-                        <span className="material-symbols-outlined text-[28px]">{svc.icon}</span>
-                      </div>
-                      <div className="flex flex-col gap-1 flex-1 min-w-0">
-                        <span className="text-[0.65rem] font-bold text-primary uppercase tracking-widest whitespace-nowrap">{svc.subtitle}</span>
-                        <h3 className="text-[1.1rem] font-bold text-text-primary group-hover:text-primary transition-colors leading-snug">{svc.title}</h3>
-                        <p className="text-text-secondary text-[0.85rem] leading-relaxed mt-0.5">{svc.desc}</p>
-                        <span className="text-[0.8rem] font-semibold text-primary flex items-center gap-1 mt-2 group-hover:translate-x-1 transition-transform whitespace-nowrap">
-                          {svc.cta}
-                          <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                        </span>
-                      </div>
-                    </Card>
-                  </Link>
-                </AnimatedContainer>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* ═══════════════════════════════════════════════════ */}
         {/* 5. PENGUMUMAN TERBARU — With color accent */}
         {/* ═══════════════════════════════════════════════════ */}
-        <section className="max-w-7xl mx-auto px-6 md:px-8 py-12 md:py-16 w-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 w-full">
+        <section className="max-w-7xl mx-auto px-6 md:px-8 py-6 md:py-8 w-full">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6 w-full">
             <div>
               <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-1 block whitespace-nowrap">Informasi &amp; Peringatan</span>
               <h2 className="text-[1.75rem] font-bold text-text-primary leading-tight">Pengumuman Terbaru</h2>
@@ -533,7 +519,7 @@ export default function Home() {
         </section>
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 6. GALERI BMKG — Updated IG link */}
+        {/* 6. INSTAGRAM BMKG */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
@@ -541,7 +527,7 @@ export default function Home() {
               <div>
                 <h2 className="text-[1.5rem] font-bold text-text-primary flex items-center gap-3">
                   <span className="material-symbols-outlined text-primary text-[28px]">photo_camera</span>
-                  Galeri BMKG Iklim Jawa Timur
+                  Instagram @bmkg.iklimjatim
                 </h2>
                 <p className="text-text-secondary text-[0.9rem] mt-1">Dokumentasi kegiatan operasional, edukasi, dan pengamatan iklim.</p>
               </div>
@@ -551,7 +537,7 @@ export default function Home() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <span>Kunjungi Instagram @bmkg.iklimjatim</span>
+                <span>Kunjungi Instagram</span>
                 <span className="material-symbols-outlined text-[16px]">open_in_new</span>
               </a>
             </AnimatedContainer>
@@ -564,18 +550,18 @@ export default function Home() {
                 "https://lh3.googleusercontent.com/aida-public/AB6AXuAZYSwKCAYFrlQl0bLneconT-K1mTmNpk0iW2zBCN9eje1bPFp1Qyn-8hpgspuxWY4IO5ZTHiWZCaEArr9ZNSk6Hkr2EEhuXqHXM0e4zPTznzTkyU1L05ngBB6MMFWMHVQFkCQ9-D2DhYzQeNfJY7O_NnqgMB-PrPerppcfS0HlWJiNCenIXJI_olYZ7YaPCgPlxuzOqyGlMwUkg0loSfCSF6w06TglFKefpJkqukV6l84h-yAB4V0BD8kSekSAlj7DlxRH95mc2vQ",
               ].map((src, idx) => (
                 <AnimatedContainer key={idx} animation="scaleIn" delay={0.08 * idx} once={true} className="w-full">
-                  <div className="aspect-square bg-surface rounded-2xl overflow-hidden relative group shadow-sm border border-border/70 w-full">
+                  <a href="https://www.instagram.com/bmkg.iklimjatim/" target="_blank" rel="noreferrer" className="block aspect-square bg-surface rounded-xl overflow-hidden relative group shadow-sm border border-border/70 w-full cursor-pointer">
                     <img
-                      alt={`Galeri BMKG ${idx + 1}`}
+                      alt={`Instagram Post ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       src={src}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                      <span className="text-white text-xs font-medium flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="material-symbols-outlined text-[16px]">visibility</span> Lihat foto
-                      </span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                      <div className="flex items-center gap-4 text-white text-sm font-medium">
+                        <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px]">open_in_new</span> Buka di IG</span>
+                      </div>
                     </div>
-                  </div>
+                  </a>
                 </AnimatedContainer>
               ))}
             </div>
@@ -584,7 +570,6 @@ export default function Home() {
       </main>
 
       <Footer />
-      <ScrollToTop />
     </>
   );
 }
