@@ -19,6 +19,8 @@ export default function AnnouncementsPage() {
       setLoading(false);
     }
     loadData();
+    const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
+    return () => clearInterval(interval);
   }, []);
 
   const featured = announcements.find(a => a.is_featured);

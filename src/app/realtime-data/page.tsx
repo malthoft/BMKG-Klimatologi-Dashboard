@@ -72,6 +72,8 @@ export default function PengamatanHarian() {
       }
     }
     fetchData();
+    const interval = setInterval(fetchData, 10 * 60 * 1000); // Refresh setiap 10 Menit
+    return () => clearInterval(interval);
   }, []);
 
   const getMetricCards = (data: DailyObservation) => [

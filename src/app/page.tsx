@@ -119,7 +119,7 @@ export default function Home() {
     }
     
     loadData();
-    const interval = setInterval(loadData, 5 * 60 * 1000);
+    const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
     return () => clearInterval(interval);
   }, [selectedStation, stations]);
 
@@ -162,6 +162,8 @@ export default function Home() {
 
   useEffect(() => {
     loadAnnouncements();
+    const interval = setInterval(loadAnnouncements, 10 * 60 * 1000); // Refresh setiap 10 Menit
+    return () => clearInterval(interval);
   }, [loadAnnouncements]);
 
   const weather = latestData 

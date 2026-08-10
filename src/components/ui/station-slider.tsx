@@ -96,6 +96,8 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
     }
 
     loadData();
+    const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
+    return () => clearInterval(interval);
   }, []);
 
   const goToPage = useCallback(
