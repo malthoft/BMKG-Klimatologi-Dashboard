@@ -37,3 +37,12 @@ body, html {
   overflow-x: hidden !important;
   width: 100%;
 }
+
+/* Utilitas untuk menyembunyikan scrollbar secara visual namun tetap bisa di-scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
