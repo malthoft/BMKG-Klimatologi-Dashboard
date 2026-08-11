@@ -30,8 +30,18 @@
   animation: float 4s ease-in-out infinite;
 }
 
-body {
+body, html {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-feature-settings: "tnum" on;
+  width: 100%;
+}
+
+/* Utilitas untuk menyembunyikan scrollbar secara visual namun tetap bisa di-scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

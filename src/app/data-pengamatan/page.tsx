@@ -145,7 +145,7 @@ export default function PengamatanHarian() {
 
   return (
     <>
-      <Header activeRoute="/realtime-data" />
+      <Header activeRoute="/data-pengamatan" />
       <main className="flex-grow w-full bg-[#f8fafc]">
         
         {/* Banner Section */}

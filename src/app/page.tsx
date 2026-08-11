@@ -387,7 +387,7 @@ export default function Home() {
                 </div>
 
                 {/* Right: Parameter Badges */}
-                <div className="flex flex-wrap xl:flex-nowrap justify-start xl:justify-end gap-2 md:gap-3 shrink-0 w-full xl:w-auto">
+                <div className="grid grid-cols-2 xl:flex xl:flex-nowrap justify-start xl:justify-end gap-2 md:gap-3 shrink-0 w-full xl:w-auto mt-2 xl:mt-0">
                   {[
                     { icon: "water_drop", label: "Kelembaban", value: latestData ? `${Math.round(latestData.rh)}%` : "--", color: "text-blue-700" },
                     { icon: "air", label: "Angin", value: latestData ? `${parseFloat((latestData.ws || 0).toFixed(1))} km/h` : "--", color: "text-teal-700" },
@@ -396,13 +396,13 @@ export default function Home() {
                   ].map((param) => (
                     <div
                       key={param.label}
-                      className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl px-4 py-3 md:py-4 flex flex-col items-start justify-center shadow-xs min-w-[130px] flex-1 xl:flex-none"
+                      className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl px-3 sm:px-4 py-3 md:py-4 flex flex-col items-start justify-center shadow-xs w-full xl:min-w-[130px]"
                     >
-                      <div className="flex items-center gap-1.5 mb-1.5 whitespace-nowrap w-full">
-                        <span className={`material-symbols-outlined text-[18px] shrink-0 ${param.color}`}>{param.icon}</span>
-                        <span className="text-[0.65rem] md:text-[0.7rem] text-slate-700 font-bold uppercase tracking-wider">{param.label}</span>
+                      <div className="flex items-center gap-1 sm:gap-1.5 mb-1.5 whitespace-nowrap w-full">
+                        <span className={`material-symbols-outlined text-[16px] sm:text-[18px] shrink-0 ${param.color}`}>{param.icon}</span>
+                        <span className="text-[0.6rem] sm:text-[0.65rem] md:text-[0.7rem] text-slate-700 font-bold uppercase tracking-wider">{param.label}</span>
                       </div>
-                      <span className="text-xl font-extrabold text-slate-900 tracking-tight w-full">{param.value}</span>
+                      <span className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight w-full">{param.value}</span>
                     </div>
                   ))}
                 </div>
@@ -436,13 +436,13 @@ export default function Home() {
 
             <AnimatedContainer animation="fadeInUp" delay={0.25} once={true} className="w-full">
               <div className="flex flex-wrap gap-3 mt-2">
-                <Link href="/realtime-data">
+                <Link href="/data-pengamatan">
                   <button className="bg-primary text-white hover:bg-secondary px-6 py-3 rounded-full font-semibold text-[1rem] transition-all hover:-translate-y-1 inline-flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer">
                     Lihat Data Pengamatan
                     <span className="material-symbols-outlined text-[20px]">explore</span>
                   </button>
                 </Link>
-                <Link href="/profile">
+                <Link href="/profil">
                   <button className="bg-transparent border border-border text-text-primary hover:bg-tertiary px-6 py-3 rounded-lg font-semibold text-[1rem] transition-colors inline-flex items-center gap-2 cursor-pointer">
                     Tentang Stasiun
                   </button>
@@ -476,7 +476,7 @@ export default function Home() {
               <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-1 block whitespace-nowrap">Informasi &amp; Peringatan</span>
               <h2 className="text-[1.75rem] font-bold text-text-primary leading-tight">Pengumuman Terbaru</h2>
             </div>
-            <Link href="/announcements" className="text-primary font-semibold hover:text-secondary flex items-center gap-1 text-sm group whitespace-nowrap">
+            <Link href="/pengumuman" className="text-primary font-semibold hover:text-secondary flex items-center gap-1 text-sm group whitespace-nowrap">
               Lihat Semua Pengumuman
               <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </Link>
@@ -488,7 +488,7 @@ export default function Home() {
             ) : (
               announcements.map((ann, idx) => (
                 <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full">
-                  <Link href="/announcements" className="block w-full">
+                  <Link href="/pengumuman" className="block w-full">
                     <div className={`bg-surface border border-border/70 hover:border-primary/40 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-5 hover:shadow-lg transition-all cursor-pointer group border-l-4 ${getCategoryAccent(ann.category)} w-full`}>
                       <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-primary text-[22px]">{getCategoryIcon(ann.category)}</span>

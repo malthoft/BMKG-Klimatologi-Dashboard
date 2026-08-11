@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { WhatsappFab } from "@/components/ui/whatsapp-fab";
@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   description: "Portal monitoring data cuaca realtime Stasiun Klimatologi Malang",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${inter.variable} font-sans h-full antialiased`}
+      className={`${inter.variable} font-sans antialiased`}
     >
       <head>
         <link
@@ -29,7 +36,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-screen flex flex-col overflow-x-clip">
         {children}
         <WhatsappFab />
       </body>

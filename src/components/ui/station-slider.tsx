@@ -313,7 +313,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
                 {inner}
               </div>
             ) : (
-              <Link key={idx} href={`/realtime-data?station=${card.station.table_name}`} className="h-full block">
+              <Link key={idx} href={`/data-pengamatan?station=${card.station.table_name}`} className="h-full block">
                 {inner}
               </Link>
             );

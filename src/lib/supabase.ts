@@ -141,3 +141,51 @@ export async function supabaseRpc(functionName: string, params: any = {}) {
     return null;
   }
 }
+
+// Storage API
+const SUPABASE_PROJECT_URL = SUPABASE_URL.replace("/rest/v1", "");
+
+export async function supabaseUploadFile(bucket: string, filePath: string, file: File) {
+  try {
+    const res = await fetch(`${SUPABASE_PROJECT_URL}/storage/v1/object/${bucket}/${filePath}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+      body: file,
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText);
+    }
+    
+    // Return the public URL
+    return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${filePath}`;
+  } catch (error) {
+    console.error(`Error uploading to bucket ${bucket}:`, error);
+    return null;
+  }
+}
+
+export async function supabaseDeleteFile(bucket: string, filePath: string) {
+  try {
+    const res = await fetch(`${SUPABASE_PROJECT_URL}/storage/v1/object/${bucket}/${filePath}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText);
+    }
+    return true;
+  } catch (error) {
+    console.error(`Error deleting from bucket ${bucket}:`, error);
+    return false;
+  }
+}
