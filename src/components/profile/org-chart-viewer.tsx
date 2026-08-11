@@ -54,37 +54,6 @@ const OrgBox = ({ member, roleIdFallback }: { member?: OrgMember, roleIdFallback
   );
 };
 
-const MobileOrgChart = ({ members, getMember }: { members: OrgMember[], getMember: (id: string) => OrgMember | undefined }) => {
-  return (
-    <div className="w-full flex flex-col md:hidden py-5 px-3 bg-slate-50/50 rounded-3xl border border-slate-100">
-      <div className="flex justify-center w-full relative z-10 mb-2">
-        <div className="w-[98%] max-w-[400px]">
-          <OrgBox member={getMember("kepala")} roleIdFallback="kepala" />
-        </div>
-      </div>
-      
-      <div className="relative w-full pt-6 z-0">
-        <div className="absolute left-1/2 top-0 w-[3px] h-[16px] bg-slate-300 -ml-[1.5px]" />
-        <div className="absolute right-1/2 top-[16px] w-[calc(50%-20px)] h-[3px] bg-slate-300" />
-        <div className="absolute left-[20px] top-[16px] bottom-[60px] w-[3px] bg-slate-300" />
-
-        {[
-          "kasubag",
-          "tim_1", "tim_2", "tim_3", "tim_4", "tim_5", "tim_6",
-          "fungsional_pmg", "fungsional_non_pmg"
-        ].map((role) => (
-          <div key={role} className="w-full flex justify-end relative mb-5">
-            <div className="absolute left-[20px] top-1/2 w-[24px] h-[3px] bg-slate-300 -mt-[1.5px]" />
-            <div className="w-[calc(100%-44px)]">
-              <OrgBox member={getMember(role)} roleIdFallback={role} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 export function OrgChartViewer() {
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +62,7 @@ export function OrgChartViewer() {
   const innerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [wrapperHeight, setWrapperHeight] = useState(1000);
+  const [wrapperWidth, setWrapperWidth] = useState(1750);
 
   useEffect(() => {
     async function fetchOrg() {
@@ -113,19 +83,19 @@ export function OrgChartViewer() {
     
     const observer = new ResizeObserver(() => {
       if (!outerRef.current || !innerRef.current) return;
-      if (outerRef.current.clientWidth === 0) return; // Hidden on mobile
       
       const containerWidth = outerRef.current.clientWidth;
+      if (containerWidth === 0) return;
       
-      // Ukuran 1750px untuk memberikan ukuran box raksasa dan jarak rapat
       const CANVAS_WIDTH = 1750; 
+      let rawScale = containerWidth / CANVAS_WIDTH;
+      const newScale = Math.max(rawScale, 0.65);
       
-      const newScale = containerWidth / CANVAS_WIDTH;
-      // Jangan paksa maksimum 1, karena scale up di layar sangat besar akan menguntungkan font size
       setScale(newScale);
       
       const innerHeight = innerRef.current.offsetHeight;
       setWrapperHeight(innerHeight * newScale);
+      setWrapperWidth(CANVAS_WIDTH * newScale);
     });
 
     observer.observe(outerRef.current);
@@ -133,6 +103,23 @@ export function OrgChartViewer() {
     
     return () => observer.disconnect();
   }, [loading, members]);
+
+  // Efek untuk menggeser otomatis ke tengah (Kepala UPT) saat pertama kali dimuat di mobile
+  useEffect(() => {
+    if (!outerRef.current || loading) return;
+    
+    const timeout = setTimeout(() => {
+      if (outerRef.current) {
+        const container = outerRef.current;
+        // Hanya geser ke tengah jika konten lebih lebar dari container (bisa di-scroll)
+        if (container.scrollWidth > container.clientWidth) {
+          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+        }
+      }
+    }, 150); // Jeda kecil untuk memastikan DOM telah me-render ukuran baru
+    
+    return () => clearTimeout(timeout);
+  }, [loading, scale]);
 
   const getMember = (role_id: string) => members.find(m => m.role_id === role_id);
 
@@ -151,18 +138,20 @@ export function OrgChartViewer() {
 
   return (
     <>
-      {/* Mobile Vertical Tree View (md:hidden) */}
-      <MobileOrgChart members={members} getMember={getMember} />
-
-      {/* Desktop Horizontal Canvas View */}
-      <div className="hidden md:block w-full overflow-hidden bg-slate-50/50 rounded-3xl border border-slate-100 p-6" ref={outerRef}>
-        <div className="relative w-full mx-auto transition-all duration-300" style={{ height: wrapperHeight }}>
+      <div 
+        ref={outerRef} 
+        className="w-full overflow-x-auto overflow-y-hidden bg-slate-50/50 rounded-3xl border border-slate-100 p-2 md:p-6 custom-scrollbar scroll-smooth"
+      >
+        <div 
+          className="relative mx-auto transition-all duration-300" 
+          style={{ height: wrapperHeight, width: wrapperWidth }}
+        >
           <div 
             ref={innerRef}
-            className="absolute top-0 left-1/2 origin-top-left flex flex-col items-center pb-12"
+            className="absolute top-0 left-0 origin-top-left flex flex-col items-center pb-12"
             style={{ 
               width: 1750,
-              transform: `scale(${scale}) translateX(-50%)`,
+              transform: `scale(${scale})`,
             }}
           >
             {/* Row 1: Kepala */}
@@ -228,6 +217,12 @@ export function OrgChartViewer() {
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Swipe Indicator (Khusus Mobile) */}
+      <div className="flex justify-center items-center gap-2 text-slate-500 mt-4 mb-2 md:hidden animate-pulse">
+        <span className="material-symbols-outlined text-sm">swipe</span>
+        <span className="text-xs font-medium">Geser layar untuk melihat seluruh struktur</span>
       </div>
     </>
   );
