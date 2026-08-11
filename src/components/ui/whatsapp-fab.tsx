@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export function WhatsappFab() {
   const [mounted, setMounted] = useState(false);
-  const [showText, setShowText] = useState(true);
   const phoneNumber = "628161609937";
   const message = "Halo BMKG Malang, saya ingin bertanya terkait informasi cuaca/iklim.";
   
@@ -24,25 +23,6 @@ export function WhatsappFab() {
         transition={{ type: "spring", stiffness: 260, damping: 20, delay: 1 }}
         className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-3"
       >
-        <AnimatePresence>
-          {showText && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white pl-4 pr-10 py-2.5 rounded-2xl shadow-lg border border-slate-100 text-[13px] font-medium text-slate-700 relative"
-            >
-              Hubungi via WhatsApp
-              <button 
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowText(false); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
-                aria-label="Tutup pesan"
-              >
-                <span className="text-[16px] leading-none" style={{ fontFamily: 'sans-serif' }}>&times;</span>
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
         <Link
           href={`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`}
           target="_blank"

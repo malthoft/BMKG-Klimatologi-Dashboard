@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { ClimateParsedResult, getColorForAnomaly } from "@/lib/climate-parser";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,24 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
   const [selectedRegion, setSelectedRegion] = useState<string>(initialRegion);
   const [stripeMode, setStripeMode] = useState<"discrete" | "smooth">("discrete");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredRegions = useMemo(() => {
+    if (!searchQuery) return regions;
+    return regions.filter(r => r.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [regions, searchQuery]);
 
   useEffect(() => {
     if (initialRegion && !selectedRegion) {
@@ -108,22 +126,53 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
             </div>
           </div>
 
-          <div className="w-full sm:w-auto">
-            <label htmlFor="regionSelect" className="text-xs font-semibold text-text-secondary uppercase tracking-wider hidden sm:block mb-1">
+          <div className="w-full sm:w-auto relative" ref={dropdownRef}>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider hidden sm:block mb-1">
               Pilih Wilayah / Kabupaten / Kota ({regions.length} Lokasi)
             </label>
-            <select
-              id="regionSelect"
-              value={currentRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="w-full bg-surface border border-border rounded-xl px-3 py-2.5 sm:py-2 font-bold text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+            <div 
+              className="w-full sm:w-[300px] bg-surface border border-border rounded-xl px-3 py-2.5 sm:py-2 flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+              onClick={() => {
+                setDropdownOpen(!dropdownOpen);
+                setSearchQuery("");
+              }}
             >
-              {regions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              <span className="font-bold text-text-primary text-sm truncate">{currentRegion}</span>
+              <span className="material-symbols-outlined text-text-secondary">expand_more</span>
+            </div>
+            
+            {dropdownOpen && (
+              <div className="absolute top-full left-0 mt-2 w-full sm:w-[300px] bg-white border border-border rounded-xl shadow-lg z-50 flex flex-col overflow-hidden">
+                <div className="p-2 border-b border-border bg-slate-50">
+                  <input 
+                    type="text" 
+                    placeholder="Cari wilayah..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border border-border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+                    autoFocus
+                  />
+                </div>
+                <ul className="max-h-[200px] overflow-y-auto">
+                  {filteredRegions.length > 0 ? (
+                    filteredRegions.map((r) => (
+                      <li 
+                        key={r} 
+                        className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${currentRegion === r ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-50 text-text-primary'}`}
+                        onClick={() => {
+                          setSelectedRegion(r);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        {r}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="px-4 py-3 text-sm text-text-secondary text-center">Wilayah tidak ditemukan</li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 

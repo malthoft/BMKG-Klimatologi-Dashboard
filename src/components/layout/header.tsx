@@ -194,7 +194,10 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
               >
                 {/* Sidebar Header */}
                 <div className="flex items-center justify-between p-4 border-b border-border">
-                  <span className="font-bold text-primary text-lg">Menu</span>
+                  <div className="flex flex-col pr-2">
+                    <span className="text-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Stasiun Klimatologi</span>
+                    <span className="text-sky-600 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Kelas I Jawa Timur</span>
+                  </div>
                   <button
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-2 rounded-md text-text-secondary hover:bg-tertiary/50 hover:text-primary transition-colors"

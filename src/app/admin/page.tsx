@@ -25,6 +25,7 @@ export default function AdminPage() {
   const [tempMaps, setTempMaps] = useState<any[]>([]);
   const [newTempMap, setNewTempMap] = useState({ year: new Date().getFullYear(), category: "Normal", file: null as File | null });
   const [isUploadingTempMap, setIsUploadingTempMap] = useState(false);
+  const [editTempMapId, setEditTempMapId] = useState<number | null>(null);
 
   useEffect(() => {
     loadStations();
@@ -277,6 +278,71 @@ export default function AdminPage() {
     }
     
     setIsUploadingTempMap(false);
+  };
+
+  const handleEditTempMap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTempMapId) return;
+
+    setIsUploadingTempMap(true);
+    let imageUrl = "";
+
+    // 1. Check if there's a new file to upload
+    if (newTempMap.file) {
+      const fileExt = newTempMap.file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${newTempMap.year}/${fileName}`;
+      
+      const uploadedUrl = await supabaseUploadFile("temperature-maps", filePath, newTempMap.file);
+      if (!uploadedUrl) {
+        alert("Gagal mengupload gambar baru ke Supabase Storage.");
+        setIsUploadingTempMap(false);
+        return;
+      }
+      imageUrl = uploadedUrl;
+
+      // Delete old file
+      const oldMap = tempMaps.find(m => m.id === editTempMapId);
+      if (oldMap && oldMap.image_url) {
+        const urlParts = oldMap.image_url.split('/temperature-maps/');
+        if (urlParts.length > 1) {
+          const oldFilePath = urlParts[1];
+          await supabaseDeleteFile("temperature-maps", oldFilePath);
+        }
+      }
+    }
+
+    // 2. Update record in temperature_maps table
+    const updateData: any = {
+      year: newTempMap.year,
+      category: newTempMap.category,
+    };
+    if (imageUrl) {
+      updateData.image_url = imageUrl;
+    }
+
+    const result = await supabaseUpdate("temperature_maps", updateData, `id=eq.${editTempMapId}`);
+    
+    if (result) {
+      alert("Peta perubahan suhu berhasil diperbarui!");
+      setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
+      setEditTempMapId(null);
+      loadTempMaps();
+    } else {
+      alert("Gagal memperbarui data di database.");
+    }
+    
+    setIsUploadingTempMap(false);
+  };
+
+  const startEditTempMap = (map: any) => {
+    setEditTempMapId(map.id);
+    setNewTempMap({ year: map.year, category: map.category, file: null });
+  };
+
+  const cancelEditTempMap = () => {
+    setEditTempMapId(null);
+    setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
   };
 
   const handleDeleteTempMap = async (id: number, imageUrl: string) => {
@@ -686,17 +752,19 @@ export default function AdminPage() {
           )}
 
           {activeTab === 'tempmaps' && (
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Form Tambah Peta Suhu */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Upload Peta Suhu</h3>
-                <form className="space-y-4 flex-1" onSubmit={handleAddTempMap}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+              {/* Form Upload/Edit */}
+              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col h-full">
+                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">
+                  {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
+                </h3>
+                <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
                   <div>
-                    <label className="block text-[14px] mb-1 font-medium">File Peta (Gambar)</label>
+                    <label className="block text-[14px] mb-1 font-medium">Gambar Peta {editTempMapId && "(Opsional)"}</label>
                     <input 
-                      required 
                       type="file" 
-                      accept="image/*"
+                      accept="image/*" 
+                      required={!editTempMapId}
                       onChange={e => {
                         const file = e.target.files?.[0];
                         if (file) setNewTempMap({...newTempMap, file});
@@ -738,12 +806,22 @@ export default function AdminPage() {
                       {isUploadingTempMap ? (
                         <>
                           <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                          <span>Mengupload...</span>
+                          <span>Menyimpan...</span>
                         </>
                       ) : (
-                        <span>Simpan Peta</span>
+                        <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
                       )}
                     </button>
+                    {editTempMapId && (
+                      <button 
+                        type="button" 
+                        onClick={cancelEditTempMap}
+                        disabled={isUploadingTempMap}
+                        className="w-full text-text-secondary py-2 mt-2 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
+                      >
+                        Batal Edit
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -772,13 +850,22 @@ export default function AdminPage() {
                       </div>
                       <div className="p-3 bg-white flex justify-between items-center border-t border-border">
                         <span className="text-xs text-text-secondary truncate pr-2">ID: {m.id}</span>
-                        <button 
-                          onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
-                          className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
-                          title="Hapus Peta"
-                        >
-                          <span className="material-symbols-outlined text-sm">delete</span>
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => startEditTempMap(m)} 
+                            className="text-primary hover:text-primary-dark bg-slate-50 hover:bg-blue-50 p-1.5 rounded-md transition-colors"
+                            title="Edit Peta"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
+                            className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                            title="Hapus Peta"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -789,7 +876,7 @@ export default function AdminPage() {
                   )}
                 </div>
               </div>
-            </section>
+            </div>
           )}
 
         </div>

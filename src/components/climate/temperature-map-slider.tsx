@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 
 interface TemperatureMap {
@@ -18,14 +18,30 @@ interface TemperatureMapSliderProps {
 export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
   const [filter, setFilter] = useState("all");
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [itemsPerView, setItemsPerView] = useState(1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Extract unique years for the filter dropdown
-  const uniqueYears = useMemo(() => {
-    const years = new Set(maps.map(m => m.year));
-    return Array.from(years).sort((a, b) => b - a); // Descending
-  }, [maps]);
+  useEffect(() => {
+    const handleResize = () => {
+      setItemsPerView(window.innerWidth >= 768 ? 2 : 1);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-  // Filter maps based on selection
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const filteredMaps = useMemo(() => {
     let filtered = maps;
     if (filter === "el_nino") {
@@ -44,8 +60,31 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
     return filtered;
   }, [maps, filter]);
 
+  const filterOptions = useMemo(() => {
+    return [
+      { value: "all", label: "Semua Kategori" },
+      { value: "normal", label: "Normal" },
+      { value: "el_nino", label: "El Niño" },
+      { value: "la_nina", label: "La Niña" },
+    ];
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    let opts = filterOptions;
+    if (searchQuery) {
+      opts = filterOptions.filter(opt => opt.label.toLowerCase().includes(searchQuery.toLowerCase()));
+      // If user types a number, allow searching by year dynamically
+      if (!isNaN(Number(searchQuery)) && searchQuery.trim().length > 0) {
+        opts.push({ value: searchQuery.trim(), label: `Tahun ${searchQuery.trim()}` });
+      }
+    }
+    return opts;
+  }, [searchQuery, filterOptions]);
+
+  const maxIndex = Math.max(0, Math.ceil(filteredMaps.length / itemsPerView) - 1);
+
   const nextSlide = () => {
-    if (currentIndex < filteredMaps.length - 1) {
+    if (currentIndex < maxIndex) {
       setCurrentIndex(prev => prev + 1);
     }
   };
@@ -68,21 +107,51 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
           <span className="material-symbols-outlined text-lg">filter_list</span>
           Filter Peta:
         </span>
-        <select 
-          value={filter} 
-          onChange={(e) => setFilter(e.target.value)}
-          className="border border-border rounded-lg px-4 py-2 text-sm bg-white font-medium focus:ring-2 focus:ring-primary outline-none"
-        >
-          <option value="all">Semua Tahun & Kategori</option>
-          <option value="normal">Normal</option>
-          <option value="el_nino">El Niño</option>
-          <option value="la_nina">La Niña</option>
-          <optgroup label="Berdasarkan Tahun">
-            {uniqueYears.map(year => (
-              <option key={year} value={year.toString()}>Tahun {year}</option>
-            ))}
-          </optgroup>
-        </select>
+        <div className="relative" ref={dropdownRef}>
+          <div 
+            className="w-[240px] border border-border rounded-lg px-4 py-2 text-sm bg-white font-medium focus:ring-2 focus:ring-primary outline-none flex items-center justify-between cursor-pointer"
+            onClick={() => {
+              setDropdownOpen(!dropdownOpen);
+              setSearchQuery("");
+            }}
+          >
+            <span>{filterOptions.find(o => o.value === filter)?.label || "Pilih Filter"}</span>
+            <span className="material-symbols-outlined text-text-secondary text-lg">expand_more</span>
+          </div>
+
+          {dropdownOpen && (
+            <div className="absolute top-full left-0 mt-2 w-full bg-white border border-border rounded-xl shadow-lg z-50 flex flex-col overflow-hidden">
+              <div className="p-2 border-b border-border bg-slate-50">
+                <input 
+                  type="text" 
+                  placeholder="Cari kategori..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white border border-border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+                  autoFocus
+                />
+              </div>
+              <ul className="max-h-[200px] overflow-y-auto">
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((opt) => (
+                    <li 
+                      key={opt.value} 
+                      className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${filter === opt.value ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-50 text-text-primary'}`}
+                      onClick={() => {
+                        setFilter(opt.value);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      {opt.label}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-4 py-3 text-sm text-text-secondary text-center">Kategori tidak ditemukan</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Slider Container */}
@@ -99,11 +168,8 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
               <motion.div 
                 className="flex transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]"
                 animate={{ 
-                  x: `calc(-${currentIndex} * (100% / var(--items-per-view, 1)))` 
+                  x: `calc(-${currentIndex} * 100%)` 
                 }}
-                style={{
-                  '--items-per-view': 1
-                } as any}
               >
                 {filteredMaps.map((map) => (
                   <div 
@@ -121,8 +187,8 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
                         </span>
                       </div>
                       
-                      {/* Image container: responsive height based on ratio, maxing out at a reasonable desktop size */}
-                      <div className="w-full h-[50vh] md:h-[600px] flex items-center justify-center p-4 bg-slate-50/80 group-hover:bg-slate-100/80 transition-colors duration-500">
+                      {/* Image container: smaller height so user doesn't need to scroll */}
+                      <div className="w-full h-[45vh] md:h-[480px] flex items-center justify-center pt-16 pb-4 px-4 bg-slate-50/80 group-hover:bg-slate-100/80 transition-colors duration-500">
                         <img 
                           src={map.image_url} 
                           alt={`Peta Suhu ${map.year} - ${map.category}`}
@@ -148,8 +214,8 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
 
             <button 
               onClick={nextSlide}
-              disabled={currentIndex >= filteredMaps.length - 1}
-              className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 md:translate-x-5 w-12 h-12 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-all z-20 text-primary ${currentIndex >= filteredMaps.length - 1 ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-slate-50 hover:scale-110 hover:shadow-xl'}`}
+              disabled={currentIndex >= maxIndex}
+              className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 md:translate-x-5 w-12 h-12 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center transition-all z-20 text-primary ${currentIndex >= maxIndex ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-slate-50 hover:scale-110 hover:shadow-xl'}`}
               aria-label="Next slide"
             >
               <span className="material-symbols-outlined text-2xl">chevron_right</span>
@@ -158,26 +224,17 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
         )}
       </div>
 
-      {/* Progress Dots */}
-      {filteredMaps.length > 1 && (
-        <div className="flex gap-2 items-center justify-center mt-2">
-          {Array.from({ length: filteredMaps.length }).map((_, i) => (
+      {/* Progress Dots - Hidden on Mobile */}
+      {maxIndex > 0 && (
+        <div className="hidden md:flex gap-2 items-center justify-center mt-2">
+          {Array.from({ length: maxIndex + 1 }).map((_, i) => (
             <div 
               key={i} 
-              className={`h-2 rounded-full transition-all duration-300 ${currentIndex === i || (i === currentIndex + 1 && typeof window !== 'undefined' && window.innerWidth >= 768) ? 'w-6 bg-primary' : 'w-2 bg-slate-300'}`} 
+              className={`h-2 rounded-full transition-all duration-300 ${currentIndex === i ? 'w-6 bg-primary' : 'w-2 bg-slate-300'}`} 
             />
           ))}
         </div>
       )}
-
-      {/* Global CSS to override CSS variable for responsive slider math */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @media (min-width: 768px) {
-          .flex.transition-transform {
-            --items-per-view: 2 !important;
-          }
-        }
-      `}} />
     </div>
   );
 }

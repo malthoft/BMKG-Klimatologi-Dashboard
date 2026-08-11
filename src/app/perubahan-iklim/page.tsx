@@ -95,8 +95,17 @@ export default function PerubahanIklim() {
           )}
         </section>
 
+        {/* Separator */}
+        <div className="w-full flex items-center justify-center py-16">
+          <div className="h-[1px] w-full max-w-xs bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+          <div className="px-4 text-slate-300">
+            <span className="material-symbols-outlined text-3xl">public</span>
+          </div>
+          <div className="h-[1px] w-full max-w-xs bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+        </div>
+
         {/* Peta Perubahan Suhu Component */}
-        <section className="space-y-[24px] pt-12 border-t border-slate-100">
+        <section className="space-y-[24px]">
           <AnimatedContainer animation="fadeInDown" once={true}>
             <div className="text-center max-w-3xl mx-auto space-y-2">
               <H2 className="text-text-primary">Peta Perubahan Suhu Jawa Timur</H2>
