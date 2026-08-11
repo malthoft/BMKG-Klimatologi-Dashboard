@@ -34,7 +34,6 @@ body, html {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-feature-settings: "tnum" on;
-  overflow-x: hidden !important;
   width: 100%;
 }
 

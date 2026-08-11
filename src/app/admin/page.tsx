@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc } from "@/lib/supabase";
+import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
@@ -21,11 +21,17 @@ export default function AdminPage() {
   const [climatePreview, setClimatePreview] = useState<ClimateParsedResult | null>(null);
   const [csvMessage, setCsvMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // --- Temperature Maps Admin States ---
+  const [tempMaps, setTempMaps] = useState<any[]>([]);
+  const [newTempMap, setNewTempMap] = useState({ year: new Date().getFullYear(), category: "Normal", file: null as File | null });
+  const [isUploadingTempMap, setIsUploadingTempMap] = useState(false);
+
   useEffect(() => {
     loadStations();
     loadAnnouncements();
     loadClimateData();
     loadOrgMembers();
+    loadTempMaps();
   }, []);
 
   const loadStations = async () => {
@@ -44,6 +50,11 @@ export default function AdminPage() {
   const loadOrgMembers = async () => {
     const org = await supabaseFetch("organization_structure");
     setOrgMembers(org || []);
+  };
+
+  const loadTempMaps = async () => {
+    const maps = await supabaseFetch("temperature_maps", "order=year.desc,created_at.desc");
+    setTempMaps(maps || []);
   };
 
   const loadClimateData = async () => {
@@ -227,6 +238,62 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddTempMap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTempMap.file) {
+      alert("Harap pilih file gambar peta terlebih dahulu!");
+      return;
+    }
+
+    setIsUploadingTempMap(true);
+    
+    // 1. Upload file to Supabase Storage
+    const fileExt = newTempMap.file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `${newTempMap.year}/${fileName}`;
+    
+    const imageUrl = await supabaseUploadFile("temperature-maps", filePath, newTempMap.file);
+    
+    if (!imageUrl) {
+      alert("Gagal mengupload gambar ke Supabase Storage. Pastikan bucket 'temperature-maps' sudah dibuat dan public.");
+      setIsUploadingTempMap(false);
+      return;
+    }
+
+    // 2. Insert record to temperature_maps table
+    const result = await supabaseInsert("temperature_maps", {
+      year: newTempMap.year,
+      category: newTempMap.category,
+      image_url: imageUrl
+    });
+    
+    if (result) {
+      alert("Peta perubahan suhu berhasil ditambahkan!");
+      setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
+      loadTempMaps();
+    } else {
+      alert("Gagal menyimpan data ke database. Pastikan tabel 'temperature_maps' sudah ada.");
+      await supabaseDeleteFile("temperature-maps", filePath);
+    }
+    
+    setIsUploadingTempMap(false);
+  };
+
+  const handleDeleteTempMap = async (id: number, imageUrl: string) => {
+    if(confirm("Yakin ingin menghapus peta ini? Gambar juga akan dihapus dari storage.")) {
+      const deleted = await supabaseDelete("temperature_maps", `id=eq.${id}`);
+      if (deleted) {
+        const bucketPathStr = "/temperature-maps/";
+        const pathIndex = imageUrl.indexOf(bucketPathStr);
+        if (pathIndex !== -1) {
+          const filePath = imageUrl.substring(pathIndex + bucketPathStr.length);
+          await supabaseDeleteFile("temperature-maps", filePath);
+        }
+        loadTempMaps();
+      }
+    }
+  };
+
   return (
     <div className="h-screen bg-background text-on-surface font-sans flex">
       {/* Sidebar */}
@@ -264,6 +331,13 @@ export default function AdminPage() {
             <span className="material-symbols-outlined">account_tree</span>
             <span className="text-[14px] font-medium">Struktur Organisasi</span>
           </a>
+          <a 
+            onClick={() => setActiveTab('tempmaps')}
+            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'tempmaps' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+          >
+            <span className="material-symbols-outlined">map</span>
+            <span className="text-[14px] font-medium">Peta Suhu</span>
+          </a>
         </nav>
       </aside>
 
@@ -280,6 +354,7 @@ export default function AdminPage() {
               {activeTab === 'announcements' && 'Announcements'}
               {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
               {activeTab === 'org' && 'Struktur Organisasi'}
+              {activeTab === 'tempmaps' && 'Peta Suhu'}
             </h2>
           </div>
           <div className="flex items-center gap-6">
@@ -605,6 +680,113 @@ export default function AdminPage() {
                     </div>
                   ))}
                   {orgMembers.length === 0 && <p className="text-sm text-text-secondary">Belum ada data anggota struktur organisasi.</p>}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'tempmaps' && (
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form Tambah Peta Suhu */}
+              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
+                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Upload Peta Suhu</h3>
+                <form className="space-y-4 flex-1" onSubmit={handleAddTempMap}>
+                  <div>
+                    <label className="block text-[14px] mb-1 font-medium">File Peta (Gambar)</label>
+                    <input 
+                      required 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) setNewTempMap({...newTempMap, file});
+                      }} 
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[14px] mb-1 font-medium">Tahun</label>
+                    <input 
+                      required 
+                      type="number" 
+                      min="1900" 
+                      max="2100"
+                      value={newTempMap.year} 
+                      onChange={e => setNewTempMap({...newTempMap, year: parseInt(e.target.value) || new Date().getFullYear()})} 
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[14px] mb-1 font-medium">Kategori Kejadian</label>
+                    <select 
+                      required 
+                      value={newTempMap.category} 
+                      onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="El Niño">El Niño</option>
+                      <option value="La Niña">La Niña</option>
+                    </select>
+                  </div>
+                  <div className="pt-2 mt-auto">
+                    <button 
+                      type="submit" 
+                      disabled={isUploadingTempMap}
+                      className={`w-full text-on-primary py-2 rounded-lg font-medium transition-opacity flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-primary hover:opacity-90'}`}
+                    >
+                      {isUploadingTempMap ? (
+                        <>
+                          <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                          <span>Mengupload...</span>
+                        </>
+                      ) : (
+                        <span>Simpan Peta</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Daftar Peta */}
+              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Peta Suhu ({tempMaps.length})</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {tempMaps.map(m => (
+                    <div key={m.id} className="rounded-xl border border-border overflow-hidden bg-white shadow-sm flex flex-col group relative">
+                      <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden">
+                        <img 
+                          src={m.image_url} 
+                          alt={`Peta Suhu ${m.year} - ${m.category}`} 
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+                          <span className="bg-white/90 backdrop-blur-sm text-text-primary px-2 py-1 rounded text-xs font-bold shadow-sm">
+                            {m.year}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-bold shadow-sm text-white backdrop-blur-sm ${m.category === 'El Niño' ? 'bg-error/90' : m.category === 'La Niña' ? 'bg-primary/90' : 'bg-emerald-600/90'}`}>
+                            {m.category}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white flex justify-between items-center border-t border-border">
+                        <span className="text-xs text-text-secondary truncate pr-2">ID: {m.id}</span>
+                        <button 
+                          onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
+                          className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                          title="Hapus Peta"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {tempMaps.length === 0 && (
+                    <div className="col-span-full py-8 text-center text-text-secondary bg-slate-50 rounded-xl border border-slate-100 border-dashed">
+                      Belum ada data peta suhu. Silakan upload melalui form di samping.
+                    </div>
+                  )}
                 </div>
               </div>
             </section>

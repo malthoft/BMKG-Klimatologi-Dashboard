@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${inter.variable} font-sans h-full antialiased`}
+      className={`${inter.variable} font-sans antialiased`}
     >
       <head>
         <link
@@ -29,7 +29,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col overflow-x-hidden">
+      <body className="min-h-screen flex flex-col overflow-x-clip">
         {children}
         <WhatsappFab />
       </body>

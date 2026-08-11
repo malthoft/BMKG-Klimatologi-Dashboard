@@ -6,11 +6,16 @@ import { AnimatedContainer } from "@/components/ui/animated-container";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
+import { TemperatureMapSlider } from "@/components/climate/temperature-map-slider";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
+import { supabaseFetch } from "@/lib/supabase";
 
 export default function PerubahanIklim() {
   const [climateData, setClimateData] = useState<ClimateParsedResult | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const [tempMaps, setTempMaps] = useState<any[]>([]);
+  const [loadingMaps, setLoadingMaps] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -38,7 +43,21 @@ export default function PerubahanIklim() {
       }
     }
 
+    async function loadMaps() {
+      try {
+        const data = await supabaseFetch("temperature_maps", "order=year.desc,created_at.desc");
+        if (data) {
+          setTempMaps(data);
+        }
+      } catch (err) {
+        console.error("Gagal memuat peta suhu:", err);
+      } finally {
+        setLoadingMaps(false);
+      }
+    }
+
     loadData();
+    loadMaps();
   }, []);
 
   return (
@@ -72,6 +91,29 @@ export default function PerubahanIklim() {
           ) : (
             <AnimatedContainer animation="fadeInUp" delay={0.2} once={true}>
               <WarmingStripesViewer parsedData={climateData} />
+            </AnimatedContainer>
+          )}
+        </section>
+
+        {/* Peta Perubahan Suhu Component */}
+        <section className="space-y-[24px] pt-12 border-t border-slate-100">
+          <AnimatedContainer animation="fadeInDown" once={true}>
+            <div className="text-center max-w-3xl mx-auto space-y-2">
+              <H2 className="text-text-primary">Peta Perubahan Suhu Jawa Timur</H2>
+              <p className="text-text-secondary text-sm">
+                Distribusi spasial perubahan suhu tahunan berdasarkan fenomena El Niño dan La Niña di wilayah Jawa Timur.
+              </p>
+            </div>
+          </AnimatedContainer>
+
+          {loadingMaps ? (
+            <div className="w-full py-16 flex flex-col items-center justify-center gap-3 text-text-secondary">
+              <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
+              <span className="text-sm font-medium">Memuat data peta suhu...</span>
+            </div>
+          ) : (
+            <AnimatedContainer animation="fadeInUp" delay={0.3} once={true}>
+              <TemperatureMapSlider maps={tempMaps} />
             </AnimatedContainer>
           )}
         </section>
