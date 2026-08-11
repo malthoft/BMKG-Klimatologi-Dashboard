@@ -106,10 +106,10 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: "/realtime-data", label: "Data Pengamatan" },
-    { href: "/climate-change", label: "Perubahan Iklim" },
-    { href: "/profile", label: "Profil" },
-    { href: "/announcements", label: "Pengumuman" },
+    { href: "/data-pengamatan", label: "Data Pengamatan" },
+    { href: "/perubahan-iklim", label: "Perubahan Iklim" },
+    { href: "/profil", label: "Profil" },
+    { href: "/pengumuman", label: "Pengumuman" },
   ];
 
   const getNavClass = (path: string) => {
@@ -159,30 +159,58 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
           </button>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Mobile Sidebar Drawer */}
         <AnimatePresence>
           {mobileMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="md:hidden bg-surface border-b border-border px-6 py-4 flex flex-col gap-3 shadow-lg overflow-hidden"
-            >
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`py-2 px-3 rounded-md text-sm font-medium transition-colors ${activeRoute === link.href
-                      ? "bg-tertiary text-primary font-semibold"
-                      : "text-text-secondary hover:bg-tertiary/50 hover:text-primary"
-                    }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </motion.div>
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="fixed inset-0 bg-black/50 z-[90] md:hidden backdrop-blur-sm"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              
+              {/* Sidebar */}
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed top-0 right-0 h-full w-[280px] bg-surface z-[100] md:hidden flex flex-col shadow-2xl border-l border-border"
+              >
+                {/* Sidebar Header */}
+                <div className="flex items-center justify-between p-4 border-b border-border">
+                  <span className="font-bold text-primary text-lg">Menu</span>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 rounded-md text-text-secondary hover:bg-tertiary/50 hover:text-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                
+                {/* Sidebar Links */}
+                <div className="flex flex-col p-4 gap-2 overflow-y-auto">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`py-3 px-4 rounded-lg text-[15px] font-medium transition-colors ${
+                        activeRoute === link.href
+                          ? "bg-primary/10 text-primary font-bold border-l-4 border-primary"
+                          : "text-text-secondary hover:bg-tertiary/30 hover:text-primary border-l-4 border-transparent"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </motion.header>

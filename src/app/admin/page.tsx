@@ -10,9 +10,11 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("stations");
   const [stations, setStations] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [orgMembers, setOrgMembers] = useState<any[]>([]);
   
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
+  const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "" });
 
   // --- Climate CSV Admin States ---
   const [csvText, setCsvText] = useState("");
@@ -23,6 +25,7 @@ export default function AdminPage() {
     loadStations();
     loadAnnouncements();
     loadClimateData();
+    loadOrgMembers();
   }, []);
 
   const loadStations = async () => {
@@ -36,6 +39,11 @@ export default function AdminPage() {
   const loadAnnouncements = async () => {
     const anns = await supabaseFetch("announcements", "order=published_at.desc");
     setAnnouncements(anns || []);
+  };
+
+  const loadOrgMembers = async () => {
+    const org = await supabaseFetch("organization_structure");
+    setOrgMembers(org || []);
   };
 
   const loadClimateData = async () => {
@@ -196,6 +204,29 @@ export default function AdminPage() {
     }
   };
 
+  const handleAddOrgMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await supabaseDelete("organization_structure", `role_id=eq.${newOrgMember.role_id}`);
+    const result = await supabaseInsert("organization_structure", {
+      role_id: newOrgMember.role_id,
+      role_title: newOrgMember.role_title,
+      name: newOrgMember.name,
+      nip: newOrgMember.nip
+    });
+    if (result) {
+      alert("Anggota organisasi berhasil disimpan!");
+      setNewOrgMember({ role_id: "", role_title: "", name: "", nip: "" });
+      loadOrgMembers();
+    }
+  };
+
+  const handleDeleteOrgMember = async (id: number) => {
+    if(confirm("Yakin ingin menghapus anggota ini?")) {
+      await supabaseDelete("organization_structure", `id=eq.${id}`);
+      loadOrgMembers();
+    }
+  };
+
   return (
     <div className="h-screen bg-background text-on-surface font-sans flex">
       {/* Sidebar */}
@@ -226,6 +257,13 @@ export default function AdminPage() {
             <span className="material-symbols-outlined">thermostat</span>
             <span className="text-[14px] font-medium">Visualisasi Iklim (CSV)</span>
           </a>
+          <a 
+            onClick={() => setActiveTab('org')}
+            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'org' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+          >
+            <span className="material-symbols-outlined">account_tree</span>
+            <span className="text-[14px] font-medium">Struktur Organisasi</span>
+          </a>
         </nav>
       </aside>
 
@@ -241,6 +279,7 @@ export default function AdminPage() {
               {activeTab === 'stations' && 'Manage Stations (AWS)'}
               {activeTab === 'announcements' && 'Announcements'}
               {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
+              {activeTab === 'org' && 'Struktur Organisasi'}
             </h2>
           </div>
           <div className="flex items-center gap-6">
@@ -498,11 +537,74 @@ export default function AdminPage() {
                   <h3 className="text-[1.5rem] font-bold text-text-primary">Live Preview Tampilan Publik</h3>
                 </div>
                 <p className="text-xs text-text-secondary">
-                  Berikut adalah pratinjau langsung (*live preview*) dari grafik Warming Stripes dan kartu statistik yang akan dilihat oleh masyarakat umum pada halaman <code>/climate-change</code>.
+                  Berikut adalah pratinjau langsung (*live preview*) dari grafik Warming Stripes dan kartu statistik yang akan dilihat oleh masyarakat umum pada halaman <code>/perubahan-iklim</code>.
                 </p>
 
                 <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
                   <WarmingStripesViewer parsedData={climatePreview} />
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'org' && (
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form Tambah Anggota */}
+              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
+                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Input Data Anggota</h3>
+                <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
+                  <div>
+                    <label className="block text-[14px] mb-1">Posisi Jabatan (Role ID)</label>
+                    <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="">-- Pilih Posisi --</option>
+                      <option value="kepala">KEPALA UPT</option>
+                      <option value="kasubag">KEPALA SUB BAGIAN TATA USAHA</option>
+                      <option value="tim_1">KETUA TIM KERJA ANALISA...</option>
+                      <option value="tim_2">KETUA TIM KERJA MANAJEMEN...</option>
+                      <option value="tim_3">KETUA TIM KERJA OBSERVASI...</option>
+                      <option value="tim_4">KETUA TIM KERJA PELAYANAN...</option>
+                      <option value="tim_5">KETUA TIM KERJA INSTRUMENTASI...</option>
+                      <option value="tim_6">KETUA TIM KERJA TATA USAHA</option>
+                      <option value="fungsional_pmg">FUNGSIONAL PMG</option>
+                      <option value="fungsional_non_pmg">FUNGSIONAL NON PMG</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[14px] mb-1">Nama Jabatan Ditampilkan</label>
+                    <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="e.g. KEPALA UPT" />
+                  </div>
+                  <div>
+                    <label className="block text-[14px] mb-1">Nama Pegawai</label>
+                    <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="Nama beserta gelar" />
+                  </div>
+                  <div>
+                    <label className="block text-[14px] mb-1">NIP (Opsional)</label>
+                    <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="1974..." />
+                  </div>
+                  <div className="pt-2 mt-auto">
+                    <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Simpan Anggota</button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Daftar Anggota */}
+              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Anggota Saat Ini</h3>
+                <div className="space-y-3">
+                  {orgMembers.map(m => (
+                    <div key={m.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-primary tracking-wider">{m.role_id}</span>
+                        <h4 className="font-bold text-text-primary text-base mt-1">{m.role_title}</h4>
+                        <p className="text-sm text-text-primary mt-1 font-semibold">{m.name}</p>
+                        <p className="text-xs text-text-secondary mt-1">NIP: {m.nip || "-"}</p>
+                      </div>
+                      <button onClick={() => handleDeleteOrgMember(m.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  ))}
+                  {orgMembers.length === 0 && <p className="text-sm text-text-secondary">Belum ada data anggota struktur organisasi.</p>}
                 </div>
               </div>
             </section>
