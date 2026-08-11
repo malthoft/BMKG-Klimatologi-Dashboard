@@ -88,8 +88,17 @@ export function OrgChartViewer() {
       if (containerWidth === 0) return;
       
       const CANVAS_WIDTH = 1750; 
-      let rawScale = containerWidth / CANVAS_WIDTH;
-      const newScale = Math.max(rawScale, 0.65);
+      
+      // Hitung lebar ruang yang benar-benar tersedia (kurangi padding)
+      const isDesktop = window.innerWidth >= 768;
+      const padding = isDesktop ? 48 : 16; // md:p-6 (24px * 2 = 48px) dan p-2 (8px * 2 = 16px)
+      const availableWidth = containerWidth - padding;
+      
+      let rawScale = availableWidth / CANVAS_WIDTH;
+      
+      // Di mobile (<768px), kita beri batas minimal skala 0.65 agar teks bisa dibaca, biarkan scroll.
+      // Di desktop (>=768px), kita biarkan berapapun skalanya (rawScale) agar bisa pas 100% tanpa scroll.
+      const newScale = isDesktop ? rawScale : Math.max(rawScale, 0.65);
       
       setScale(newScale);
       
