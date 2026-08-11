@@ -187,12 +187,12 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
                         </span>
                       </div>
                       
-                      {/* Image container: smaller height so user doesn't need to scroll */}
-                      <div className="w-full h-[45vh] md:h-[480px] flex items-center justify-center pt-16 pb-4 px-4 bg-slate-50/80 group-hover:bg-slate-100/80 transition-colors duration-500">
+                      {/* Image container: shrink-wraps the image vertically to remove empty space */}
+                      <div className="w-full flex items-center justify-center pt-14 pb-3 px-3 md:pt-16 md:pb-4 md:px-4 bg-slate-50/80 group-hover:bg-slate-100/80 transition-colors duration-500 min-h-[300px]">
                         <img 
                           src={map.image_url} 
                           alt={`Peta Suhu ${map.year} - ${map.category}`}
-                          className="max-w-full max-h-full object-contain drop-shadow-lg transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                          className="w-auto h-auto max-w-full max-h-[50vh] md:max-h-[420px] object-contain drop-shadow-lg transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           loading="lazy"
                         />
                       </div>
