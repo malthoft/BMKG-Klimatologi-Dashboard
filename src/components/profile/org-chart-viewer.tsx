@@ -149,7 +149,7 @@ export function OrgChartViewer() {
     <>
       <div 
         ref={outerRef} 
-        className="w-full overflow-x-auto overflow-y-hidden bg-slate-50/50 rounded-3xl border border-slate-100 p-2 md:p-6 custom-scrollbar scroll-smooth"
+        className="w-full overflow-x-auto overflow-y-hidden md:overflow-hidden bg-slate-50/50 rounded-3xl border border-slate-100 p-2 md:p-6 scroll-smooth scrollbar-hide"
       >
         <div 
           className="relative mx-auto transition-all duration-300" 
