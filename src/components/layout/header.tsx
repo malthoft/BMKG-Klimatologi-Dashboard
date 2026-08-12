@@ -69,29 +69,29 @@ function TopBar() {
 
   return (
     <div className="bg-[#F0F6FE] border-b border-[#D6E5F5] py-2 px-4 md:px-[32px] text-xs md:text-sm font-medium">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-4">
+      <div className="max-w-7xl mx-auto flex flex-row justify-between items-center gap-2">
         {/* Tanggal */}
-        <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-1 rounded-full border border-[#C5DCFA] shadow-2xs">
-          <span className="material-symbols-outlined text-[16px] text-primary">calendar_month</span>
-          <span className="tracking-wide text-text-primary font-semibold">{dateStr}</span>
+        <div className="flex items-center gap-1.5 md:gap-2 bg-white/90 backdrop-blur-md px-2 md:px-3.5 py-0.5 md:py-1 rounded-full border border-[#C5DCFA] shadow-2xs">
+          <span className="material-symbols-outlined text-[14px] md:text-[16px] text-primary">calendar_month</span>
+          <span className="tracking-wide text-text-primary font-semibold text-[10px] sm:text-xs md:text-sm whitespace-nowrap">{dateStr}</span>
         </div>
 
         {/* Jam Digital WIB & UTC (Synced to BMKG NTP Server) */}
-        <div className="flex items-center gap-3 text-xs sm:text-sm">
-          <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-3.5 py-1 rounded-full border border-[#C5DCFA] shadow-2xs">
-            <span className="material-symbols-outlined text-[16px] text-amber-500">schedule</span>
-            <span className="text-text-secondary text-[11px] uppercase tracking-wider font-semibold">WIB</span>
-            <span className="font-mono font-bold text-primary tracking-wider">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1 md:gap-1.5 bg-white/90 backdrop-blur-md px-2 md:px-3.5 py-0.5 md:py-1 rounded-full border border-[#C5DCFA] shadow-2xs">
+            <span className="material-symbols-outlined text-[14px] md:text-[16px] text-amber-500">schedule</span>
+            <span className="text-text-secondary text-[9px] md:text-[11px] uppercase tracking-wider font-semibold">WIB</span>
+            <span className="font-mono font-bold text-primary tracking-wider text-[10px] sm:text-xs md:text-sm whitespace-nowrap">
               {wibTime.hh}<span className={colonClass}>:</span>{wibTime.mm}<span className={colonClass}>:</span>{wibTime.ss}
             </span>
             {isBmkgSynced && (
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 ml-1" title="Tersinkronisasi dengan Server Jam BMKG (time.bmkg.go.id)"></span>
+              <span className="inline-block w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-500 ml-0.5 md:ml-1" title="Tersinkronisasi dengan Server Jam BMKG (time.bmkg.go.id)"></span>
             )}
           </div>
 
           <div className="hidden md:flex items-center gap-1.5 bg-white/60 px-3 py-1 rounded-full border border-[#D6E5F5] text-text-secondary">
             <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">UTC</span>
-            <span className="font-mono font-semibold text-text-primary">
+            <span className="font-mono font-semibold text-text-primary text-sm whitespace-nowrap">
               {utcTime.hh}:{utcTime.mm}:{utcTime.ss}
             </span>
           </div>
