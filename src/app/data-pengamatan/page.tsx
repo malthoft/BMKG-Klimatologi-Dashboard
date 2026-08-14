@@ -82,7 +82,7 @@ export default function PengamatanHarian() {
       icon: "thermostat",
       color: "text-[#FF5722]",
       bg: "bg-[#FF5722]/10",
-      desc: "Suhu tertinggi harian",
+      desc: "Titik suhu paling panas (Total 24 Jam)",
     },
     {
       title: "Suhu Minimum",
@@ -90,7 +90,7 @@ export default function PengamatanHarian() {
       icon: "ac_unit",
       color: "text-[#2196F3]",
       bg: "bg-[#2196F3]/10",
-      desc: "Suhu terendah harian",
+      desc: "Titik suhu paling dingin (Total 24 Jam)",
     },
     {
       title: "Curah Hujan",
@@ -98,8 +98,9 @@ export default function PengamatanHarian() {
       icon: "rainy",
       color: "text-[#3F51B5]",
       bg: "bg-[#3F51B5]/10",
-      desc: data.kategori_hujan,
+      desc: "Total curah hujan kumulatif harian",
       badge: true,
+      badgeText: data.kategori_hujan,
     },
     {
       title: "Suhu Udara Rata²",
@@ -107,7 +108,7 @@ export default function PengamatanHarian() {
       icon: "device_thermostat",
       color: "text-[#FF9800]",
       bg: "bg-[#FF9800]/10",
-      desc: "Rerata suhu harian",
+      desc: "Nilai rata-rata suhu dalam 1 hari",
     },
     {
       title: "Kelembaban (RH)",
@@ -115,23 +116,23 @@ export default function PengamatanHarian() {
       icon: "water_drop",
       color: "text-[#00BCD4]",
       bg: "bg-[#00BCD4]/10",
-      desc: "Rerata kelembaban",
+      desc: "Nilai rata-rata kelembaban udara harian",
     },
     {
-      title: "Kecepatan Angin",
-      value: `${data.angin_kecepatan_rata_kt} Kt`,
+      title: "Angin Permukaan",
+      value: `${data.angin_kecepatan_rata_kt} Knot`,
       icon: "air",
       color: "text-[#8BC34A]",
       bg: "bg-[#8BC34A]/10",
-      desc: `Arah: ${data.angin_arah_dominan}, Maks: ${data.angin_kecepatan_max_kt} Kt`,
+      desc: `Arah dominan: ${data.angin_arah_dominan} (Maks: ${data.angin_kecepatan_max_kt} Knot)`,
     },
     {
       title: "Tekanan QFE",
-      value: `${data.tekanan_udara_rata} hPa`,
+      value: `${data.tekanan_udara_rata} mbar`,
       icon: "speed",
       color: "text-[#9C27B0]",
       bg: "bg-[#9C27B0]/10",
-      desc: "Rerata tekanan harian",
+      desc: "Nilai rata-rata tekanan stasiun",
     },
     {
       title: "Status Data",
@@ -139,9 +140,17 @@ export default function PengamatanHarian() {
       icon: "check_circle",
       color: "text-[#4CAF50]",
       bg: "bg-[#4CAF50]/10",
-      desc: "Diperbarui otomatis tiap jam 09:00",
+      desc: "Diperbarui otomatis tiap jam 09:00 WIB",
     },
   ];
+
+  // Helper untuk merapikan teks rangkuman menjadi list jika ada pola "- bulan"
+  const formatRangkuman = (text: string) => {
+    if (!text) return "";
+    let formatted = text.replace(/:\s*(?=-)/g, ':\n'); // Baris baru setelah titik dua jika diikuti strip
+    formatted = formatted.replace(/(?<!\n)(?:\s+-\s*|\s*,\s*-\s*)/g, '\n- '); // Baris baru untuk setiap item strip
+    return formatted;
+  };
 
   return (
     <>
@@ -206,8 +215,8 @@ export default function PengamatanHarian() {
                           <span className="material-symbols-outlined text-[24px]">{card.icon}</span>
                         </div>
                         {card.badge && (
-                          <Badge variant={card.desc === "Hujan" || card.desc === "Hujan Ringan" ? "neutral" : card.desc === "Hujan Lebat" ? "error" : "success"}>
-                            {card.desc}
+                          <Badge variant={card.badgeText === "Hujan" || card.badgeText === "Hujan Ringan" ? "neutral" : card.badgeText === "Hujan Lebat" ? "error" : "success"}>
+                            {card.badgeText}
                           </Badge>
                         )}
                       </div>
@@ -217,7 +226,7 @@ export default function PengamatanHarian() {
                         <div className="text-[1.75rem] font-bold text-text-primary mb-2 tabular-nums leading-tight tracking-tight">
                           {card.value}
                         </div>
-                        {!card.badge && (
+                        {card.desc && (
                           <p className="text-xs text-text-secondary font-medium">{card.desc}</p>
                         )}
                       </div>
@@ -234,7 +243,7 @@ export default function PengamatanHarian() {
                   </div>
                   <div>
                     <h4 className="text-text-primary font-bold text-lg mb-1">Rangkuman Cuaca Ekstrim</h4>
-                    <p className="text-text-secondary text-[0.95rem] leading-relaxed">{dailyData.rangkuman_info}</p>
+                    <p className="text-text-secondary text-[0.95rem] leading-relaxed whitespace-pre-wrap">{formatRangkuman(dailyData.rangkuman_info)}</p>
                   </div>
                 </div>
               </AnimatedContainer>
