@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile } from "@/lib/supabase";
+import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
+import { TemperatureLineChart } from "@/components/climate/temperature-line-chart";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
+import { useToast } from "@/components/ui/toast-provider";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function AdminPage() {
+  const toast = useToast();
+  
   const [activeTab, setActiveTab] = useState("stations");
   const [stations, setStations] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -17,15 +22,35 @@ export default function AdminPage() {
   const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "" });
 
   // --- Climate CSV Admin States ---
-  const [csvText, setCsvText] = useState("");
-  const [climatePreview, setClimatePreview] = useState<ClimateParsedResult | null>(null);
-  const [csvMessage, setCsvMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [csvTextStripes, setCsvTextStripes] = useState("");
+  const [climatePreviewStripes, setClimatePreviewStripes] = useState<ClimateParsedResult | null>(null);
+  const [csvTextAnnual, setCsvTextAnnual] = useState("");
+  const [climatePreviewAnnual, setClimatePreviewAnnual] = useState<ClimateParsedResult | null>(null);
+  
+  // Shared state for previews
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
 
   // --- Temperature Maps Admin States ---
   const [tempMaps, setTempMaps] = useState<any[]>([]);
   const [newTempMap, setNewTempMap] = useState({ year: new Date().getFullYear(), category: "Normal", file: null as File | null });
   const [isUploadingTempMap, setIsUploadingTempMap] = useState(false);
   const [editTempMapId, setEditTempMapId] = useState<number | null>(null);
+
+  // --- Confirm Dialog State ---
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
+
+  const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmConfig({ isOpen: true, title, message, onConfirm });
+  };
+
+  const closeConfirm = () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     loadStations();
@@ -59,97 +84,135 @@ export default function AdminPage() {
   };
 
   const loadClimateData = async () => {
+    // Load Warming Stripes
     try {
-      const stored = typeof window !== "undefined" ? localStorage.getItem("climate_csv_data") : null;
-      if (stored) {
-        setCsvText(stored);
-        const parsed = parseCSVText(stored);
-        setClimatePreview(parsed);
-        return;
-      }
-      // Fallback
-      const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
-      if (res.ok) {
-        const text = await res.text();
-        setCsvText(text);
-        const parsed = parseCSVText(text);
-        setClimatePreview(parsed);
+      let stripesRes = await fetch(supabaseGetPublicUrl("climate-data", "warming-stripes.csv"), { cache: 'no-store' });
+      if (stripesRes.ok) {
+        const text = await stripesRes.text();
+        setCsvTextStripes(text);
+        setClimatePreviewStripes(parseCSVText(text));
+      } else {
+        // Fallback
+        const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
+        if (res.ok) {
+          const text = await res.text();
+          setCsvTextStripes(text);
+          setClimatePreviewStripes(parseCSVText(text));
+        }
       }
     } catch (e) {
-      console.error("Gagal memuat data iklim di admin", e);
+      console.error("Gagal memuat data iklim (stripes) di admin", e);
+    }
+
+    // Load Annual Temps
+    try {
+      let tempRes = await fetch(supabaseGetPublicUrl("climate-data", "annual-temperatures.csv"), { cache: 'no-store' });
+      if (tempRes.ok) {
+        const text = await tempRes.text();
+        setCsvTextAnnual(text);
+        setClimatePreviewAnnual(parseCSVText(text));
+      } else {
+        // Fallback
+        const res = await fetch("/Rata_Rata_Suhu_Tahunan.csv");
+        if (res.ok) {
+          const text = await res.text();
+          setCsvTextAnnual(text);
+          setClimatePreviewAnnual(parseCSVText(text));
+        }
+      }
+    } catch (e) {
+      console.error("Gagal memuat data iklim (annual) di admin", e);
     }
   };
 
-  const handleFileUpload = (evt: React.ChangeEvent<HTMLInputElement>) => {
+  const processAndUploadCSV = async (textToProcess: string, type: 'stripes' | 'annual') => {
+    try {
+      const parsed = parseCSVText(textToProcess);
+      const filename = type === 'stripes' ? 'warming-stripes.csv' : 'annual-temperatures.csv';
+      
+      // Update preview immediately
+      if (type === 'stripes') {
+        setClimatePreviewStripes(parsed);
+        setCsvTextStripes(textToProcess);
+      } else {
+        setClimatePreviewAnnual(parsed);
+        setCsvTextAnnual(textToProcess);
+      }
+      
+      // Upload to Supabase Storage as a Blob
+      const fileBlob = new Blob([textToProcess], { type: 'text/csv' });
+      const fileObj = new File([fileBlob], filename, { type: 'text/csv' });
+      
+      const uploadedUrl = await supabaseUploadFile("climate-data", filename, fileObj);
+      
+      if (uploadedUrl) {
+        toast.success(`Berhasil mengunggah data CSV ${type === 'stripes' ? 'Warming Stripes' : 'Suhu Tahunan'}!`);
+      } else {
+        toast.error("Gagal mengunggah file ke Supabase Storage. Cek bucket 'climate-data'.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memproses file CSV.");
+    }
+  };
+
+  const handleFileUpload = (evt: React.ChangeEvent<HTMLInputElement>, type: 'stripes' | 'annual') => {
     const file = evt.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
       if (text) {
-        setCsvText(text);
-        processCSV(text);
+        processAndUploadCSV(text, type);
       }
     };
     reader.readAsText(file);
     evt.target.value = "";
   };
 
-  const processCSV = (textToProcess: string) => {
-    setCsvMessage(null);
-    try {
-      const parsed = parseCSVText(textToProcess);
-      setClimatePreview(parsed);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("climate_csv_data", textToProcess);
+  const handleClearCSV = (type: 'stripes' | 'annual') => {
+    openConfirm(
+      "Kosongkan Data",
+      `Apakah Anda yakin ingin mengosongkan data CSV iklim (${type}) dari Supabase Storage?`,
+      async () => {
+        closeConfirm();
+        const filename = type === 'stripes' ? 'warming-stripes.csv' : 'annual-temperatures.csv';
+        const deleted = await supabaseDeleteFile("climate-data", filename);
+        if (deleted) {
+          if (type === 'stripes') {
+            setCsvTextStripes("");
+            setClimatePreviewStripes(null);
+          } else {
+            setCsvTextAnnual("");
+            setClimatePreviewAnnual(null);
+          }
+          toast.success("Data CSV berhasil dihapus dari storage.");
+        } else {
+          toast.error("Gagal menghapus file dari storage.");
+        }
       }
-      setCsvMessage({
-        type: "success",
-        text: `Berhasil memproses dan mempublikasikan data! Terdeteksi ${Object.keys(parsed.regionsData).length} lokasi/kabupaten periode ${parsed.years[0]} - ${parsed.years[parsed.years.length - 1]}.`,
-      });
-    } catch (err: any) {
-      setCsvMessage({
-        type: "error",
-        text: err.message || "Gagal memproses file CSV.",
-      });
-    }
+    );
   };
 
-  const handleClearCSV = () => {
-    if (confirm("Apakah Anda yakin ingin mengosongkan semua data CSV iklim?")) {
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("climate_csv_data");
-      }
-      setCsvText("");
-      setClimatePreview(null);
-      setCsvMessage({
-        type: "success",
-        text: "Data CSV iklim berhasil dikosongkan.",
-      });
-    }
-  };
-
-  const handleResetDefaultCSV = async () => {
-    if (confirm("Apakah Anda yakin ingin mengembalikan data ke dataset default (38 Kabupaten/Kota)?")) {
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("climate_csv_data");
+  const handleResetDefaultCSV = (type: 'stripes' | 'annual') => {
+    openConfirm(
+      "Kembalikan ke Default",
+      `Apakah Anda yakin ingin mereset data (${type}) ke dataset default bawaan sistem? Ini akan mengunggah file default ke Supabase Storage.`,
+      async () => {
+        closeConfirm();
+        try {
+          const fallbackPath = type === 'stripes' ? "/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv" : "/Rata_Rata_Suhu_Tahunan.csv";
+          const res = await fetch(fallbackPath);
+          if (res.ok) {
+            const text = await res.text();
+            await processAndUploadCSV(text, type);
+          } else {
+            toast.error("Gagal mengambil dataset default.");
+          }
+        } catch (e) {
+          toast.error("Gagal mereset CSV default.");
         }
-        const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
-        if (res.ok) {
-          const text = await res.text();
-          setCsvText(text);
-          const parsed = parseCSVText(text);
-          setClimatePreview(parsed);
-          setCsvMessage({
-            type: "success",
-            text: "Data iklim berhasil dikembalikan ke dataset sampel 38 Kabupaten/Kota bawaan.",
-          });
-        }
-      } catch (e) {
-        alert("Gagal mereset CSV default.");
       }
-    }
+    );
   };
 
   const handleAddStation = async (e: React.FormEvent) => {
@@ -167,19 +230,25 @@ export default function AdminPage() {
     
     if (result) {
       await supabaseRpc("create_aws_table", { tbl_name: newStation.table });
-      alert("Stasiun dan tabel berhasil ditambahkan!");
+      toast.success("Stasiun dan tabel berhasil ditambahkan!");
       setNewStation({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
       loadStations();
     } else {
-      alert("Gagal menambahkan stasiun. Pastikan tabel 'stations' sudah ada di database Supabase Anda.");
+      toast.error("Gagal menambahkan stasiun. Pastikan tabel 'stations' sudah ada di database Supabase Anda.");
     }
   };
 
-  const handleDeleteStation = async (id: number) => {
-    if(confirm("Yakin ingin menghapus stasiun ini?")) {
-      await supabaseDelete("stations", `id=eq.${id}`);
-      loadStations();
-    }
+  const handleDeleteStation = (id: number) => {
+    openConfirm(
+      "Hapus Stasiun",
+      "Yakin ingin menghapus stasiun ini? Data terkait tabel tersebut di database tidak akan terhapus secara otomatis.",
+      async () => {
+        closeConfirm();
+        await supabaseDelete("stations", `id=eq.${id}`);
+        loadStations();
+        toast.success("Stasiun berhasil dihapus.");
+      }
+    );
   };
 
   const handleToggleVisibility = async (id: number, field: string, currentValue: boolean) => {
@@ -201,19 +270,25 @@ export default function AdminPage() {
     });
     
     if (result) {
-      alert("Pengumuman berhasil dipublikasikan!");
+      toast.success("Pengumuman berhasil dipublikasikan!");
       setNewAnnouncement({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
       loadAnnouncements();
     } else {
-      alert("Gagal mempublikasikan. Pastikan tabel 'announcements' sudah ada di database Supabase Anda.");
+      toast.error("Gagal mempublikasikan. Pastikan tabel 'announcements' sudah ada.");
     }
   };
 
-  const handleDeleteAnnouncement = async (id: number) => {
-    if(confirm("Yakin ingin menghapus pengumuman ini?")) {
-      await supabaseDelete("announcements", `id=eq.${id}`);
-      loadAnnouncements();
-    }
+  const handleDeleteAnnouncement = (id: number) => {
+    openConfirm(
+      "Hapus Pengumuman",
+      "Yakin ingin menghapus pengumuman ini?",
+      async () => {
+        closeConfirm();
+        await supabaseDelete("announcements", `id=eq.${id}`);
+        loadAnnouncements();
+        toast.success("Pengumuman berhasil dihapus.");
+      }
+    );
   };
 
   const handleAddOrgMember = async (e: React.FormEvent) => {
@@ -226,29 +301,34 @@ export default function AdminPage() {
       nip: newOrgMember.nip
     });
     if (result) {
-      alert("Anggota organisasi berhasil disimpan!");
+      toast.success("Anggota organisasi berhasil disimpan!");
       setNewOrgMember({ role_id: "", role_title: "", name: "", nip: "" });
       loadOrgMembers();
     }
   };
 
-  const handleDeleteOrgMember = async (id: number) => {
-    if(confirm("Yakin ingin menghapus anggota ini?")) {
-      await supabaseDelete("organization_structure", `id=eq.${id}`);
-      loadOrgMembers();
-    }
+  const handleDeleteOrgMember = (id: number) => {
+    openConfirm(
+      "Hapus Anggota",
+      "Yakin ingin menghapus data anggota ini?",
+      async () => {
+        closeConfirm();
+        await supabaseDelete("organization_structure", `id=eq.${id}`);
+        loadOrgMembers();
+        toast.success("Anggota berhasil dihapus.");
+      }
+    );
   };
 
   const handleAddTempMap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTempMap.file) {
-      alert("Harap pilih file gambar peta terlebih dahulu!");
+      toast.error("Harap pilih file gambar peta terlebih dahulu!");
       return;
     }
 
     setIsUploadingTempMap(true);
     
-    // 1. Upload file to Supabase Storage
     const fileExt = newTempMap.file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${newTempMap.year}/${fileName}`;
@@ -256,12 +336,11 @@ export default function AdminPage() {
     const imageUrl = await supabaseUploadFile("temperature-maps", filePath, newTempMap.file);
     
     if (!imageUrl) {
-      alert("Gagal mengupload gambar ke Supabase Storage. Pastikan bucket 'temperature-maps' sudah dibuat dan public.");
+      toast.error("Gagal mengupload gambar ke Supabase Storage.");
       setIsUploadingTempMap(false);
       return;
     }
 
-    // 2. Insert record to temperature_maps table
     const result = await supabaseInsert("temperature_maps", {
       year: newTempMap.year,
       category: newTempMap.category,
@@ -269,11 +348,11 @@ export default function AdminPage() {
     });
     
     if (result) {
-      alert("Peta perubahan suhu berhasil ditambahkan!");
+      toast.success("Peta perubahan suhu berhasil ditambahkan!");
       setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
       loadTempMaps();
     } else {
-      alert("Gagal menyimpan data ke database. Pastikan tabel 'temperature_maps' sudah ada.");
+      toast.error("Gagal menyimpan data ke database.");
       await supabaseDeleteFile("temperature-maps", filePath);
     }
     
@@ -287,7 +366,6 @@ export default function AdminPage() {
     setIsUploadingTempMap(true);
     let imageUrl = "";
 
-    // 1. Check if there's a new file to upload
     if (newTempMap.file) {
       const fileExt = newTempMap.file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -295,13 +373,12 @@ export default function AdminPage() {
       
       const uploadedUrl = await supabaseUploadFile("temperature-maps", filePath, newTempMap.file);
       if (!uploadedUrl) {
-        alert("Gagal mengupload gambar baru ke Supabase Storage.");
+        toast.error("Gagal mengupload gambar baru ke Supabase Storage.");
         setIsUploadingTempMap(false);
         return;
       }
       imageUrl = uploadedUrl;
 
-      // Delete old file
       const oldMap = tempMaps.find(m => m.id === editTempMapId);
       if (oldMap && oldMap.image_url) {
         const urlParts = oldMap.image_url.split('/temperature-maps/');
@@ -312,7 +389,6 @@ export default function AdminPage() {
       }
     }
 
-    // 2. Update record in temperature_maps table
     const updateData: any = {
       year: newTempMap.year,
       category: newTempMap.category,
@@ -324,12 +400,12 @@ export default function AdminPage() {
     const result = await supabaseUpdate("temperature_maps", updateData, `id=eq.${editTempMapId}`);
     
     if (result) {
-      alert("Peta perubahan suhu berhasil diperbarui!");
+      toast.success("Peta perubahan suhu berhasil diperbarui!");
       setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
       setEditTempMapId(null);
       loadTempMaps();
     } else {
-      alert("Gagal memperbarui data di database.");
+      toast.error("Gagal memperbarui data di database.");
     }
     
     setIsUploadingTempMap(false);
@@ -345,542 +421,600 @@ export default function AdminPage() {
     setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
   };
 
-  const handleDeleteTempMap = async (id: number, imageUrl: string) => {
-    if(confirm("Yakin ingin menghapus peta ini? Gambar juga akan dihapus dari storage.")) {
-      const deleted = await supabaseDelete("temperature_maps", `id=eq.${id}`);
-      if (deleted) {
-        const bucketPathStr = "/temperature-maps/";
-        const pathIndex = imageUrl.indexOf(bucketPathStr);
-        if (pathIndex !== -1) {
-          const filePath = imageUrl.substring(pathIndex + bucketPathStr.length);
-          await supabaseDeleteFile("temperature-maps", filePath);
+  const handleDeleteTempMap = (id: number, imageUrl: string) => {
+    openConfirm(
+      "Hapus Peta Suhu",
+      "Yakin ingin menghapus peta ini? Gambar juga akan dihapus dari storage.",
+      async () => {
+        closeConfirm();
+        const deleted = await supabaseDelete("temperature_maps", `id=eq.${id}`);
+        if (deleted) {
+          const bucketPathStr = "/temperature-maps/";
+          const pathIndex = imageUrl.indexOf(bucketPathStr);
+          if (pathIndex !== -1) {
+            const filePath = imageUrl.substring(pathIndex + bucketPathStr.length);
+            await supabaseDeleteFile("temperature-maps", filePath);
+          }
+          loadTempMaps();
+          toast.success("Peta suhu berhasil dihapus.");
         }
-        loadTempMaps();
       }
-    }
+    );
   };
 
   return (
-    <div className="h-screen bg-background text-on-surface font-sans flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-surface border-r border-border flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-sm">
-        <div className="p-6 border-b border-border">
-          <h1 className="text-[1.75rem] text-primary font-bold">Panel Admin</h1>
-          <p className="text-[14px] text-secondary mt-1">BMKG Malang</p>
-        </div>
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          <a 
-            onClick={() => setActiveTab('stations')}
-            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'stations' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-          >
-            <span className="material-symbols-outlined">sensors</span>
-            <span className="text-[14px] font-medium">Manage Stations</span>
-          </a>
-          <a 
-            onClick={() => setActiveTab('announcements')}
-            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'announcements' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-          >
-            <span className="material-symbols-outlined">campaign</span>
-            <span className="text-[14px] font-medium">Announcements</span>
-          </a>
-          <a 
-            onClick={() => setActiveTab('climate')}
-            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'climate' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-          >
-            <span className="material-symbols-outlined">thermostat</span>
-            <span className="text-[14px] font-medium">Visualisasi Iklim (CSV)</span>
-          </a>
-          <a 
-            onClick={() => setActiveTab('org')}
-            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'org' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-          >
-            <span className="material-symbols-outlined">account_tree</span>
-            <span className="text-[14px] font-medium">Struktur Organisasi</span>
-          </a>
-          <a 
-            onClick={() => setActiveTab('tempmaps')}
-            className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'tempmaps' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-          >
-            <span className="material-symbols-outlined">map</span>
-            <span className="text-[14px] font-medium">Peta Suhu</span>
-          </a>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto h-full">
-        {/* Header */}
-        <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm w-full">
-          <div className="md:hidden">
+    <>
+      <ConfirmDialog {...confirmConfig} onCancel={closeConfirm} />
+      <div className="h-screen bg-background text-on-surface font-sans flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-surface border-r border-border flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-sm z-10">
+          <div className="p-6 border-b border-border">
             <h1 className="text-[1.75rem] text-primary font-bold">Panel Admin</h1>
+            <p className="text-[14px] text-secondary mt-1">BMKG Malang</p>
           </div>
-          <div className="hidden md:block">
-            <h2 className="text-[28px] font-semibold text-text-primary">
-              {activeTab === 'stations' && 'Manage Stations (AWS)'}
-              {activeTab === 'announcements' && 'Announcements'}
-              {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
-              {activeTab === 'org' && 'Struktur Organisasi'}
-              {activeTab === 'tempmaps' && 'Peta Suhu'}
-            </h2>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <span className="material-symbols-outlined text-4xl text-primary">account_circle</span>
-              <div className="hidden lg:block">
-                <p className="text-[14px] font-bold text-on-surface">Admin Utama</p>
-                <p className="text-[14px] text-secondary text-xs">admin@bmkg.go.id</p>
+          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+            <a 
+              onClick={() => setActiveTab('stations')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'stations' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">sensors</span>
+              <span className="text-[14px] font-medium">Manage Stations</span>
+            </a>
+            <a 
+              onClick={() => setActiveTab('announcements')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'announcements' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">campaign</span>
+              <span className="text-[14px] font-medium">Announcements</span>
+            </a>
+            <a 
+              onClick={() => setActiveTab('climate')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'climate' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">thermostat</span>
+              <span className="text-[14px] font-medium">Visualisasi Iklim (CSV)</span>
+            </a>
+            <a 
+              onClick={() => setActiveTab('org')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'org' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">account_tree</span>
+              <span className="text-[14px] font-medium">Struktur Organisasi</span>
+            </a>
+            <a 
+              onClick={() => setActiveTab('tempmaps')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'tempmaps' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">map</span>
+              <span className="text-[14px] font-medium">Peta Suhu</span>
+            </a>
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto h-full z-0">
+          {/* Header */}
+          <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm w-full">
+            <div className="md:hidden">
+              <h1 className="text-[1.75rem] text-primary font-bold">Panel Admin</h1>
+            </div>
+            <div className="hidden md:block">
+              <h2 className="text-[28px] font-semibold text-text-primary">
+                {activeTab === 'stations' && 'Manage Stations (AWS)'}
+                {activeTab === 'announcements' && 'Announcements'}
+                {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
+                {activeTab === 'org' && 'Struktur Organisasi'}
+                {activeTab === 'tempmaps' && 'Peta Suhu'}
+              </h2>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 cursor-pointer">
+                <span className="material-symbols-outlined text-4xl text-primary">account_circle</span>
+                <div className="hidden lg:block">
+                  <p className="text-[14px] font-bold text-on-surface">Admin Utama</p>
+                  <p className="text-[14px] text-secondary text-xs">admin@bmkg.go.id</p>
+                </div>
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Dashboard Content */}
-        <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
-          
-          {activeTab === 'stations' && (
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Manage AWS Table Card */}
-              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface">Daftar AWS</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-border text-secondary text-[14px]">
-                        <th className="py-2 px-2 font-medium">Station ID</th>
-                        <th className="py-2 px-2 font-medium">Location</th>
-                        <th className="py-2 px-2 font-medium">Status</th>
-                        <th className="py-2 px-2 font-medium">Visibility</th>
-                        <th className="py-2 px-2 font-medium text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {stations.map(st => (
-                        <tr key={st.id} className="border-b border-border/50 hover:bg-surface-container-low transition-colors">
-                          <td className="py-4 px-2 font-medium">{st.station_id}</td>
-                          <td className="py-4 px-2">{st.station_name}</td>
-                          <td className="py-4 px-2">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${st.status === 'Online' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                              <span className={`w-2 h-2 rounded-full ${st.status === 'Online' ? 'bg-success' : 'bg-warning'}`}></span> {st.status}
-                            </span>
-                          </td>
-                          <td className="py-4 px-2">
-                            <div className="flex gap-2">
-                              <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" checked={st.show_on_home} onChange={() => handleToggleVisibility(st.id, 'show_on_home', st.show_on_home)} className="mr-1" />
-                                <span className="text-xs text-secondary">Home</span>
-                              </label>
-                              <label className="flex items-center cursor-pointer">
-                                <input type="checkbox" checked={st.show_on_realtime} onChange={() => handleToggleVisibility(st.id, 'show_on_realtime', st.show_on_realtime)} className="mr-1" />
-                                <span className="text-xs text-secondary">RT</span>
-                              </label>
-                            </div>
-                          </td>
-                          <td className="py-4 px-2 text-right">
-                            <button onClick={() => handleDeleteStation(st.id)} className="text-secondary hover:text-error transition-colors p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
-                          </td>
+          {/* Dashboard Content */}
+          <div className="p-6 max-w-7xl mx-auto w-full space-y-8 pb-32">
+            
+            {activeTab === 'stations' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Manage AWS Table Card */}
+                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-[1.75rem] font-semibold text-on-surface">Daftar AWS</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-border text-secondary text-[14px]">
+                          <th className="py-2 px-2 font-medium">Station ID</th>
+                          <th className="py-2 px-2 font-medium">Location</th>
+                          <th className="py-2 px-2 font-medium">Status</th>
+                          <th className="py-2 px-2 font-medium">Visibility</th>
+                          <th className="py-2 px-2 font-medium text-right">Actions</th>
                         </tr>
-                      ))}
-                      {stations.length === 0 && <tr><td colSpan={5} className="py-4 text-center">Belum ada stasiun</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Add New Station Form */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Quick Add AWS</h3>
-                <form className="space-y-4 flex-1" onSubmit={handleAddStation}>
-                  <div>
-                    <label className="block text-[14px] text-on-surface-variant mb-1">Station ID</label>
-                    <input required value={newStation.id_sta} onChange={e => setNewStation({...newStation, id_sta: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS-KJN-04" type="text"/>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] text-on-surface-variant mb-1">Nama Lokasi</label>
-                    <input required value={newStation.name} onChange={e => setNewStation({...newStation, name: e.target.value, table: `aws_${e.target.value.toLowerCase().replace(/\s+/g, '_')}`})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS Kepanjen" type="text"/>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] text-on-surface-variant mb-1">Nama Tabel DB (Auto)</label>
-                    <input required value={newStation.table} onChange={e => setNewStation({...newStation, table: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" type="text"/>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] text-on-surface-variant mb-1">Initial Status</label>
-                    <select value={newStation.status} onChange={e => setNewStation({...newStation, status: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white outline-none">
-                      <option>Online</option>
-                      <option>Offline</option>
-                      <option>Maintenance</option>
-                    </select>
-                  </div>
-                  <div className="pt-2 mt-auto">
-                    <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">Add Station</button>
-                  </div>
-                </form>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'announcements' && (
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Form Tambah Pengumuman */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Buat Pengumuman</h3>
-                <form className="space-y-4 flex-1" onSubmit={handleAddAnnouncement}>
-                  <div>
-                    <label className="block text-[14px] mb-1">Judul</label>
-                    <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text"/>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">Kategori</label>
-                    <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="info">Informasi Umum</option>
-                      <option value="peringatan_dini">Peringatan Dini</option>
-                      <option value="kegiatan">Kegiatan BMKG</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">Prioritas</label>
-                    <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="normal">Normal</option>
-                      <option value="tinggi">Tinggi (Merah)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">Isi Konten</label>
-                    <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm"/>
-                  </div>
-                  <div className="pt-2 mt-auto">
-                    <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Publikasikan</button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Daftar Pengumuman */}
-              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Pengumuman</h3>
-                <div className="space-y-3">
-                  {announcements.map(ann => (
-                    <div key={ann.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
-                      <div>
-                        <span className="text-xs font-bold uppercase text-primary tracking-wider">{ann.category}</span>
-                        <h4 className="font-bold text-text-primary text-base mt-1">{ann.title}</h4>
-                        <p className="text-xs text-text-secondary line-clamp-2 mt-1">{ann.content}</p>
-                      </div>
-                      <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
-                    </div>
-                  ))}
-                  {announcements.length === 0 && <p className="text-sm text-text-secondary">Belum ada pengumuman.</p>}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'climate' && (
-            <section className="space-y-8">
-              {/* CSV Upload & Management Panel */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
-                  <div>
-                    <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Warming Stripes</h3>
-                    <p className="text-sm text-secondary mt-1">
-                      Unggah berkas CSV baru atau masukan teks CSV. Sistem akan otomatis mendeteksi kolom tahun dan wilayah, kemudian mempublikasikan ke halaman Perubahan Iklim publik.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleResetDefaultCSV}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
-                      <span>Reset ke Data Default (38 Kabupaten)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearCSV}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-base">delete_sweep</span>
-                      <span>Kosongkan Data</span>
-                    </button>
+                      </thead>
+                      <tbody className="text-sm">
+                        {stations.map(st => (
+                          <tr key={st.id} className="border-b border-border/50 hover:bg-surface-container-low transition-colors">
+                            <td className="py-4 px-2 font-medium">{st.station_id}</td>
+                            <td className="py-4 px-2">{st.station_name}</td>
+                            <td className="py-4 px-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${st.status === 'Online' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+                                <span className={`w-2 h-2 rounded-full ${st.status === 'Online' ? 'bg-success' : 'bg-warning'}`}></span> {st.status}
+                              </span>
+                            </td>
+                            <td className="py-4 px-2">
+                              <div className="flex gap-2">
+                                <label className="flex items-center cursor-pointer">
+                                  <input type="checkbox" checked={st.show_on_home} onChange={() => handleToggleVisibility(st.id, 'show_on_home', st.show_on_home)} className="mr-1" />
+                                  <span className="text-xs text-secondary">Home</span>
+                                </label>
+                                <label className="flex items-center cursor-pointer">
+                                  <input type="checkbox" checked={st.show_on_realtime} onChange={() => handleToggleVisibility(st.id, 'show_on_realtime', st.show_on_realtime)} className="mr-1" />
+                                  <span className="text-xs text-secondary">RT</span>
+                                </label>
+                              </div>
+                            </td>
+                            <td className="py-4 px-2 text-right">
+                              <button onClick={() => handleDeleteStation(st.id)} className="text-secondary hover:text-error transition-colors p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
+                            </td>
+                          </tr>
+                        ))}
+                        {stations.length === 0 && <tr><td colSpan={5} className="py-4 text-center">Belum ada stasiun</td></tr>}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* File Dropzone & Text Area */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* File Dropzone */}
-                  <div
-                    onClick={() => document.getElementById("adminCsvInput")?.click()}
-                    className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
-                  >
-                    <input
-                      type="file"
-                      id="adminCsvInput"
-                      accept=".csv"
-                      style={{ display: "none" }}
-                      onChange={handleFileUpload}
-                    />
-                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined text-3xl">upload_file</span>
+                {/* Add New Station Form */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Quick Add AWS</h3>
+                  <form className="space-y-4 flex-1" onSubmit={handleAddStation}>
+                    <div>
+                      <label className="block text-[14px] text-on-surface-variant mb-1">Station ID</label>
+                      <input required value={newStation.id_sta} onChange={e => setNewStation({...newStation, id_sta: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS-KJN-04" type="text"/>
                     </div>
                     <div>
-                      <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
-                      <p className="text-xs text-text-secondary mt-1">Format .csv dengan kolom Waktu (Tahun) dan Kolom Wilayah</p>
+                      <label className="block text-[14px] text-on-surface-variant mb-1">Nama Lokasi</label>
+                      <input required value={newStation.name} onChange={e => setNewStation({...newStation, name: e.target.value, table: `aws_${e.target.value.toLowerCase().replace(/\s+/g, '_')}`})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS Kepanjen" type="text"/>
                     </div>
-                  </div>
+                    <div>
+                      <label className="block text-[14px] text-on-surface-variant mb-1">Nama Tabel DB (Auto)</label>
+                      <input required value={newStation.table} onChange={e => setNewStation({...newStation, table: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" type="text"/>
+                    </div>
+                    <div>
+                      <label className="block text-[14px] text-on-surface-variant mb-1">Initial Status</label>
+                      <select value={newStation.status} onChange={e => setNewStation({...newStation, status: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white outline-none">
+                        <option>Online</option>
+                        <option>Offline</option>
+                        <option>Maintenance</option>
+                      </select>
+                    </div>
+                    <div className="pt-2 mt-auto">
+                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">Add Station</button>
+                    </div>
+                  </form>
+                </div>
+              </section>
+            )}
 
-                  {/* Manual CSV Textarea */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                      Atau Tempelkan (Paste) Teks Raw CSV:
-                    </label>
-                    <textarea
-                      rows={5}
-                      value={csvText}
-                      onChange={(e) => setCsvText(e.target.value)}
-                      placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,-0.338,-0.834&#10;..."
-                      className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => processCSV(csvText)}
-                      className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
-                    >
-                      <span className="material-symbols-outlined text-base">publish</span>
-                      Proses &amp; Publikasikan Data CSV
-                    </button>
-                  </div>
+            {activeTab === 'announcements' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Form Tambah Pengumuman */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Buat Pengumuman</h3>
+                  <form className="space-y-4 flex-1" onSubmit={handleAddAnnouncement}>
+                    <div>
+                      <label className="block text-[14px] mb-1">Judul</label>
+                      <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text"/>
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">Kategori</label>
+                      <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="info">Informasi Umum</option>
+                        <option value="peringatan_dini">Peringatan Dini</option>
+                        <option value="kegiatan">Kegiatan BMKG</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">Prioritas</label>
+                      <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="normal">Normal</option>
+                        <option value="tinggi">Tinggi (Merah)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">Isi Konten</label>
+                      <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm"/>
+                    </div>
+                    <div className="pt-2 mt-auto">
+                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Publikasikan</button>
+                    </div>
+                  </form>
                 </div>
 
-                {/* Status Message Alert */}
-                {csvMessage && (
-                  <div
-                    className={`p-4 rounded-xl text-xs font-semibold flex items-center gap-3 ${
-                      csvMessage.type === "success"
-                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                        : "bg-red-50 text-red-800 border border-red-200"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-lg">
-                      {csvMessage.type === "success" ? "check_circle" : "error"}
-                    </span>
-                    <span>{csvMessage.text}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Live Preview Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-2xl">preview</span>
-                  <h3 className="text-[1.5rem] font-bold text-text-primary">Live Preview Tampilan Publik</h3>
-                </div>
-                <p className="text-xs text-text-secondary">
-                  Berikut adalah pratinjau langsung (*live preview*) dari grafik Warming Stripes dan kartu statistik yang akan dilihat oleh masyarakat umum pada halaman <code>/perubahan-iklim</code>.
-                </p>
-
-                <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
-                  <WarmingStripesViewer parsedData={climatePreview} />
-                </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'org' && (
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Form Tambah Anggota */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Input Data Anggota</h3>
-                <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
-                  <div>
-                    <label className="block text-[14px] mb-1">Posisi Jabatan (Role ID)</label>
-                    <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="">-- Pilih Posisi --</option>
-                      <option value="kepala">KEPALA UPT</option>
-                      <option value="kasubag">KEPALA SUB BAGIAN TATA USAHA</option>
-                      <option value="tim_1">KETUA TIM KERJA ANALISA...</option>
-                      <option value="tim_2">KETUA TIM KERJA MANAJEMEN...</option>
-                      <option value="tim_3">KETUA TIM KERJA OBSERVASI...</option>
-                      <option value="tim_4">KETUA TIM KERJA PELAYANAN...</option>
-                      <option value="tim_5">KETUA TIM KERJA INSTRUMENTASI...</option>
-                      <option value="tim_6">KETUA TIM KERJA TATA USAHA</option>
-                      <option value="fungsional_pmg">FUNGSIONAL PMG</option>
-                      <option value="fungsional_non_pmg">FUNGSIONAL NON PMG</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">Nama Jabatan Ditampilkan</label>
-                    <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="e.g. KEPALA UPT" />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">Nama Pegawai</label>
-                    <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="Nama beserta gelar" />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1">NIP (Opsional)</label>
-                    <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="1974..." />
-                  </div>
-                  <div className="pt-2 mt-auto">
-                    <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Simpan Anggota</button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Daftar Anggota */}
-              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Anggota Saat Ini</h3>
-                <div className="space-y-3">
-                  {orgMembers.map(m => (
-                    <div key={m.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
-                      <div>
-                        <span className="text-xs font-bold uppercase text-primary tracking-wider">{m.role_id}</span>
-                        <h4 className="font-bold text-text-primary text-base mt-1">{m.role_title}</h4>
-                        <p className="text-sm text-text-primary mt-1 font-semibold">{m.name}</p>
-                        <p className="text-xs text-text-secondary mt-1">NIP: {m.nip || "-"}</p>
+                {/* Daftar Pengumuman */}
+                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Pengumuman</h3>
+                  <div className="space-y-3">
+                    {announcements.map(ann => (
+                      <div key={ann.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
+                        <div>
+                          <span className="text-xs font-bold uppercase text-primary tracking-wider">{ann.category}</span>
+                          <h4 className="font-bold text-text-primary text-base mt-1">{ann.title}</h4>
+                          <p className="text-xs text-text-secondary line-clamp-2 mt-1">{ann.content}</p>
+                        </div>
+                        <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
                       </div>
-                      <button onClick={() => handleDeleteOrgMember(m.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
-                        <span className="material-symbols-outlined text-sm">delete</span>
+                    ))}
+                    {announcements.length === 0 && <p className="text-sm text-text-secondary">Belum ada pengumuman.</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'climate' && (
+              <section className="space-y-8">
+                {/* 1. Warming Stripes Management */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Warming Stripes</h3>
+                      <p className="text-sm text-secondary mt-1">
+                        Unggah berkas CSV baru ke Supabase Storage. Sistem akan otomatis mendeteksi kolom tahun dan wilayah.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleResetDefaultCSV('stripes')}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
+                        <span>Reset ke Data Default</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClearCSV('stripes')}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base">delete_sweep</span>
+                        <span>Kosongkan Data</span>
                       </button>
                     </div>
-                  ))}
-                  {orgMembers.length === 0 && <p className="text-sm text-text-secondary">Belum ada data anggota struktur organisasi.</p>}
-                </div>
-              </div>
-            </section>
-          )}
+                  </div>
 
-          {activeTab === 'tempmaps' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
-              {/* Form Upload/Edit */}
-              <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col h-full">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">
-                  {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
-                </h3>
-                <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
-                  <div>
-                    <label className="block text-[14px] mb-1 font-medium">Gambar Peta {editTempMapId && "(Opsional)"}</label>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      required={!editTempMapId}
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) setNewTempMap({...newTempMap, file});
-                      }} 
-                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1 font-medium">Tahun</label>
-                    <input 
-                      required 
-                      type="number" 
-                      min="1900" 
-                      max="2100"
-                      value={newTempMap.year} 
-                      onChange={e => setNewTempMap({...newTempMap, year: parseInt(e.target.value) || new Date().getFullYear()})} 
-                      className="w-full border border-border rounded-lg px-3 py-2 text-sm" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[14px] mb-1 font-medium">Kategori Kejadian</label>
-                    <select 
-                      required 
-                      value={newTempMap.category} 
-                      onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
-                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div
+                      onClick={() => document.getElementById("adminCsvInputStripes")?.click()}
+                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
                     >
-                      <option value="Normal">Normal</option>
-                      <option value="El Niño">El Niño</option>
-                      <option value="La Niña">La Niña</option>
-                    </select>
-                  </div>
-                  <div className="pt-2 mt-auto">
-                    <button 
-                      type="submit" 
-                      disabled={isUploadingTempMap}
-                      className={`w-full text-on-primary py-2 rounded-lg font-medium transition-opacity flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-primary hover:opacity-90'}`}
-                    >
-                      {isUploadingTempMap ? (
-                        <>
-                          <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                          <span>Menyimpan...</span>
-                        </>
-                      ) : (
-                        <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
-                      )}
-                    </button>
-                    {editTempMapId && (
-                      <button 
-                        type="button" 
-                        onClick={cancelEditTempMap}
-                        disabled={isUploadingTempMap}
-                        className="w-full text-text-secondary py-2 mt-2 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
+                      <input
+                        type="file"
+                        id="adminCsvInputStripes"
+                        accept=".csv"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleFileUpload(e, 'stripes')}
+                      />
+                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-3xl">upload_file</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
+                        <p className="text-xs text-text-secondary mt-1">Format .csv dengan Anomali Suhu</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                        Atau Tempelkan (Paste) Teks Raw CSV:
+                      </label>
+                      <textarea
+                        rows={5}
+                        value={csvTextStripes}
+                        onChange={(e) => setCsvTextStripes(e.target.value)}
+                        placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,-0.338,-0.834&#10;..."
+                        className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => processAndUploadCSV(csvTextStripes, 'stripes')}
+                        className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
                       >
-                        Batal Edit
+                        <span className="material-symbols-outlined text-base">cloud_upload</span>
+                        Proses &amp; Unggah Data CSV
                       </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
+                    <h4 className="font-bold mb-4">Preview Warming Stripes</h4>
+                    <WarmingStripesViewer parsedData={climatePreviewStripes} selectedRegion={selectedRegion} onRegionChange={setSelectedRegion} />
+                  </div>
+                </div>
+
+                {/* 2. Annual Temperatures Management */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
+                    <div>
+                      <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Suhu Tahunan</h3>
+                      <p className="text-sm text-secondary mt-1">
+                        Unggah berkas CSV berisi suhu absolut untuk ditampilkan sebagai grafik garis.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleResetDefaultCSV('annual')}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
+                        <span>Reset ke Data Default</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClearCSV('annual')}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base">delete_sweep</span>
+                        <span>Kosongkan Data</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div
+                      onClick={() => document.getElementById("adminCsvInputAnnual")?.click()}
+                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
+                    >
+                      <input
+                        type="file"
+                        id="adminCsvInputAnnual"
+                        accept=".csv"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleFileUpload(e, 'annual')}
+                      />
+                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-3xl">upload_file</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
+                        <p className="text-xs text-text-secondary mt-1">Format .csv dengan Suhu Absolut Rata-rata</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                        Atau Tempelkan (Paste) Teks Raw CSV:
+                      </label>
+                      <textarea
+                        rows={5}
+                        value={csvTextAnnual}
+                        onChange={(e) => setCsvTextAnnual(e.target.value)}
+                        placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,24.41,27.22&#10;..."
+                        className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => processAndUploadCSV(csvTextAnnual, 'annual')}
+                        className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
+                      >
+                        <span className="material-symbols-outlined text-base">cloud_upload</span>
+                        Proses &amp; Unggah Data CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
+                    <h4 className="font-bold mb-4">Preview Grafik Suhu</h4>
+                    <TemperatureLineChart parsedData={climatePreviewAnnual} selectedRegion={selectedRegion} />
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'org' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Form Tambah Anggota */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Input Data Anggota</h3>
+                  <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
+                    <div>
+                      <label className="block text-[14px] mb-1">Posisi Jabatan (Role ID)</label>
+                      <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="">-- Pilih Posisi --</option>
+                        <option value="kepala">KEPALA UPT</option>
+                        <option value="kasubag">KEPALA SUB BAGIAN TATA USAHA</option>
+                        <option value="tim_1">KETUA TIM KERJA ANALISA...</option>
+                        <option value="tim_2">KETUA TIM KERJA MANAJEMEN...</option>
+                        <option value="tim_3">KETUA TIM KERJA OBSERVASI...</option>
+                        <option value="tim_4">KETUA TIM KERJA PELAYANAN...</option>
+                        <option value="tim_5">KETUA TIM KERJA INSTRUMENTASI...</option>
+                        <option value="tim_6">KETUA TIM KERJA TATA USAHA</option>
+                        <option value="fungsional_pmg">FUNGSIONAL PMG</option>
+                        <option value="fungsional_non_pmg">FUNGSIONAL NON PMG</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">Nama Jabatan Ditampilkan</label>
+                      <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="e.g. KEPALA UPT" />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">Nama Pegawai</label>
+                      <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="Nama beserta gelar" />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1">NIP (Opsional)</label>
+                      <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="1974..." />
+                    </div>
+                    <div className="pt-2 mt-auto">
+                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Simpan Anggota</button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Daftar Anggota */}
+                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Anggota Saat Ini</h3>
+                  <div className="space-y-3">
+                    {orgMembers.map(m => (
+                      <div key={m.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
+                        <div>
+                          <span className="text-xs font-bold uppercase text-primary tracking-wider">{m.role_id}</span>
+                          <h4 className="font-bold text-text-primary text-base mt-1">{m.role_title}</h4>
+                          <p className="text-sm text-text-primary mt-1 font-semibold">{m.name}</p>
+                          <p className="text-xs text-text-secondary mt-1">NIP: {m.nip || "-"}</p>
+                        </div>
+                        <button onClick={() => handleDeleteOrgMember(m.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
+                    ))}
+                    {orgMembers.length === 0 && <p className="text-sm text-text-secondary">Belum ada data anggota struktur organisasi.</p>}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'tempmaps' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+                {/* Form Upload/Edit */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col h-full">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">
+                    {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
+                  </h3>
+                  <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
+                    <div>
+                      <label className="block text-[14px] mb-1 font-medium">Gambar Peta {editTempMapId && "(Opsional)"}</label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        required={!editTempMapId}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) setNewTempMap({...newTempMap, file});
+                        }} 
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1 font-medium">Tahun</label>
+                      <input 
+                        required 
+                        type="number" 
+                        min="1900" 
+                        max="2100"
+                        value={newTempMap.year} 
+                        onChange={e => setNewTempMap({...newTempMap, year: parseInt(e.target.value) || new Date().getFullYear()})} 
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] mb-1 font-medium">Kategori Kejadian</label>
+                      <select 
+                        required 
+                        value={newTempMap.category} 
+                        onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="Normal">Normal</option>
+                        <option value="El Niño">El Niño</option>
+                        <option value="La Niña">La Niña</option>
+                      </select>
+                    </div>
+                    <div className="pt-2 mt-auto">
+                      <button 
+                        type="submit" 
+                        disabled={isUploadingTempMap}
+                        className={`w-full text-on-primary py-2 rounded-lg font-medium transition-opacity flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-primary hover:opacity-90'}`}
+                      >
+                        {isUploadingTempMap ? (
+                          <>
+                            <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
+                        )}
+                      </button>
+                      {editTempMapId && (
+                        <button 
+                          type="button" 
+                          onClick={cancelEditTempMap}
+                          disabled={isUploadingTempMap}
+                          className="w-full text-text-secondary py-2 mt-2 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
+                        >
+                          Batal Edit
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                {/* Daftar Peta */}
+                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Peta Suhu ({tempMaps.length})</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {tempMaps.map(m => (
+                      <div key={m.id} className="rounded-xl border border-border overflow-hidden bg-white shadow-sm flex flex-col group relative">
+                        <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden">
+                          <img 
+                            src={m.image_url} 
+                            alt={`Peta Suhu ${m.year} - ${m.category}`} 
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                          <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+                            <span className="bg-white/90 backdrop-blur-sm text-text-primary px-2 py-1 rounded text-xs font-bold shadow-sm">
+                              {m.year}
+                            </span>
+                            <span className={`px-2 py-1 rounded text-xs font-bold shadow-sm text-white backdrop-blur-sm ${m.category === 'El Niño' ? 'bg-error/90' : m.category === 'La Niña' ? 'bg-primary/90' : 'bg-emerald-600/90'}`}>
+                              {m.category}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-white flex justify-between items-center border-t border-border">
+                          <span className="text-xs text-text-secondary truncate pr-2">ID: {m.id}</span>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => startEditTempMap(m)} 
+                              className="text-primary hover:text-primary-dark bg-slate-50 hover:bg-blue-50 p-1.5 rounded-md transition-colors"
+                              title="Edit Peta"
+                            >
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
+                              className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                              title="Hapus Peta"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {tempMaps.length === 0 && (
+                      <div className="col-span-full py-8 text-center text-text-secondary bg-slate-50 rounded-xl border border-slate-100 border-dashed">
+                        Belum ada data peta suhu. Silakan upload melalui form di samping.
+                      </div>
                     )}
                   </div>
-                </form>
-              </div>
-
-              {/* Daftar Peta */}
-              <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Peta Suhu ({tempMaps.length})</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {tempMaps.map(m => (
-                    <div key={m.id} className="rounded-xl border border-border overflow-hidden bg-white shadow-sm flex flex-col group relative">
-                      <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden">
-                        <img 
-                          src={m.image_url} 
-                          alt={`Peta Suhu ${m.year} - ${m.category}`} 
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                        <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-                          <span className="bg-white/90 backdrop-blur-sm text-text-primary px-2 py-1 rounded text-xs font-bold shadow-sm">
-                            {m.year}
-                          </span>
-                          <span className={`px-2 py-1 rounded text-xs font-bold shadow-sm text-white backdrop-blur-sm ${m.category === 'El Niño' ? 'bg-error/90' : m.category === 'La Niña' ? 'bg-primary/90' : 'bg-emerald-600/90'}`}>
-                            {m.category}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-white flex justify-between items-center border-t border-border">
-                        <span className="text-xs text-text-secondary truncate pr-2">ID: {m.id}</span>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => startEditTempMap(m)} 
-                            className="text-primary hover:text-primary-dark bg-slate-50 hover:bg-blue-50 p-1.5 rounded-md transition-colors"
-                            title="Edit Peta"
-                          >
-                            <span className="material-symbols-outlined text-sm">edit</span>
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
-                            className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
-                            title="Hapus Peta"
-                          >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {tempMaps.length === 0 && (
-                    <div className="col-span-full py-8 text-center text-text-secondary bg-slate-50 rounded-xl border border-slate-100 border-dashed">
-                      Belum ada data peta suhu. Silakan upload melalui form di samping.
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
