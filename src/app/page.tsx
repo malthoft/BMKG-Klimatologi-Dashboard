@@ -20,9 +20,33 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
   return { text: "Cerah", icon: "sunny" };
 };
 
+const calculateNOAAHeatIndex = (tempC: number, rh: number): number => {
+  // 1. Konversi Celsius ke Fahrenheit (Rumus dasar NOAA menggunakan Fahrenheit)
+  const T = (tempC * 9/5) + 32;
+  
+  // 2. Gunakan rumus sederhana (Steadman) terlebih dahulu
+  let HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (rh * 0.094));
+  
+  // 3. Jika hasil rumus sederhana >= 80°F, gunakan regresi Rothfusz penuh
+  if (HI >= 80) {
+    HI = -42.379 + 2.04901523*T + 10.14333127*rh - 0.22475541*T*rh - 0.00683783*T*T - 0.05481717*rh*rh + 0.00122874*T*T*rh + 0.00085282*T*rh*rh - 0.00000199*T*T*rh*rh;
+    
+    // Penyesuaian untuk udara kering dan panas
+    if (rh < 13 && T >= 80 && T <= 112) {
+      HI -= ((13 - rh) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
+    } 
+    // Penyesuaian untuk udara sangat lembab dan tidak terlalu panas
+    else if (rh > 85 && T >= 80 && T <= 87) {
+      HI += ((rh - 85) / 10) * ((87 - T) / 5);
+    }
+  }
+  
+  // 4. Kembalikan hasilnya ke Celsius
+  return (HI - 32) * 5/9;
+};
+
 const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
-  const e = (rh / 100) * 6.105 * Math.exp((17.27 * temp) / (237.7 + temp));
-  const apparentTemp = temp + 0.33 * e - 4.00;
+  const apparentTemp = calculateNOAAHeatIndex(temp, rh);
   const feelsLike = Math.round(apparentTemp);
   
   let statusText = "Nyaman";
@@ -66,13 +90,13 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
                 <span className={`material-symbols-outlined ${statusColor} text-[16px] animate-pulse`}>{icon}</span>
                 <span className={`font-bold text-[12px] ${statusColor}`}>{statusText}</span>
               </div>
-              <div className="relative group/info ml-1 cursor-help">
-                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 transition-colors">
+              <div className="relative group/info ml-1 cursor-help outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
+                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 group-focus/info:bg-blue-100 transition-colors">
                   <span className="material-symbols-outlined text-blue-500 text-[14px]">info</span>
                 </div>
                 
                 {/* Tooltip Content - Unrestricted by overflow */}
-                <div className="absolute right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 text-left pointer-events-none">
+                <div className="absolute right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 group-focus/info:translate-y-0 text-left pointer-events-none">
                   <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
                     Indikator Suhu Terasa
@@ -398,11 +422,11 @@ export default function Home() {
                       key={param.label}
                       className="bg-white/75 backdrop-blur-md border border-white/90 rounded-2xl px-3 sm:px-4 py-3 md:py-4 flex flex-col items-start justify-center shadow-xs w-full xl:min-w-[130px]"
                     >
-                      <div className="flex items-center gap-1 sm:gap-1.5 mb-1.5 whitespace-nowrap w-full">
+                      <div className="flex items-start gap-1 sm:gap-1.5 mb-1.5 w-full">
                         <span className={`material-symbols-outlined text-[16px] sm:text-[18px] shrink-0 ${param.color}`}>{param.icon}</span>
-                        <span className="text-[0.6rem] sm:text-[0.65rem] md:text-[0.7rem] text-slate-700 font-bold uppercase tracking-wider">{param.label}</span>
+                        <span className="text-[0.6rem] sm:text-[0.65rem] md:text-[0.7rem] text-slate-700 font-bold uppercase tracking-wide leading-tight break-words">{param.label}</span>
                       </div>
-                      <span className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight w-full">{param.value}</span>
+                      <span className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight w-full truncate">{param.value}</span>
                     </div>
                   ))}
                 </div>
