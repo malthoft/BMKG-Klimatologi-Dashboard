@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { WhatsappFab } from "@/components/ui/whatsapp-fab";
+import { ToastProvider } from "@/components/ui/toast-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -37,8 +38,10 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col overflow-x-clip">
-        {children}
-        <WhatsappFab />
+        <ToastProvider>
+          {children}
+          <WhatsappFab />
+        </ToastProvider>
       </body>
     </html>
   );

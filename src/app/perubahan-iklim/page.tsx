@@ -8,11 +8,14 @@ import { Footer } from "@/components/layout/footer";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
 import { TemperatureMapSlider } from "@/components/climate/temperature-map-slider";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
-import { supabaseFetch } from "@/lib/supabase";
+import { supabaseFetch, supabaseGetPublicUrl } from "@/lib/supabase";
+import { TemperatureLineChart } from "@/components/climate/temperature-line-chart";
 
 export default function PerubahanIklim() {
   const [climateData, setClimateData] = useState<ClimateParsedResult | null>(null);
+  const [annualData, setAnnualData] = useState<ClimateParsedResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedRegion, setSelectedRegion] = useState<string>("");
   
   const [tempMaps, setTempMaps] = useState<any[]>([]);
   const [loadingMaps, setLoadingMaps] = useState(true);
@@ -20,22 +23,52 @@ export default function PerubahanIklim() {
   useEffect(() => {
     async function loadData() {
       try {
-        // 1. Try loading custom uploaded CSV from localStorage
-        const storedCSV = typeof window !== "undefined" ? localStorage.getItem("climate_csv_data") : null;
-        if (storedCSV) {
-          const parsed = parseCSVText(storedCSV);
-          setClimateData(parsed);
-          setLoading(false);
-          return;
+        // Fetch Warming Stripes Data
+        let stripesParsed: ClimateParsedResult | null = null;
+        try {
+          const res = await fetch(supabaseGetPublicUrl("climate-data", "warming-stripes.csv"), { cache: "no-store" });
+          if (res.ok) {
+            stripesParsed = parseCSVText(await res.text());
+          }
+        } catch (e) {
+          // Ignore and fallback
+        }
+        
+        if (!stripesParsed) {
+          const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
+          if (res.ok) {
+            stripesParsed = parseCSVText(await res.text());
+          }
+        }
+        
+        // Fetch Annual Temperature Data
+        let annualParsed: ClimateParsedResult | null = null;
+        try {
+          const res = await fetch(supabaseGetPublicUrl("climate-data", "annual-temperatures.csv"), { cache: "no-store" });
+          if (res.ok) {
+            annualParsed = parseCSVText(await res.text());
+          }
+        } catch (e) {
+          // Ignore and fallback
+        }
+        
+        if (!annualParsed) {
+          const res = await fetch("/Rata_Rata_Suhu_Tahunan.csv");
+          if (res.ok) {
+            annualParsed = parseCSVText(await res.text());
+          }
         }
 
-        // 2. Fallback: Fetch sample CSV file from public directory
-        const res = await fetch("/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv");
-        if (res.ok) {
-          const text = await res.text();
-          const parsed = parseCSVText(text);
-          setClimateData(parsed);
+        setClimateData(stripesParsed);
+        setAnnualData(annualParsed);
+        
+        // Set initial region if available
+        if (stripesParsed && Object.keys(stripesParsed.regionsData).length > 0) {
+          const regions = Object.keys(stripesParsed.regionsData);
+          const malang = regions.find((r) => /malang/i.test(r));
+          setSelectedRegion(malang || regions[0]);
         }
+        
       } catch (err) {
         console.error("Gagal memuat data iklim:", err);
       } finally {
@@ -89,8 +122,16 @@ export default function PerubahanIklim() {
               <span className="text-sm font-medium">Memuat data visualisasi anomali iklim...</span>
             </div>
           ) : (
-            <AnimatedContainer animation="fadeInUp" delay={0.2} once={true}>
-              <WarmingStripesViewer parsedData={climateData} />
+            <AnimatedContainer animation="fadeInUp" delay={0.2} once={true} className="flex flex-col gap-6">
+              <WarmingStripesViewer 
+                parsedData={climateData} 
+                selectedRegion={selectedRegion}
+                onRegionChange={setSelectedRegion}
+              />
+              <TemperatureLineChart 
+                parsedData={annualData}
+                selectedRegion={selectedRegion}
+              />
             </AnimatedContainer>
           )}
         </section>

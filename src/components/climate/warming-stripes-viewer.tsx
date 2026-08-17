@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 interface WarmingStripesViewerProps {
   parsedData: ClimateParsedResult | null;
   className?: string;
+  selectedRegion?: string;
+  onRegionChange?: (region: string) => void;
 }
 
-export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStripesViewerProps) {
+export function WarmingStripesViewer({ parsedData, className = "", selectedRegion: externalRegion, onRegionChange }: WarmingStripesViewerProps) {
   const regions = useMemo(() => {
     if (!parsedData || !parsedData.regionsData) return [];
     return Object.keys(parsedData.regionsData);
@@ -23,7 +25,15 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
     return malang || regions[0];
   }, [regions]);
 
-  const [selectedRegion, setSelectedRegion] = useState<string>(initialRegion);
+  const [internalRegion, setInternalRegion] = useState<string>(initialRegion);
+  const selectedRegion = externalRegion !== undefined ? externalRegion : internalRegion;
+
+  const handleRegionSelect = (region: string) => {
+    setInternalRegion(region);
+    if (onRegionChange) {
+      onRegionChange(region);
+    }
+  };
   const [stripeMode, setStripeMode] = useState<"discrete" | "smooth">("discrete");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -46,10 +56,10 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
   }, [regions, searchQuery]);
 
   useEffect(() => {
-    if (initialRegion && !selectedRegion) {
-      setSelectedRegion(initialRegion);
+    if (initialRegion && !internalRegion) {
+      handleRegionSelect(initialRegion);
     }
-  }, [initialRegion, selectedRegion]);
+  }, [initialRegion, internalRegion]);
 
   const hasData = Boolean(parsedData && regions.length > 0);
 
@@ -160,7 +170,7 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
                         key={r} 
                         className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${currentRegion === r ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-50 text-text-primary'}`}
                         onClick={() => {
-                          setSelectedRegion(r);
+                          handleRegionSelect(r);
                           setDropdownOpen(false);
                         }}
                       >
@@ -206,7 +216,7 @@ export function WarmingStripesViewer({ parsedData, className = "" }: WarmingStri
           <button
             type="button"
             onClick={() => {
-              setSelectedRegion(initialRegion);
+              handleRegionSelect(initialRegion);
               setStripeMode("discrete");
               setHoverIndex(null);
             }}

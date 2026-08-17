@@ -152,6 +152,7 @@ export async function supabaseUploadFile(bucket: string, filePath: string, file:
       headers: {
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         apikey: SUPABASE_ANON_KEY,
+        "x-upsert": "true",
       },
       body: file,
     });
@@ -181,6 +182,10 @@ export async function supabaseDeleteFile(bucket: string, filePath: string) {
 
     if (!res.ok) {
       const errorText = await res.text();
+      // Ignore 404 if the file is already deleted
+      if (res.status === 404 || errorText.includes("NoSuchKey")) {
+        return true; 
+      }
       throw new Error(errorText);
     }
     return true;
@@ -188,4 +193,8 @@ export async function supabaseDeleteFile(bucket: string, filePath: string) {
     console.error(`Error deleting from bucket ${bucket}:`, error);
     return false;
   }
+}
+
+export function supabaseGetPublicUrl(bucket: string, filePath: string) {
+  return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${filePath}`;
 }
