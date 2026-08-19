@@ -22,33 +22,33 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
 
 const calculateNOAAHeatIndex = (tempC: number, rh: number): number => {
   // 1. Konversi Celsius ke Fahrenheit (Rumus dasar NOAA menggunakan Fahrenheit)
-  const T = (tempC * 9/5) + 32;
-  
+  const T = (tempC * 9 / 5) + 32;
+
   // 2. Gunakan rumus sederhana (Steadman) terlebih dahulu
   let HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (rh * 0.094));
-  
+
   // 3. Jika hasil rumus sederhana >= 80°F, gunakan regresi Rothfusz penuh
   if (HI >= 80) {
-    HI = -42.379 + 2.04901523*T + 10.14333127*rh - 0.22475541*T*rh - 0.00683783*T*T - 0.05481717*rh*rh + 0.00122874*T*T*rh + 0.00085282*T*rh*rh - 0.00000199*T*T*rh*rh;
-    
+    HI = -42.379 + 2.04901523 * T + 10.14333127 * rh - 0.22475541 * T * rh - 0.00683783 * T * T - 0.05481717 * rh * rh + 0.00122874 * T * T * rh + 0.00085282 * T * rh * rh - 0.00000199 * T * T * rh * rh;
+
     // Penyesuaian untuk udara kering dan panas
     if (rh < 13 && T >= 80 && T <= 112) {
       HI -= ((13 - rh) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
-    } 
+    }
     // Penyesuaian untuk udara sangat lembab dan tidak terlalu panas
     else if (rh > 85 && T >= 80 && T <= 87) {
       HI += ((rh - 85) / 10) * ((87 - T) / 5);
     }
   }
-  
+
   // 4. Kembalikan hasilnya ke Celsius
-  return (HI - 32) * 5/9;
+  return (HI - 32) * 5 / 9;
 };
 
 const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
   const apparentTemp = calculateNOAAHeatIndex(temp, rh);
   const feelsLike = Math.round(apparentTemp);
-  
+
   let statusText = "Nyaman";
   let statusColor = "text-green-500";
   let bgGradient = "from-green-500/20 to-emerald-500/5";
@@ -78,7 +78,7 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
         <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none">
           <div className={`absolute -right-8 -top-8 w-48 h-48 bg-gradient-to-br ${bgGradient} rounded-full blur-[40px] group-hover:scale-125 transition-transform duration-700 opacity-80`}></div>
         </div>
-        
+
         <div className="relative z-10 flex flex-col">
           <div className="flex items-center justify-between mb-4 relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white shadow-sm border border-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
@@ -94,7 +94,7 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
                 <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 group-focus/info:bg-blue-100 transition-colors">
                   <span className="material-symbols-outlined text-blue-500 text-[14px]">info</span>
                 </div>
-                
+
                 {/* Tooltip Content - Unrestricted by overflow */}
                 <div className="absolute right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 group-focus/info:translate-y-0 text-left pointer-events-none">
                   <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
@@ -114,7 +114,7 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center mb-5 mt-1 ml-1">
             <div className="flex items-start gap-1">
               <span className={`text-[4rem] leading-none font-black tracking-tighter ${statusColor} drop-shadow-sm`}>
@@ -163,7 +163,7 @@ export default function Home() {
         }
         sts = sts.filter((st: any) => st.table_name !== "aws_tanggul");
         setStations(sts);
-        
+
         if (sts && sts.length > 0) {
           const malang = sts.find((s: any) => s.table_name === "aws_malang");
           if (malang) {
@@ -183,7 +183,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!selectedStation) return;
-    
+
     async function loadData() {
       try {
         const st = stations.find(s => s.table_name === selectedStation);
@@ -200,7 +200,7 @@ export default function Home() {
         setLatestData(null);
       }
     }
-    
+
     loadData();
     const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
     return () => clearInterval(interval);
@@ -249,7 +249,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [loadAnnouncements]);
 
-  const weather = latestData 
+  const weather = latestData
     ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
     : { text: "Offline", icon: "cloud_off" };
 
@@ -320,7 +320,7 @@ export default function Home() {
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gradient-to-br from-white/95 via-white/85 to-blue-50/70 backdrop-blur-xl flex items-center justify-center border border-white shadow-md relative overflow-hidden shrink-0 group hover:shadow-xl hover:scale-105 transition-all duration-300">
                     {/* Inner glowing halo */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/25 via-sky-300/20 to-transparent blur-sm rounded-3xl group-hover:scale-125 transition-transform duration-500" />
-                    
+
                     {/* Floating weather icon */}
                     <div className="relative z-10 flex items-center justify-center animate-float">
                       <span
@@ -351,9 +351,9 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5 xl:border-l xl:border-slate-800/15 xl:pl-8 relative z-20 shrink-0">
                   <div className="flex items-center gap-2 text-slate-900 text-sm font-bold whitespace-nowrap">
                     <span className="material-symbols-outlined text-[18px] text-blue-700">location_on</span>
-                    
+
                     <div className="relative z-30">
-                      <button 
+                      <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         className="bg-white/70 hover:bg-white border border-white/90 text-slate-900 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer outline-none transition-all shadow-xs text-sm"
                       >
@@ -368,9 +368,9 @@ export default function Home() {
                             <div className="p-2 border-b border-slate-100 bg-slate-50">
                               <div className="relative">
                                 <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                                <input 
-                                  type="text" 
-                                  placeholder="Cari stasiun..." 
+                                <input
+                                  type="text"
+                                  placeholder="Cari stasiun..."
                                   className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 transition-shadow"
                                   value={searchQuery}
                                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -381,8 +381,8 @@ export default function Home() {
                             <div className="max-h-[220px] overflow-y-auto bg-white">
                               {filteredStations.length > 0 ? (
                                 filteredStations.map(st => (
-                                  <div 
-                                    key={st.id} 
+                                  <div
+                                    key={st.id}
                                     className={`px-3.5 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors text-xs ${selectedStation === st.table_name ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 font-medium"}`}
                                     onClick={() => {
                                       setSelectedStation(st.table_name);
@@ -474,9 +474,9 @@ export default function Home() {
               </div>
             </AnimatedContainer>
           </div>
-          
+
           <AnimatedContainer animation="slideInRight" delay={0.3} once={true} className="w-full lg:w-auto flex justify-center lg:justify-end">
-             <HeatIndexCard temp={latestData?.temp ?? 0} rh={latestData?.rh ?? 0} />
+            <HeatIndexCard temp={latestData?.temp ?? 0} rh={latestData?.rh ?? 0} />
           </AnimatedContainer>
         </section>
 
