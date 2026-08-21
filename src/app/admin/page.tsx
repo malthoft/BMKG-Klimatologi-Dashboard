@@ -6,6 +6,7 @@ import { FALLBACK_STATIONS } from "@/lib/constants";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
 import { TemperatureLineChart } from "@/components/climate/temperature-line-chart";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
+import { parseObservationExcel, ParsedDailyObservation, ParsedHourlyObservation } from "@/lib/excel-parser";
 import { useToast } from "@/components/ui/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -20,6 +21,39 @@ export default function AdminPage() {
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
   const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "" });
+
+  // --- Observation Data States ---
+  const [observationDaily, setObservationDaily] = useState<ParsedDailyObservation>({
+    tanggal_pengamatan: "",
+    source_file: "",
+    suhu_maksimum: 0,
+    suhu_minimum: 0,
+    curah_hujan_mm: 0,
+    kategori_hujan: "Tidak Ada Hujan",
+    suhu_udara_rata: 0,
+    kelembaban_rata: 0,
+    tekanan_udara_rata: 0,
+    angin_arah_dominan: "-",
+    angin_kecepatan_rata_kt: 0,
+    angin_kecepatan_max_kt: 0,
+    rangkuman_info: "",
+  });
+  const [observationHourly, setObservationHourly] = useState<ParsedHourlyObservation[]>([]);
+  const [activeObservationDate, setActiveObservationDate] = useState<string>("");
+  const [activeObservationSync, setActiveObservationSync] = useState<string>("");
+  const [isSavingObservation, setIsSavingObservation] = useState(false);
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+  
+  const [isAddHourlyModalOpen, setIsAddHourlyModalOpen] = useState(false);
+  const [newHourlyRow, setNewHourlyRow] = useState<ParsedHourlyObservation>({
+    jam: "",
+    suhu_c: 25.0,
+    kelembaban_percent: 75,
+    tekanan_mbar: 948.0,
+    kecepatan_angin_kt: 4,
+    arah_angin: "-",
+  });
 
   // --- Climate CSV Admin States ---
   const [csvTextStripes, setCsvTextStripes] = useState("");
@@ -58,7 +92,231 @@ export default function AdminPage() {
     loadClimateData();
     loadOrgMembers();
     loadTempMaps();
+    loadObservationData();
   }, []);
+
+  const loadObservationData = async () => {
+    try {
+      let dailyResult = await supabaseFetch("daily_observations", "order=id.desc&limit=1");
+      if (!dailyResult || dailyResult.length === 0) {
+        dailyResult = await supabaseFetch("daily_observations", "id=eq.1");
+      }
+      if (dailyResult && dailyResult.length > 0) {
+        const d = dailyResult[0];
+        setObservationDaily({
+          tanggal_pengamatan: d.tanggal_pengamatan || "",
+          source_file: d.source_file || "",
+          suhu_maksimum: d.suhu_maksimum ?? 0,
+          suhu_minimum: d.suhu_minimum ?? 0,
+          curah_hujan_mm: d.curah_hujan_mm ?? 0,
+          kategori_hujan: d.kategori_hujan || "Tidak Ada Hujan",
+          suhu_udara_rata: d.suhu_udara_rata ?? 0,
+          kelembaban_rata: d.kelembaban_rata ?? 0,
+          tekanan_udara_rata: d.tekanan_udara_rata ?? 0,
+          angin_arah_dominan: d.angin_arah_dominan || "-",
+          angin_kecepatan_rata_kt: d.angin_kecepatan_rata_kt ?? 0,
+          angin_kecepatan_max_kt: d.angin_kecepatan_max_kt ?? 0,
+          rangkuman_info: d.rangkuman_info || "",
+        });
+        setActiveObservationDate(d.tanggal_pengamatan || "-");
+        setActiveObservationSync(d.synced_at || d.updated_at || "");
+      }
+
+      const hourlyResult = await supabaseFetch("hourly_observations", "order=id.asc");
+      if (hourlyResult && hourlyResult.length > 0) {
+        const sorted = [...hourlyResult].sort((a, b) => (a.jam || "").localeCompare(b.jam || ""));
+        setObservationHourly(sorted);
+      }
+    } catch (e) {
+      console.error("Gagal memuat data pengamatan di admin", e);
+    }
+  };
+
+  const handleRefreshData = async () => {
+    setIsRefreshingData(true);
+    await loadObservationData();
+    setTimeout(() => setIsRefreshingData(false), 800);
+  };
+
+  const handleExcelUpload = async (evt: React.ChangeEvent<HTMLInputElement>) => {
+    const file = evt.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (Max 10 MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Ukuran file terlalu besar! Maksimal 10 MB.");
+      evt.target.value = "";
+      return;
+    }
+
+    // Validate file extension
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
+      toast.error("Format file tidak didukung! Harap unggah file .xlsx, .xls, atau .csv.");
+      evt.target.value = "";
+      return;
+    }
+
+    setIsParsingExcel(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const result = parseObservationExcel(buffer, file.name);
+      setObservationDaily(result.daily);
+      setObservationHourly(result.hourly);
+      
+      if (result.hourly.length === 0) {
+        toast.info("File berhasil dibaca, namun tidak ada data per jam yang terdeteksi. Silakan isi manual jika perlu.");
+      } else {
+        toast.success(`Berhasil mengekstrak ${file.name}! Terdeteksi ${result.hourly.length} data observasi jam.`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memproses file Excel.");
+    } finally {
+      setIsParsingExcel(false);
+      evt.target.value = "";
+    }
+  };
+
+  const handleSaveObservation = (e: React.FormEvent) => {
+    e.preventDefault();
+    openConfirm(
+      "Simpan & Aktifkan Data",
+      "Apakah Anda yakin ingin menimpa data pengamatan harian sebelumnya? Tindakan ini akan mengganti data yang sedang aktif di website.",
+      async () => {
+        closeConfirm();
+        setIsSavingObservation(true);
+        try {
+          const nowIso = new Date().toISOString();
+          const dailyPayload = {
+            tanggal_pengamatan: observationDaily.tanggal_pengamatan,
+            source_file: observationDaily.source_file || "Manual Input.xlsx",
+            suhu_maksimum: parseFloat(String(observationDaily.suhu_maksimum)) || 0,
+            suhu_minimum: parseFloat(String(observationDaily.suhu_minimum)) || 0,
+            curah_hujan_mm: parseFloat(String(observationDaily.curah_hujan_mm)) || 0,
+            kategori_hujan: observationDaily.kategori_hujan || "Tidak Ada Hujan",
+            suhu_udara_rata: parseFloat(String(observationDaily.suhu_udara_rata)) || 0,
+            kelembaban_rata: parseFloat(String(observationDaily.kelembaban_rata)) || 0,
+            tekanan_udara_rata: parseFloat(String(observationDaily.tekanan_udara_rata)) || 0,
+            angin_arah_dominan: observationDaily.angin_arah_dominan || "-",
+            angin_kecepatan_rata_kt: parseFloat(String(observationDaily.angin_kecepatan_rata_kt)) || 0,
+            angin_kecepatan_max_kt: parseFloat(String(observationDaily.angin_kecepatan_max_kt)) || 0,
+            rangkuman_info: observationDaily.rangkuman_info || "",
+            synced_at: nowIso,
+            updated_at: nowIso,
+          };
+
+          const existingDaily = await supabaseFetch("daily_observations", "id=eq.1");
+          let saveDailyOk = false;
+          if (existingDaily && existingDaily.length > 0) {
+            const res = await supabaseUpdate("daily_observations", "id=eq.1", dailyPayload);
+            saveDailyOk = !!res;
+          } else {
+            const res = await supabaseInsert("daily_observations", { id: 1, ...dailyPayload });
+            saveDailyOk = !!res;
+          }
+
+          if (!saveDailyOk) {
+            throw new Error("Gagal menyimpan ringkasan harian ke database.");
+          }
+
+          if (observationHourly.length > 0) {
+            await supabaseDelete("hourly_observations", "id=gt.0");
+            const hourlyClean = observationHourly.map((h) => ({
+              jam: h.jam,
+              suhu_c: parseFloat(String(h.suhu_c)) || 0,
+              kelembaban_percent: parseFloat(String(h.kelembaban_percent)) || 0,
+              tekanan_mbar: parseFloat(String(h.tekanan_mbar)) || 0,
+              kecepatan_angin_kt: parseFloat(String(h.kecepatan_angin_kt)) || 0,
+              arah_angin: String(h.arah_angin || "-"),
+            }));
+            await supabaseInsert("hourly_observations", hourlyClean);
+          } else {
+            // If no hourly data is provided, still purge old data to stay consistent
+            await supabaseDelete("hourly_observations", "id=gt.0");
+          }
+
+          toast.success("Data pengamatan harian berhasil diperbarui dan aktif di website!");
+          setActiveObservationDate(observationDaily.tanggal_pengamatan);
+          setActiveObservationSync(nowIso);
+          loadObservationData();
+        } catch (err: any) {
+          toast.error(err.message || "Gagal menyimpan data pengamatan.");
+        } finally {
+          setIsSavingObservation(false);
+        }
+      }
+    );
+  };
+
+  const handleHourlyRowChange = (index: number, field: keyof ParsedHourlyObservation, val: any) => {
+    setObservationHourly((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      return copy;
+    });
+  };
+
+  const handleOpenAddHourlyModal = () => {
+    const nextHour = String(observationHourly.length + 7).padStart(2, "0") + ":00";
+    setNewHourlyRow({
+      jam: nextHour,
+      suhu_c: 25.0,
+      kelembaban_percent: 75,
+      tekanan_mbar: 948.0,
+      kecepatan_angin_kt: 4,
+      arah_angin: "-",
+    });
+    setIsAddHourlyModalOpen(true);
+  };
+
+  const handleConfirmAddHourlyRow = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validasi Format Jam (HH:MM)
+    const jamRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!jamRegex.test(newHourlyRow.jam)) {
+      toast.error("Format jam tidak valid! Gunakan format HH:MM (contoh: 07:00 atau 14:30).");
+      return;
+    }
+
+    // Pastikan format selalu 2 digit (misal 7:00 menjadi 07:00)
+    const normalizedJam = newHourlyRow.jam.padStart(5, '0');
+    const rowToSave = { ...newHourlyRow, jam: normalizedJam };
+
+    // Validasi Duplikasi Jam
+    const isDuplicate = observationHourly.some(row => row.jam === normalizedJam);
+    if (isDuplicate) {
+      toast.error(`Data untuk jam ${normalizedJam} sudah ada di dalam tabel!`);
+      return;
+    }
+
+    // Validasi Rentang Logis
+    if (rowToSave.suhu_c < 0 || rowToSave.suhu_c > 50) {
+      toast.error("Nilai suhu tidak masuk akal (harus antara 0 - 50 °C).");
+      return;
+    }
+    if (rowToSave.kelembaban_percent < 0 || rowToSave.kelembaban_percent > 100) {
+      toast.error("Nilai kelembaban harus antara 0 - 100 %.");
+      return;
+    }
+    if (rowToSave.tekanan_mbar < 800 || rowToSave.tekanan_mbar > 1100) {
+      toast.error("Nilai tekanan QFE tidak valid (biasanya antara 800 - 1100 mbar).");
+      return;
+    }
+
+    setObservationHourly((prev) => {
+      const newArray = [...prev, rowToSave];
+      // Pastikan array selalu urut berdasarkan jam setelah penambahan
+      return newArray.sort((a, b) => a.jam.localeCompare(b.jam));
+    });
+    
+    toast.success(`Data observasi untuk jam ${normalizedJam} berhasil ditambahkan!`);
+    setIsAddHourlyModalOpen(false);
+  };
+
+  const handleRemoveHourlyRow = (index: number) => {
+    setObservationHourly((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const loadStations = async () => {
     let sts = await supabaseFetch("stations");
@@ -461,6 +719,13 @@ export default function AdminPage() {
               <span className="text-[14px] font-medium">Manage Stations</span>
             </a>
             <a 
+              onClick={() => setActiveTab('observations')}
+              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'observations' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
+            >
+              <span className="material-symbols-outlined">fact_check</span>
+              <span className="text-[14px] font-medium">Data Pengamatan (Excel)</span>
+            </a>
+            <a 
               onClick={() => setActiveTab('announcements')}
               className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'announcements' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
             >
@@ -501,6 +766,7 @@ export default function AdminPage() {
             <div className="hidden md:block">
               <h2 className="text-[28px] font-semibold text-text-primary">
                 {activeTab === 'stations' && 'Manage Stations (AWS)'}
+                {activeTab === 'observations' && 'Kelola Data Pengamatan Harian (Excel)'}
                 {activeTab === 'announcements' && 'Announcements'}
                 {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
                 {activeTab === 'org' && 'Struktur Organisasi'}
@@ -601,6 +867,438 @@ export default function AdminPage() {
                     </div>
                   </form>
                 </div>
+              </section>
+            )}
+
+            {activeTab === 'observations' && (
+              <section className="space-y-8">
+                {/* 1. Header Banner & Status */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h3 className="text-[1.75rem] font-semibold text-on-surface">Data Pengamatan Harian (BMKG)</h3>
+                    <p className="text-sm text-secondary mt-1">
+                      Unggah berkas Excel pengamatan harian (.xlsx / .xls) untuk otomatis mengekstrak parameter, atau lakukan input/edit data langsung di bawah.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 shrink-0">
+                    <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl text-xs">
+                      <span className="text-slate-500 font-medium block">Data Aktif di Website:</span>
+                      <span className="font-bold text-primary text-sm">{activeObservationDate || "Belum Ada Data"}</span>
+                      {activeObservationSync && (
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          Sinkron: {
+                            (() => {
+                              let safeStr = activeObservationSync;
+                              if (safeStr.includes(" ") && !safeStr.includes("T")) safeStr = safeStr.replace(" ", "T");
+                              if (!safeStr.endsWith("Z") && !safeStr.includes("+") && safeStr.length === 19) safeStr += "+07:00";
+                              return new Date(safeStr).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
+                            })()
+                          } WIB
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRefreshData}
+                      disabled={isRefreshingData}
+                      className="px-5 py-2 rounded-full text-sm font-bold border-[1.5px] border-primary bg-white text-primary hover:bg-primary hover:text-white transition-all duration-300 flex items-center gap-2 cursor-pointer shadow-sm group disabled:opacity-70 disabled:cursor-wait"
+                      title="Muat ulang dari database"
+                    >
+                      <span className={`material-symbols-outlined text-[20px] ${isRefreshingData ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`}>sync</span>
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Upload Excel Dropzone */}
+                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                  <h4 className="text-base font-bold text-text-primary mb-3 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">upload_file</span>
+                    Unggah Berkas Excel (.xlsx / .xls)
+                  </h4>
+                  <div
+                    onClick={() => document.getElementById("adminExcelInputObservation")?.click()}
+                    className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
+                  >
+                    <input
+                      type="file"
+                      id="adminExcelInputObservation"
+                      accept=".xlsx,.xls,.csv"
+                      style={{ display: "none" }}
+                      onChange={handleExcelUpload}
+                    />
+                    <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <span className="material-symbols-outlined text-3xl">
+                        {isParsingExcel ? "progress_activity" : "description"}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-text-primary text-base">
+                        {isParsingExcel ? "Sedang Membaca Berkas..." : "Klik atau Seret Berkas Excel (.xlsx) ke Sini"}
+                      </h4>
+                      <p className="text-xs text-text-secondary mt-1">
+                        Sistem akan otomatis mengekstrak tanggal, ringkasan cuaca (Tx, Tn, Curah Hujan), dan data per jam.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Form Editor: Parameter Harian & Tabel Jam */}
+                <form onSubmit={handleSaveObservation} className="space-y-6">
+                  {/* Parameter Harian Card */}
+                  <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
+                    <div className="flex justify-between items-center border-b border-border pb-3">
+                      <h4 className="text-base font-bold text-text-primary flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">thermostat</span>
+                        Ringkasan Parameter Cuaca Harian (24 Jam)
+                      </h4>
+                      <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                        File: {observationDaily.source_file || "Manual"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Tanggal Pengamatan
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          value={observationDaily.tanggal_pengamatan}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, tanggal_pengamatan: e.target.value })}
+                          placeholder="e.g. 19 AGUSTUS 2026"
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white font-semibold text-primary focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Nama File Sumber
+                        </label>
+                        <input
+                          type="text"
+                          value={observationDaily.source_file}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, source_file: e.target.value })}
+                          placeholder="e.g. 19-08-2026.xlsx"
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Curah Hujan (mm)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.curah_hujan_mm}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setObservationDaily({
+                              ...observationDaily,
+                              curah_hujan_mm: val,
+                              kategori_hujan: val <= 0 ? "Tidak Ada Hujan" : val <= 20 ? "Hujan Ringan" : val <= 50 ? "Hujan Sedang" : "Hujan Lebat",
+                            });
+                          }}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Kategori Hujan
+                        </label>
+                        <select
+                          value={observationDaily.kategori_hujan}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, kategori_hujan: e.target.value })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        >
+                          <option value="Tidak Ada Hujan">Tidak Ada Hujan</option>
+                          <option value="Hujan Sangat Ringan (Jejak)">Hujan Sangat Ringan (Jejak)</option>
+                          <option value="Hujan Ringan">Hujan Ringan</option>
+                          <option value="Hujan Sedang">Hujan Sedang</option>
+                          <option value="Hujan Lebat">Hujan Lebat</option>
+                          <option value="Hujan Sangat Lebat">Hujan Sangat Lebat</option>
+                          <option value="Hujan Ekstrim">Hujan Ekstrim</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Suhu Maksimum (°C)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.suhu_maksimum}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_maksimum: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white text-orange-600 font-bold focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Suhu Minimum (°C)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.suhu_minimum}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_minimum: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white text-blue-600 font-bold focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Suhu Udara Rata-rata (°C)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.suhu_udara_rata}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_udara_rata: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Kelembaban Udara Rata-rata (%)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="1"
+                          value={observationDaily.kelembaban_rata}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, kelembaban_rata: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Tekanan Udara QFE (mbar)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.tekanan_udara_rata}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, tekanan_udara_rata: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Arah Angin Dominan
+                        </label>
+                        <input
+                          type="text"
+                          value={observationDaily.angin_arah_dominan}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, angin_arah_dominan: e.target.value })}
+                          placeholder="e.g. Timur / 180"
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Kecepatan Angin Rata-rata (Knot)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.angin_kecepatan_rata_kt}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, angin_kecepatan_rata_kt: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Kecepatan Angin Maksimum (Knot)
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          step="0.1"
+                          value={observationDaily.angin_kecepatan_max_kt}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, angin_kecepatan_max_kt: parseFloat(e.target.value) || 0 })}
+                          className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Rangkuman Cuaca Ekstrim / Catatan Khusus
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={observationDaily.rangkuman_info}
+                        onChange={(e) => setObservationDaily({ ...observationDaily, rangkuman_info: e.target.value })}
+                        placeholder="e.g. Suhu Minimum terendah : \n- Bulan Juli : 15.8˚C"
+                        className="w-full border border-border rounded-xl p-3 text-sm bg-white focus:ring-2 focus:ring-primary outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tabel Data Per Jam */}
+                  <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border pb-3">
+                      <div>
+                        <h4 className="text-base font-bold text-text-primary flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary">schedule</span>
+                          Data Pengamatan Tiap Jam ({observationHourly.length} Jam Observasi)
+                        </h4>
+                        <p className="text-xs text-text-secondary mt-0.5">
+                          Data ini digunakan untuk menghasilkan Grafik Suhu vs Kelembaban &amp; Tekanan vs Angin di halaman publik.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleOpenAddHourlyModal}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-50 text-primary border border-blue-200 hover:bg-blue-100 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <span className="material-symbols-outlined text-base">add</span>
+                        <span>Tambah Baris Jam</span>
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[650px]">
+                        <thead>
+                          <tr className="border-b border-border text-secondary text-xs">
+                            <th className="py-2.5 px-3 font-bold">Jam</th>
+                            <th className="py-2.5 px-3 font-bold">Suhu (°C)</th>
+                            <th className="py-2.5 px-3 font-bold">RH (%)</th>
+                            <th className="py-2.5 px-3 font-bold">Tekanan (mbar)</th>
+                            <th className="py-2.5 px-3 font-bold">Angin (Knot)</th>
+                            <th className="py-2.5 px-3 font-bold">Arah</th>
+                            <th className="py-2.5 px-3 font-bold text-center">Aksi</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                          {observationHourly.map((row, idx) => (
+                            <tr key={idx} className="border-b border-border/50 hover:bg-slate-50 transition-colors">
+                              <td className="py-2 px-3">
+                                <input
+                                  type="text"
+                                  value={row.jam}
+                                  onChange={(e) => handleHourlyRowChange(idx, "jam", e.target.value)}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono font-bold bg-white"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={row.suhu_c}
+                                  onChange={(e) => handleHourlyRowChange(idx, "suhu_c", parseFloat(e.target.value) || 0)}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-orange-600 font-semibold"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={row.kelembaban_percent}
+                                  onChange={(e) => handleHourlyRowChange(idx, "kelembaban_percent", parseFloat(e.target.value) || 0)}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-cyan-600 font-semibold"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={row.tekanan_mbar}
+                                  onChange={(e) => handleHourlyRowChange(idx, "tekanan_mbar", parseFloat(e.target.value) || 0)}
+                                  className="w-24 border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-purple-600 font-semibold"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={row.kecepatan_angin_kt}
+                                  onChange={(e) => handleHourlyRowChange(idx, "kecepatan_angin_kt", parseFloat(e.target.value) || 0)}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white text-lime-600 font-semibold"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="text"
+                                  value={row.arah_angin}
+                                  onChange={(e) => handleHourlyRowChange(idx, "arah_angin", e.target.value)}
+                                  className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs bg-white"
+                                />
+                              </td>
+                              <td className="py-2 px-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveHourlyRow(idx)}
+                                  className="text-slate-400 hover:text-red-500 p-1 transition-colors"
+                                  title="Hapus baris jam"
+                                >
+                                  <span className="material-symbols-outlined text-sm">delete</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {observationHourly.length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
+                                Belum ada data jam. Unggah file Excel atau klik "Tambah Baris Jam".
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Submit Button Bar */}
+                  <div className="bg-surface rounded-2xl border border-border p-4 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-3 sticky bottom-4 z-20">
+                    <div className="text-xs text-text-secondary font-medium">
+                      Pastikan parameter sudah sesuai sebelum menyimpan ke database.
+                    </div>
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={loadObservationData}
+                        className="px-4 py-2.5 rounded-xl text-xs font-bold border border-border bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer w-full sm:w-auto text-center"
+                      >
+                        Batal / Muat Ulang
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingObservation}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto ${
+                          isSavingObservation ? "bg-primary/70 cursor-wait" : "bg-primary hover:bg-primary-dark hover:shadow-lg"
+                        }`}
+                      >
+                        {isSavingObservation ? (
+                          <>
+                            <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+                            <span>Menyimpan ke Database...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base">save</span>
+                            <span>Simpan &amp; Aktifkan di Website</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
               </section>
             )}
 
@@ -1015,6 +1713,85 @@ export default function AdminPage() {
           </div>
         </main>
       </div>
+
+      {/* Modal Tambah Baris Jam */}
+      {isAddHourlyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-5 border-b border-border flex justify-between items-center bg-slate-50">
+              <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">add_circle</span>
+                Tambah Data Per Jam
+              </h3>
+              <button 
+                onClick={() => setIsAddHourlyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="p-5 max-h-[70vh] overflow-y-auto space-y-5">
+              {/* Panduan Pengisian */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-slate-700 space-y-1">
+                <p className="font-bold text-primary mb-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">info</span> Panduan Pengisian:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li><strong>Jam</strong>: Format 24 jam (misal 07:00, 13:00, 22:00).</li>
+                  <li><strong>Suhu (°C)</strong>: Rentang normal BMKG (15.0 - 40.0 °C).</li>
+                  <li><strong>RH (%)</strong>: Kelembaban relatif udara (30 - 100%).</li>
+                  <li><strong>Tekanan (mbar)</strong>: Tekanan QFE lokal (900.0 - 1050.0).</li>
+                  <li><strong>Angin (Knot)</strong>: Kecepatan angin rata-rata jam tersebut (0 - 40).</li>
+                </ul>
+              </div>
+
+              <form id="addHourlyForm" onSubmit={handleConfirmAddHourlyRow} className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Jam (HH:MM)</label>
+                  <input required type="text" value={newHourlyRow.jam} onChange={e => setNewHourlyRow({...newHourlyRow, jam: e.target.value})} placeholder="07:00" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none font-mono" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Suhu (°C)</label>
+                  <input required type="number" step="0.1" value={newHourlyRow.suhu_c} onChange={e => setNewHourlyRow({...newHourlyRow, suhu_c: parseFloat(e.target.value) || 0})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Kelembaban (%)</label>
+                  <input required type="number" step="1" value={newHourlyRow.kelembaban_percent} onChange={e => setNewHourlyRow({...newHourlyRow, kelembaban_percent: parseFloat(e.target.value) || 0})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Tekanan (mbar)</label>
+                  <input required type="number" step="0.1" value={newHourlyRow.tekanan_mbar} onChange={e => setNewHourlyRow({...newHourlyRow, tekanan_mbar: parseFloat(e.target.value) || 0})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Kecepatan Angin (Knot)</label>
+                  <input required type="number" step="0.1" value={newHourlyRow.kecepatan_angin_kt} onChange={e => setNewHourlyRow({...newHourlyRow, kecepatan_angin_kt: parseFloat(e.target.value) || 0})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Arah Angin</label>
+                  <input required type="text" value={newHourlyRow.arah_angin} onChange={e => setNewHourlyRow({...newHourlyRow, arah_angin: e.target.value})} placeholder="Timur / 90" className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" />
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-4 border-t border-border bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setIsAddHourlyModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-bold border border-border bg-white hover:bg-slate-100 text-slate-700 transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                type="submit"
+                form="addHourlyForm"
+                className="px-6 py-2 rounded-xl text-sm font-bold bg-primary hover:bg-primary-dark text-white shadow-md transition-colors flex items-center gap-2"
+              >
+                Tambah
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
