@@ -22,116 +22,85 @@ const getWeatherCondition = (temp: number, rh: number, rr: number) => {
 
 const calculateNOAAHeatIndex = (tempC: number, rh: number): number => {
   // 1. Konversi Celsius ke Fahrenheit (Rumus dasar NOAA menggunakan Fahrenheit)
-  const T = (tempC * 9/5) + 32;
-  
+  const T = (tempC * 9 / 5) + 32;
+
   // 2. Gunakan rumus sederhana (Steadman) terlebih dahulu
   let HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (rh * 0.094));
-  
+
   // 3. Jika hasil rumus sederhana >= 80°F, gunakan regresi Rothfusz penuh
   if (HI >= 80) {
-    HI = -42.379 + 2.04901523*T + 10.14333127*rh - 0.22475541*T*rh - 0.00683783*T*T - 0.05481717*rh*rh + 0.00122874*T*T*rh + 0.00085282*T*rh*rh - 0.00000199*T*T*rh*rh;
-    
+    HI = -42.379 + 2.04901523 * T + 10.14333127 * rh - 0.22475541 * T * rh - 0.00683783 * T * T - 0.05481717 * rh * rh + 0.00122874 * T * T * rh + 0.00085282 * T * rh * rh - 0.00000199 * T * T * rh * rh;
+
     // Penyesuaian untuk udara kering dan panas
     if (rh < 13 && T >= 80 && T <= 112) {
       HI -= ((13 - rh) / 4) * Math.sqrt((17 - Math.abs(T - 95)) / 17);
-    } 
+    }
     // Penyesuaian untuk udara sangat lembab dan tidak terlalu panas
     else if (rh > 85 && T >= 80 && T <= 87) {
       HI += ((rh - 85) / 10) * ((87 - T) / 5);
     }
   }
-  
+
   // 4. Kembalikan hasilnya ke Celsius
-  return (HI - 32) * 5/9;
+  return (HI - 32) * 5 / 9;
 };
 
 const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
   const apparentTemp = calculateNOAAHeatIndex(temp, rh);
   const feelsLike = Math.round(apparentTemp);
-  
-  let statusText = "Nyaman";
-  let statusColor = "text-green-500";
-  let bgGradient = "from-green-500/20 to-emerald-500/5";
-  let icon = "mood";
-
-  if (feelsLike >= 32 && feelsLike < 39) {
-    statusText = "Cukup Gerah";
-    statusColor = "text-amber-500";
-    bgGradient = "from-amber-500/20 to-orange-500/5";
-    icon = "local_fire_department";
-  } else if (feelsLike >= 39) {
-    statusText = "Sangat Panas (Bahaya)";
-    statusColor = "text-red-500";
-    bgGradient = "from-red-500/20 to-rose-500/5";
-    icon = "warning";
-  } else if (feelsLike < 25) {
-    statusText = "Sejuk";
-    statusColor = "text-blue-500";
-    bgGradient = "from-blue-500/20 to-cyan-500/5";
-    icon = "ac_unit";
-  }
 
   return (
-    <div className="w-full max-w-[380px] flex flex-col gap-4 animate-fade-in shrink-0 mt-8 lg:mt-0">
+    <div className="w-full max-w-[380px] flex flex-col gap-4 animate-fade-in shrink-0 mt-4 lg:mt-0">
       <div className={`bg-white/90 backdrop-blur-xl rounded-[1.5rem] p-6 shadow-lg border-2 border-white/80 ring-1 ring-slate-100/50 relative group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:border-blue-100/60 hover:-translate-y-1 transition-all duration-500`}>
         {/* Isolated Overflow Hidden wrapper for the blur effect */}
         <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none">
-          <div className={`absolute -right-8 -top-8 w-48 h-48 bg-gradient-to-br ${bgGradient} rounded-full blur-[40px] group-hover:scale-125 transition-transform duration-700 opacity-80`}></div>
+          <div className={`absolute -right-8 -top-8 w-48 h-48 bg-gradient-to-br from-blue-500/20 to-cyan-500/5 rounded-full blur-[40px] group-hover:scale-125 transition-transform duration-700 opacity-80`}></div>
         </div>
-        
-        <div className="relative z-10 flex flex-col">
-          <div className="flex items-center justify-between mb-4 relative">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white shadow-sm border border-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
-              <span className="material-symbols-outlined text-[14px]">thermostat</span>
+
+        <div className="relative z-10 flex flex-col items-center text-center">
+          {/* Header Row */}
+          <div className="flex items-center justify-between w-full mb-3 relative">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50/80 border border-blue-100 text-blue-900 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
+              <span className="material-symbols-outlined text-[15px] text-blue-600">thermostat</span>
               Suhu Terasa
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <span className={`material-symbols-outlined ${statusColor} text-[16px] animate-pulse`}>{icon}</span>
-                <span className={`font-bold text-[12px] ${statusColor}`}>{statusText}</span>
+            <div className="relative group/info cursor-help outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
+              <div className="w-7 h-7 rounded-full bg-blue-50/80 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 group-focus/info:bg-blue-100 transition-colors shadow-2xs">
+                <span className="material-symbols-outlined text-blue-600 text-[15px]">info</span>
               </div>
-              <div className="relative group/info ml-1 cursor-help outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
-                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 group-focus/info:bg-blue-100 transition-colors">
-                  <span className="material-symbols-outlined text-blue-500 text-[14px]">info</span>
+
+              {/* Tooltip Content */}
+              <div className="absolute right-0 top-full mt-2 w-[270px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 group-focus/info:translate-y-0 text-left pointer-events-none">
+                <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
+                  Tentang Suhu Terasa
                 </div>
-                
-                {/* Tooltip Content - Unrestricted by overflow */}
-                <div className="absolute right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 group-focus/info:translate-y-0 text-left pointer-events-none">
-                  <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
-                    Indikator Suhu Terasa
-                  </div>
-                  <ul className="flex flex-col gap-2 text-slate-600 font-medium mt-3">
-                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400"></span><span className="text-blue-500">Sejuk</span></span> <span className="font-mono text-slate-400">&lt; 25°C</span></li>
-                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400"></span><span className="text-green-500">Nyaman</span></span> <span className="font-mono text-slate-400">25 - 31.9°C</span></li>
-                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400"></span><span className="text-amber-500">Gerah</span></span> <span className="font-mono text-slate-400">32 - 38.9°C</span></li>
-                    <li className="flex justify-between items-center"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400"></span><span className="text-red-500">Bahaya</span></span> <span className="font-mono text-slate-400">&ge; 39°C</span></li>
-                  </ul>
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 text-[10px] text-slate-400 leading-relaxed font-normal">
-                    Suhu yang dirasakan tubuh akibat efek kelembaban.
-                  </div>
+                <div className="text-slate-600 font-medium mt-2 leading-relaxed">
+                  Suhu terasa (Heat Index) ini dihitung menggunakan formula dari <strong>NOAA</strong> <em>(National Oceanic and Atmospheric Administration)</em>.
+                  <br/><br/>
+                  Nilai ini merupakan estimasi suhu yang dirasakan tubuh dengan memperhitungkan interaksi antara <strong>suhu udara aktual</strong> dan <strong>kelembaban relatif</strong>.
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center mb-5 mt-1 ml-1">
-            <div className="flex items-start gap-1">
-              <span className={`text-[4rem] leading-none font-black tracking-tighter ${statusColor} drop-shadow-sm`}>
-                {feelsLike || 0}
-              </span>
-              <span className={`text-[1.5rem] font-bold ${statusColor} mt-1.5`}>°C</span>
             </div>
           </div>
 
-          <div className="w-full bg-white rounded-2xl p-3.5 flex justify-between items-center border border-slate-100 shadow-sm">
-            <div className="flex flex-col items-center w-1/2 border-r border-slate-100">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Suhu Asli</span>
-              <span className="font-bold text-slate-700 text-lg flex items-center gap-0.5">{Math.round(temp) || 0}<span className="text-sm font-semibold text-slate-400">°C</span></span>
+          {/* Centered Large Temperature Number */}
+          <div className="flex items-start justify-center gap-1 my-2 w-full">
+            <span className="text-[4.75rem] leading-none font-black tracking-tight bg-gradient-to-br from-blue-700 via-sky-600 to-indigo-700 bg-clip-text text-transparent drop-shadow-xs">
+              {feelsLike || 0}
+            </span>
+            <span className="text-[1.75rem] font-black text-sky-600 mt-2">°C</span>
+          </div>
+
+          {/* Sub-metrics Grid (2 Columns: Suhu & Kelembaban) */}
+          <div className="w-full bg-slate-50/80 rounded-2xl py-3 px-3 grid grid-cols-2 divide-x divide-slate-200/60 border border-slate-100 shadow-2xs mt-2">
+            <div className="flex flex-col items-center justify-center w-full">
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Suhu Udara</span>
+              <span className="font-extrabold text-slate-800 text-lg flex items-center gap-0.5">{Math.round(temp) || 0}<span className="text-[12px] font-bold text-slate-400">°C</span></span>
             </div>
-            <div className="flex flex-col items-center w-1/2">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Kelembaban</span>
-              <span className="font-bold text-slate-700 text-lg flex items-center gap-0.5">{Math.round(rh) || 0}<span className="text-sm font-semibold text-slate-400">%</span></span>
+            <div className="flex flex-col items-center justify-center w-full">
+              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Kelembaban</span>
+              <span className="font-extrabold text-slate-800 text-lg flex items-center gap-0.5">{Math.round(rh) || 0}<span className="text-[12px] font-bold text-slate-400">%</span></span>
             </div>
           </div>
         </div>
@@ -166,7 +135,7 @@ export default function Home() {
         }
         sts = sts.filter((st: any) => st.table_name !== "aws_tanggul");
         setStations(sts);
-        
+
         if (sts && sts.length > 0) {
           const malang = sts.find((s: any) => s.table_name === "aws_malang");
           if (malang) {
@@ -186,7 +155,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!selectedStation) return;
-    
+
     async function loadData() {
       try {
         const st = stations.find(s => s.table_name === selectedStation);
@@ -203,7 +172,7 @@ export default function Home() {
         setLatestData(null);
       }
     }
-    
+
     loadData();
     const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
     return () => clearInterval(interval);
@@ -252,7 +221,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [loadAnnouncements]);
 
-  const weather = latestData 
+  const weather = latestData
     ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
     : { text: "Offline", icon: "cloud_off" };
 
@@ -292,6 +261,33 @@ export default function Home() {
     }
   };
 
+  const getCategoryGradient = (cat: string) => {
+    switch (cat) {
+      case "peringatan_dini": return "from-red-500 to-orange-500";
+      case "kegiatan": return "from-emerald-500 to-teal-500";
+      case "info": return "from-blue-500 to-cyan-500";
+      default: return "from-blue-500 to-cyan-500";
+    }
+  };
+
+  const getCategoryIconBg = (cat: string) => {
+    switch (cat) {
+      case "peringatan_dini": return "bg-red-50 border border-red-100";
+      case "kegiatan": return "bg-emerald-50 border border-emerald-100";
+      case "info": return "bg-blue-50 border border-blue-100";
+      default: return "bg-blue-50 border border-blue-100";
+    }
+  };
+
+  const getCategoryIconColor = (cat: string) => {
+    switch (cat) {
+      case "peringatan_dini": return "text-red-600";
+      case "kegiatan": return "text-emerald-600";
+      case "info": return "text-blue-600";
+      default: return "text-blue-600";
+    }
+  };
+
   const handleStationSelect = (tableName: string) => {
     setSelectedStation(tableName);
     window.scrollTo({
@@ -323,7 +319,7 @@ export default function Home() {
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gradient-to-br from-white/95 via-white/85 to-blue-50/70 backdrop-blur-xl flex items-center justify-center border border-white shadow-md relative overflow-hidden shrink-0 group hover:shadow-xl hover:scale-105 transition-all duration-300">
                     {/* Inner glowing halo */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-amber-400/25 via-sky-300/20 to-transparent blur-sm rounded-3xl group-hover:scale-125 transition-transform duration-500" />
-                    
+
                     {/* Floating weather icon */}
                     <div className="relative z-10 flex items-center justify-center animate-float">
                       <span
@@ -354,9 +350,9 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5 xl:border-l xl:border-slate-800/15 xl:pl-8 relative z-20 shrink-0">
                   <div className="flex items-center gap-2 text-slate-900 text-sm font-bold whitespace-nowrap">
                     <span className="material-symbols-outlined text-[18px] text-blue-700">location_on</span>
-                    
+
                     <div className="relative z-30">
-                      <button 
+                      <button
                         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                         className="bg-white/70 hover:bg-white border border-white/90 text-slate-900 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer outline-none transition-all shadow-xs text-sm"
                       >
@@ -371,9 +367,9 @@ export default function Home() {
                             <div className="p-2 border-b border-slate-100 bg-slate-50">
                               <div className="relative">
                                 <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                                <input 
-                                  type="text" 
-                                  placeholder="Cari stasiun..." 
+                                <input
+                                  type="text"
+                                  placeholder="Cari stasiun..."
                                   className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 transition-shadow"
                                   value={searchQuery}
                                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -384,8 +380,8 @@ export default function Home() {
                             <div className="max-h-[220px] overflow-y-auto bg-white">
                               {filteredStations.length > 0 ? (
                                 filteredStations.map(st => (
-                                  <div 
-                                    key={st.id} 
+                                  <div
+                                    key={st.id}
                                     className={`px-3.5 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors text-xs ${selectedStation === st.table_name ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 font-medium"}`}
                                     onClick={() => {
                                       setSelectedStation(st.table_name);
@@ -406,7 +402,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold whitespace-nowrap">
+                  <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold whitespace-nowrap mt-2">
                     <span className="material-symbols-outlined text-[14px] text-blue-700">schedule</span>
                     {latestData?.date && <span>{latestData.date}</span>}
                     <span>Pukul {latestData?.time ? formatUTCtoWIB(latestData.time) : "--:--"} WIB</span>
@@ -419,7 +415,7 @@ export default function Home() {
                     { icon: "water_drop", label: "Kelembaban", value: latestData ? `${Math.round(latestData.rh)}%` : "--", color: "text-blue-700" },
                     { icon: "air", label: "Angin", value: latestData ? `${parseFloat((latestData.ws || 0).toFixed(1))} km/h` : "--", color: "text-teal-700" },
                     { icon: "rainy", label: "Curah Hujan", value: latestData ? `${parseFloat((latestData.rr || 0).toFixed(1))} mm` : "--", color: "text-indigo-700" },
-                    { icon: "speed", label: "Tekanan", value: (latestData && latestData.press > 0) ? `${Math.round(latestData.press)} hPa` : "--", color: "text-amber-700" },
+                    { icon: "speed", label: "Tekanan", value: (latestData && latestData.press > 0) ? `${Math.round(latestData.press)} mBar` : "--", color: "text-amber-700" },
                   ].map((param) => (
                     <div
                       key={param.label}
@@ -477,9 +473,9 @@ export default function Home() {
               </div>
             </AnimatedContainer>
           </div>
-          
+
           <AnimatedContainer animation="slideInRight" delay={0.3} once={true} className="w-full lg:w-auto flex justify-center lg:justify-end">
-             <HeatIndexCard temp={latestData?.temp ?? 0} rh={latestData?.rh ?? 0} />
+            <HeatIndexCard temp={latestData?.temp ?? 0} rh={latestData?.rh ?? 0} />
           </AnimatedContainer>
         </section>
 
@@ -498,49 +494,61 @@ export default function Home() {
         {/* 5. PENGUMUMAN TERBARU — With color accent */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="max-w-7xl mx-auto px-6 md:px-8 py-6 md:py-8 w-full">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-6 w-full">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 w-full">
             <div>
-              <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-1 block whitespace-nowrap">Informasi &amp; Peringatan</span>
-              <h2 className="text-[1.75rem] font-bold text-text-primary leading-tight">Pengumuman Terbaru</h2>
+              <span className="text-xs font-extrabold uppercase tracking-[0.15em] text-primary mb-2 block whitespace-nowrap">Informasi &amp; Peringatan</span>
+              <h2 className="text-[2rem] font-extrabold text-slate-800 leading-tight">Pengumuman Terbaru</h2>
             </div>
-            <Link href="/pengumuman" className="text-primary font-semibold hover:text-secondary flex items-center gap-1 text-sm group whitespace-nowrap">
-              Lihat Semua Pengumuman
+            <Link href="/pengumuman" className="text-primary font-bold hover:text-secondary flex items-center gap-1.5 text-sm group whitespace-nowrap bg-blue-50/50 hover:bg-blue-50 px-4 py-2 rounded-full border border-blue-100 transition-colors">
+              Lihat Semua
               <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </Link>
           </div>
 
-          <div className="flex flex-col gap-4 w-full">
+          <div className="w-full">
             {loadingAnnouncements ? (
-              <div className="py-10 text-center text-text-secondary">Memuat pengumuman...</div>
+              <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
+                <span className="text-slate-500 font-medium">Memuat pengumuman...</span>
+              </div>
             ) : (
-              announcements.map((ann, idx) => (
-                <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full">
-                  <Link href="/pengumuman" className="block w-full">
-                    <div className={`bg-surface border border-border/70 hover:border-primary/40 rounded-xl p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-5 hover:shadow-lg transition-all cursor-pointer group border-l-4 ${getCategoryAccent(ann.category)} w-full`}>
-                      <div className="w-10 h-10 rounded-lg bg-tertiary flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-primary text-[22px]">{getCategoryIcon(ann.category)}</span>
-                      </div>
-                      <div className="flex-grow min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Badge variant={getBadgeVariant(ann.category)}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 xl:gap-6 w-full">
+                {announcements.map((ann, idx) => (
+                  <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full h-full">
+                    <Link href="/pengumuman" className="block w-full h-full">
+                      <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] p-6 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col group relative overflow-hidden">
+                        {/* Decorative Background Glow */}
+                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.category)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
+                        
+                        {/* Header: Icon & Date */}
+                        <div className="flex justify-between items-start mb-5 relative z-10">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.category)}`}>
+                            <span className={`material-symbols-outlined text-[22px] ${getCategoryIconColor(ann.category)}`}>{getCategoryIcon(ann.category)}</span>
+                          </div>
+                          <div className="text-slate-500 font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
+                            <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
+                            {ann.published_at ? new Date(ann.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Terbaru"}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="mb-3 relative z-10 flex-grow">
+                          <Badge variant={getBadgeVariant(ann.category)} className="mb-3">
                             {getCategoryLabel(ann.category)}
                           </Badge>
+                          <h4 className="text-[1.15rem] text-slate-800 font-extrabold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                            {ann.title}
+                          </h4>
                         </div>
-                        <h4 className="text-[1.05rem] text-text-primary font-bold mb-1 group-hover:text-primary transition-colors truncate">
-                          {ann.title}
-                        </h4>
-                        <p className="text-[0.875rem] text-text-secondary line-clamp-1">{ann.content}</p>
+                        
+                        <p className="text-[0.9rem] text-slate-500 line-clamp-2 mt-auto relative z-10 leading-relaxed font-medium">
+                          {ann.content}
+                        </p>
                       </div>
-                      <div className="text-text-secondary font-medium text-[0.75rem] whitespace-nowrap flex items-center gap-1.5 bg-tertiary/50 px-3 py-1.5 rounded-full border border-border/50 shrink-0">
-                        <span className="material-symbols-outlined text-[14px]">calendar_today</span>
-                        {ann.published_at
-                          ? new Date(ann.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })
-                          : "Terbaru"}
-                      </div>
-                    </div>
-                  </Link>
-                </AnimatedContainer>
-              ))
+                    </Link>
+                  </AnimatedContainer>
+                ))}
+              </div>
             )}
           </div>
         </section>
