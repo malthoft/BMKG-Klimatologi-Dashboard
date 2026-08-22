@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
@@ -9,17 +10,22 @@ import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
 import { useToast } from "@/components/ui/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-export default function AdminPage() {
+function AdminDashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   
-  const [activeTab, setActiveTab] = useState("stations");
+  const activeTab = searchParams.get("tab") || "stations";
+  const setActiveTab = (tab: string) => {
+    router.replace(`/admin?tab=${tab}`, { scroll: false });
+  };
   const [stations, setStations] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [orgMembers, setOrgMembers] = useState<any[]>([]);
   
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
-  const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "" });
+  const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "", parent_role_id: "", show_role_title: true });
 
   // --- Climate CSV Admin States ---
   const [csvTextStripes, setCsvTextStripes] = useState("");
@@ -293,16 +299,27 @@ export default function AdminPage() {
 
   const handleAddOrgMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabaseDelete("organization_structure", `role_id=eq.${newOrgMember.role_id}`);
+    
+    // Generate unique role_id if they select 'anggota' to allow multiple members
+    let finalRoleId = newOrgMember.role_id;
+    if (finalRoleId === "anggota") {
+      finalRoleId = `anggota_${Date.now()}`;
+    } else {
+      // If it's a fixed role (kepala, kasubag, dll), delete the old one first
+      await supabaseDelete("organization_structure", `role_id=eq.${finalRoleId}`);
+    }
+
     const result = await supabaseInsert("organization_structure", {
-      role_id: newOrgMember.role_id,
+      role_id: finalRoleId,
       role_title: newOrgMember.role_title,
       name: newOrgMember.name,
-      nip: newOrgMember.nip
+      nip: newOrgMember.nip,
+      parent_role_id: newOrgMember.parent_role_id || null,
+      show_role_title: newOrgMember.show_role_title
     });
     if (result) {
       toast.success("Anggota organisasi berhasil disimpan!");
-      setNewOrgMember({ role_id: "", role_title: "", name: "", nip: "" });
+      setNewOrgMember({ role_id: "", role_title: "", name: "", nip: "", parent_role_id: "", show_role_title: true });
       loadOrgMembers();
     }
   };
@@ -447,157 +464,221 @@ export default function AdminPage() {
       <ConfirmDialog {...confirmConfig} onCancel={closeConfirm} />
       <div className="h-screen bg-background text-on-surface font-sans flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-surface border-r border-border flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-sm z-10">
-          <div className="p-6 border-b border-border">
-            <h1 className="text-[1.75rem] text-primary font-bold">Panel Admin</h1>
-            <p className="text-[14px] text-secondary mt-1">BMKG Malang</p>
+        <aside className="w-[280px] bg-white border-r border-slate-100 flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
+          <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-slate-50/50 to-transparent">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                <span className="material-symbols-outlined">dashboard</span>
+              </div>
+              <div>
+                <h1 className="text-xl text-slate-800 font-extrabold tracking-tight">Panel Admin</h1>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">BMKG Jawa Timur</p>
+              </div>
+            </div>
           </div>
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-            <a 
-              onClick={() => setActiveTab('stations')}
-              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'stations' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-            >
-              <span className="material-symbols-outlined">sensors</span>
-              <span className="text-[14px] font-medium">Manage Stations</span>
-            </a>
-            <a 
-              onClick={() => setActiveTab('announcements')}
-              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'announcements' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-            >
-              <span className="material-symbols-outlined">campaign</span>
-              <span className="text-[14px] font-medium">Announcements</span>
-            </a>
-            <a 
-              onClick={() => setActiveTab('climate')}
-              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'climate' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-            >
-              <span className="material-symbols-outlined">thermostat</span>
-              <span className="text-[14px] font-medium">Visualisasi Iklim (CSV)</span>
-            </a>
-            <a 
-              onClick={() => setActiveTab('org')}
-              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'org' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-            >
-              <span className="material-symbols-outlined">account_tree</span>
-              <span className="text-[14px] font-medium">Struktur Organisasi</span>
-            </a>
-            <a 
-              onClick={() => setActiveTab('tempmaps')}
-              className={`flex items-center gap-4 px-4 py-2 rounded-lg cursor-pointer transition-colors ${activeTab === 'tempmaps' ? 'bg-primary-container text-on-primary font-bold' : 'text-secondary hover:bg-surface-container-low hover:text-primary'}`}
-            >
-              <span className="material-symbols-outlined">map</span>
-              <span className="text-[14px] font-medium">Peta Suhu</span>
-            </a>
+          <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
+            {[
+              { id: 'stations', icon: 'sensors', label: 'Daftar AWS', badge: stations.length },
+              { id: 'announcements', icon: 'campaign', label: 'Pengumuman', badge: announcements.length },
+              { id: 'climate', icon: 'thermostat', label: 'Warming Stripes' },
+              { id: 'org', icon: 'account_tree', label: 'Struktur Organisasi', badge: orgMembers.length },
+              { id: 'tempmaps', icon: 'map', label: 'Peta Suhu', badge: tempMaps.length },
+            ].map(tab => (
+              <a 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
+                  activeTab === tab.id 
+                    ? 'bg-blue-50 text-primary font-bold shadow-sm' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                }`}
+              >
+                {activeTab === tab.id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                )}
+                <div className="flex items-center gap-3">
+                  <span className={`material-symbols-outlined transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
+                  <span className="text-[14px]">{tab.label}</span>
+                </div>
+                {tab.badge !== undefined && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
+                    {tab.badge}
+                  </span>
+                )}
+              </a>
+            ))}
           </nav>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto h-full z-0">
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto h-full z-0 bg-slate-50/50">
           {/* Header */}
-          <header className="bg-surface border-b border-border px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm w-full">
-            <div className="md:hidden">
-              <h1 className="text-[1.75rem] text-primary font-bold">Panel Admin</h1>
-            </div>
-            <div className="hidden md:block">
-              <h2 className="text-[28px] font-semibold text-text-primary">
-                {activeTab === 'stations' && 'Manage Stations (AWS)'}
-                {activeTab === 'announcements' && 'Announcements'}
-                {activeTab === 'climate' && 'Visualisasi Perubahan Iklim (Warming Stripes)'}
-                {activeTab === 'org' && 'Struktur Organisasi'}
-                {activeTab === 'tempmaps' && 'Peta Suhu'}
-              </h2>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 cursor-pointer">
-                <span className="material-symbols-outlined text-4xl text-primary">account_circle</span>
-                <div className="hidden lg:block">
-                  <p className="text-[14px] font-bold text-on-surface">Admin Utama</p>
-                  <p className="text-[14px] text-secondary text-xs">admin@bmkg.go.id</p>
+          <header className="bg-white border-b border-slate-100 px-4 md:px-8 py-4 flex flex-col md:flex-row md:justify-between md:items-center sticky top-0 z-10 shadow-sm w-full gap-4 md:gap-0">
+            <div className="flex justify-between items-center w-full md:w-auto">
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+                  {activeTab === 'stations' && 'Manajemen AWS'}
+                  {activeTab === 'announcements' && 'Kelola Pengumuman'}
+                  {activeTab === 'climate' && 'Data Iklim (Warming Stripes)'}
+                  {activeTab === 'org' && 'Struktur Organisasi'}
+                  {activeTab === 'tempmaps' && 'Peta Perubahan Suhu'}
+                </h1>
+                <p className="text-xs md:text-sm text-slate-500 mt-1">Kelola data dan konfigurasi sistem</p>
+              </div>
+              
+              {/* Mobile Profile Icon */}
+              <div className="md:hidden flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                  <span className="material-symbols-outlined text-xl text-slate-600">person</span>
                 </div>
               </div>
+            </div>
+
+            {/* Desktop Profile Info */}
+            <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-100">
+              <div className="text-right">
+                <p className="text-[14px] font-bold text-slate-800">Admin Utama</p>
+                <p className="text-[12px] text-slate-500">Stasiun Klimatologi Jatim</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                <span className="material-symbols-outlined text-2xl text-slate-600">person</span>
+              </div>
+            </div>
+
+            {/* Mobile Tab Navigation (Horizontal Scroll) */}
+            <div className="md:hidden flex overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 gap-2">
+               {[
+                  { id: 'stations', label: 'AWS' },
+                  { id: 'announcements', label: 'Pengumuman' },
+                  { id: 'climate', label: 'Stripes' },
+                  { id: 'org', label: 'Organisasi' },
+                  { id: 'tempmaps', label: 'Peta Suhu' },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
             </div>
           </header>
 
           {/* Dashboard Content */}
-          <div className="p-6 max-w-7xl mx-auto w-full space-y-8 pb-32">
+          <div className="p-4 md:p-8 max-w-[1600px] mx-auto w-full space-y-8 pb-32">
             
             {activeTab === 'stations' && (
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Manage AWS Table Card */}
-                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-[1.75rem] font-semibold text-on-surface">Daftar AWS</h3>
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col overflow-hidden">
+                  <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[18px]">sensors</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800">Daftar Stasiun AWS</h3>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-border text-secondary text-[14px]">
-                          <th className="py-2 px-2 font-medium">Station ID</th>
-                          <th className="py-2 px-2 font-medium">Location</th>
-                          <th className="py-2 px-2 font-medium">Status</th>
-                          <th className="py-2 px-2 font-medium">Visibility</th>
-                          <th className="py-2 px-2 font-medium text-right">Actions</th>
+                        <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-500 text-[13px] uppercase tracking-wider">
+                          <th className="py-3 px-6 font-semibold">Station ID</th>
+                          <th className="py-3 px-6 font-semibold">Location</th>
+                          <th className="py-3 px-6 font-semibold">Status</th>
+                          <th className="py-3 px-6 font-semibold">Visibility</th>
+                          <th className="py-3 px-6 font-semibold text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="text-sm">
-                        {stations.map(st => (
-                          <tr key={st.id} className="border-b border-border/50 hover:bg-surface-container-low transition-colors">
-                            <td className="py-4 px-2 font-medium">{st.station_id}</td>
-                            <td className="py-4 px-2">{st.station_name}</td>
-                            <td className="py-4 px-2">
-                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${st.status === 'Online' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                                <span className={`w-2 h-2 rounded-full ${st.status === 'Online' ? 'bg-success' : 'bg-warning'}`}></span> {st.status}
+                        {stations.map((st, i) => (
+                          <tr key={st.id} className={`border-b border-slate-50 hover:bg-blue-50/30 transition-colors group ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/10'}`}>
+                            <td className="py-4 px-6 font-semibold text-slate-700">{st.station_id}</td>
+                            <td className="py-4 px-6 text-slate-600">
+                              <div className="text-xs text-slate-400 mb-1">{st.station_name}</div>
+                              <input 
+                                type="text"
+                                placeholder="Nama Publik..."
+                                defaultValue={st.display_name || ""}
+                                onBlur={(e) => supabaseUpdate("stations", `id=eq.${st.id}`, { display_name: e.target.value })}
+                                className="w-full border border-slate-200 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
+                              />
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${st.status === 'Online' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${st.status === 'Online' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span> {st.status}
                               </span>
                             </td>
-                            <td className="py-4 px-2">
-                              <div className="flex gap-2">
-                                <label className="flex items-center cursor-pointer">
-                                  <input type="checkbox" checked={st.show_on_home} onChange={() => handleToggleVisibility(st.id, 'show_on_home', st.show_on_home)} className="mr-1" />
-                                  <span className="text-xs text-secondary">Home</span>
+                            <td className="py-4 px-6">
+                              <div className="flex gap-4">
+                                <label className="flex items-center cursor-pointer group/chk gap-2">
+                                  <div className="relative">
+                                    <input type="checkbox" checked={st.show_on_home} onChange={() => handleToggleVisibility(st.id, 'show_on_home', st.show_on_home)} className="peer sr-only" />
+                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                                  </div>
+                                  <span className="text-xs font-semibold text-slate-500 group-hover/chk:text-slate-800 transition-colors">Slider</span>
                                 </label>
-                                <label className="flex items-center cursor-pointer">
-                                  <input type="checkbox" checked={st.show_on_realtime} onChange={() => handleToggleVisibility(st.id, 'show_on_realtime', st.show_on_realtime)} className="mr-1" />
-                                  <span className="text-xs text-secondary">RT</span>
+                                <label className="flex items-center cursor-pointer group/chk gap-2">
+                                  <div className="relative">
+                                    <input type="checkbox" checked={st.show_on_realtime} onChange={() => handleToggleVisibility(st.id, 'show_on_realtime', st.show_on_realtime)} className="peer sr-only" />
+                                    <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                                  </div>
+                                  <span className="text-xs font-semibold text-slate-500 group-hover/chk:text-slate-800 transition-colors">Realtime</span>
                                 </label>
                               </div>
                             </td>
-                            <td className="py-4 px-2 text-right">
-                              <button onClick={() => handleDeleteStation(st.id)} className="text-secondary hover:text-error transition-colors p-1"><span className="material-symbols-outlined text-sm">delete</span></button>
+                            <td className="py-4 px-6 text-right">
+                              <button onClick={() => handleDeleteStation(st.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 ml-auto focus:opacity-100">
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
                             </td>
                           </tr>
                         ))}
-                        {stations.length === 0 && <tr><td colSpan={5} className="py-4 text-center">Belum ada stasiun</td></tr>}
+                        {stations.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Belum ada stasiun</td></tr>}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
                 {/* Add New Station Form */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Quick Add AWS</h3>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Quick Add AWS</h3>
+                  </div>
                   <form className="space-y-4 flex-1" onSubmit={handleAddStation}>
                     <div>
-                      <label className="block text-[14px] text-on-surface-variant mb-1">Station ID</label>
-                      <input required value={newStation.id_sta} onChange={e => setNewStation({...newStation, id_sta: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS-KJN-04" type="text"/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Station ID</label>
+                      <input required value={newStation.id_sta} onChange={e => setNewStation({...newStation, id_sta: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" placeholder="e.g. AWS-KJN-04" type="text"/>
                     </div>
                     <div>
-                      <label className="block text-[14px] text-on-surface-variant mb-1">Nama Lokasi</label>
-                      <input required value={newStation.name} onChange={e => setNewStation({...newStation, name: e.target.value, table: `aws_${e.target.value.toLowerCase().replace(/\s+/g, '_')}`})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" placeholder="e.g. AWS Kepanjen" type="text"/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lokasi</label>
+                      <input required value={newStation.name} onChange={e => setNewStation({...newStation, name: e.target.value, table: `aws_${e.target.value.toLowerCase().replace(/\s+/g, '_')}`})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" placeholder="e.g. AWS Kepanjen" type="text"/>
                     </div>
                     <div>
-                      <label className="block text-[14px] text-on-surface-variant mb-1">Nama Tabel DB (Auto)</label>
-                      <input required value={newStation.table} onChange={e => setNewStation({...newStation, table: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none" type="text"/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Tabel DB (Auto)</label>
+                      <input required value={newStation.table} onChange={e => setNewStation({...newStation, table: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-slate-500 bg-slate-50" type="text"/>
                     </div>
                     <div>
-                      <label className="block text-[14px] text-on-surface-variant mb-1">Initial Status</label>
-                      <select value={newStation.status} onChange={e => setNewStation({...newStation, status: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white outline-none">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Initial Status</label>
+                      <select value={newStation.status} onChange={e => setNewStation({...newStation, status: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
                         <option>Online</option>
                         <option>Offline</option>
                         <option>Maintenance</option>
                       </select>
                     </div>
-                    <div className="pt-2 mt-auto">
-                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90 transition-opacity">Add Station</button>
+                    <div className="pt-4 mt-auto">
+                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">add</span>
+                        Tambahkan Stasiun
+                      </button>
                     </div>
                   </form>
                 </div>
@@ -607,55 +688,76 @@ export default function AdminPage() {
             {activeTab === 'announcements' && (
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Form Tambah Pengumuman */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Buat Pengumuman</h3>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">campaign</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Buat Pengumuman</h3>
+                  </div>
                   <form className="space-y-4 flex-1" onSubmit={handleAddAnnouncement}>
                     <div>
-                      <label className="block text-[14px] mb-1">Judul</label>
-                      <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text"/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Judul Pengumuman</label>
+                      <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Masukkan judul..."/>
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">Kategori</label>
-                      <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori</label>
+                      <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
                         <option value="info">Informasi Umum</option>
                         <option value="peringatan_dini">Peringatan Dini</option>
                         <option value="kegiatan">Kegiatan BMKG</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">Prioritas</label>
-                      <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Prioritas</label>
+                      <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
                         <option value="normal">Normal</option>
                         <option value="tinggi">Tinggi (Merah)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">Isi Konten</label>
-                      <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm"/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Isi Konten</label>
+                      <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 resize-none" placeholder="Tulis isi pengumuman di sini..."/>
                     </div>
-                    <div className="pt-2 mt-auto">
-                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Publikasikan</button>
+                    <div className="pt-4 mt-auto">
+                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">send</span>
+                        Publikasikan
+                      </button>
                     </div>
                   </form>
                 </div>
 
                 {/* Daftar Pengumuman */}
-                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Pengumuman</h3>
-                  <div className="space-y-3">
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">list_alt</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Pengumuman Aktif</h3>
+                  </div>
+                  <div className="space-y-4">
                     {announcements.map(ann => (
-                      <div key={ann.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
-                        <div>
-                          <span className="text-xs font-bold uppercase text-primary tracking-wider">{ann.category}</span>
-                          <h4 className="font-bold text-text-primary text-base mt-1">{ann.title}</h4>
-                          <p className="text-xs text-text-secondary line-clamp-2 mt-1">{ann.content}</p>
+                      <div key={ann.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${ann.priority === 'tinggi' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{ann.category}</span>
+                            {ann.priority === 'tinggi' && <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">Penting</span>}
+                          </div>
+                          <h4 className="font-bold text-slate-800 text-lg leading-tight">{ann.title}</h4>
+                          <p className="text-sm text-slate-600 line-clamp-2 mt-2 leading-relaxed">{ann.content}</p>
                         </div>
-                        <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
-                          <span className="material-symbols-outlined text-sm">delete</span>
+                        <button onClick={() => handleDeleteAnnouncement(ann.id)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
                     ))}
-                    {announcements.length === 0 && <p className="text-sm text-text-secondary">Belum ada pengumuman.</p>}
+                    {announcements.length === 0 && (
+                      <div className="py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <span className="material-symbols-outlined text-4xl mb-2">campaign</span>
+                        <p className="text-sm font-medium">Belum ada pengumuman.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -664,30 +766,35 @@ export default function AdminPage() {
             {activeTab === 'climate' && (
               <section className="space-y-8">
                 {/* 1. Warming Stripes Management */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
-                    <div>
-                      <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Warming Stripes</h3>
-                      <p className="text-sm text-secondary mt-1">
-                        Unggah berkas CSV baru ke Supabase Storage. Sistem akan otomatis mendeteksi kolom tahun dan wilayah.
-                      </p>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[20px]">thermostat</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">Kelola Data CSV Warming Stripes</h3>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          Sistem akan otomatis mendeteksi kolom tahun dan wilayah.
+                        </p>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleResetDefaultCSV('stripes')}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                       >
-                        <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
-                        <span>Reset ke Data Default</span>
+                        <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                        <span>Reset ke Default</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleClearCSV('stripes')}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                       >
-                        <span className="material-symbols-outlined text-base">delete_sweep</span>
-                        <span>Kosongkan Data</span>
+                        <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
+                        <span>Kosongkan</span>
                       </button>
                     </div>
                   </div>
@@ -695,7 +802,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div
                       onClick={() => document.getElementById("adminCsvInputStripes")?.click()}
-                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
+                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-4 group"
                     >
                       <input
                         type="file"
@@ -704,68 +811,73 @@ export default function AdminPage() {
                         style={{ display: "none" }}
                         onChange={(e) => handleFileUpload(e, 'stripes')}
                       />
-                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-3xl">upload_file</span>
+                      <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-[28px]">upload_file</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
-                        <p className="text-xs text-text-secondary mt-1">Format .csv dengan Anomali Suhu</p>
+                        <h4 className="font-bold text-slate-800 text-lg">Klik untuk Memilih Berkas CSV</h4>
+                        <p className="text-sm text-slate-500 mt-1">Format .csv dengan Anomali Suhu</p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                        Atau Tempelkan (Paste) Teks Raw CSV:
+                    <div className="flex flex-col gap-3">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Atau Tempelkan (Paste) Raw CSV:
                       </label>
                       <textarea
                         rows={5}
                         value={csvTextStripes}
                         onChange={(e) => setCsvTextStripes(e.target.value)}
                         placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,-0.338,-0.834&#10;..."
-                        className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full border border-slate-200 rounded-2xl p-4 text-xs font-mono bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none shadow-inner"
                       />
                       <button
                         type="button"
                         onClick={() => processAndUploadCSV(csvTextStripes, 'stripes')}
-                        className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
+                        className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-900 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                       >
-                        <span className="material-symbols-outlined text-base">cloud_upload</span>
-                        Proses &amp; Unggah Data CSV
+                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                        Proses &amp; Unggah CSV
                       </button>
                     </div>
                   </div>
 
-                  <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
-                    <h4 className="font-bold mb-4">Preview Warming Stripes</h4>
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
+                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">visibility</span> Preview Warming Stripes</h4>
                     <WarmingStripesViewer parsedData={climatePreviewStripes} selectedRegion={selectedRegion} onRegionChange={setSelectedRegion} />
                   </div>
                 </div>
 
                 {/* 2. Annual Temperatures Management */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
-                    <div>
-                      <h3 className="text-[1.75rem] font-semibold text-on-surface">Kelola Data CSV Suhu Tahunan</h3>
-                      <p className="text-sm text-secondary mt-1">
-                        Unggah berkas CSV berisi suhu absolut untuk ditampilkan sebagai grafik garis.
-                      </p>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[20px]">timeline</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">Kelola Data CSV Suhu Tahunan</h3>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          Suhu absolut rata-rata untuk ditampilkan sebagai grafik garis.
+                        </p>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleResetDefaultCSV('annual')}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-surface-container-low text-text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                       >
-                        <span className="material-symbols-outlined text-base text-primary">restart_alt</span>
-                        <span>Reset ke Data Default</span>
+                        <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                        <span>Reset ke Default</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleClearCSV('annual')}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
                       >
-                        <span className="material-symbols-outlined text-base">delete_sweep</span>
-                        <span>Kosongkan Data</span>
+                        <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
+                        <span>Kosongkan</span>
                       </button>
                     </div>
                   </div>
@@ -773,7 +885,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div
                       onClick={() => document.getElementById("adminCsvInputAnnual")?.click()}
-                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-3"
+                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-4 group"
                     >
                       <input
                         type="file"
@@ -782,39 +894,39 @@ export default function AdminPage() {
                         style={{ display: "none" }}
                         onChange={(e) => handleFileUpload(e, 'annual')}
                       />
-                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-3xl">upload_file</span>
+                      <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <span className="material-symbols-outlined text-[28px]">upload_file</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-text-primary text-base">Klik untuk Memilih Berkas CSV</h4>
-                        <p className="text-xs text-text-secondary mt-1">Format .csv dengan Suhu Absolut Rata-rata</p>
+                        <h4 className="font-bold text-slate-800 text-lg">Klik untuk Memilih Berkas CSV</h4>
+                        <p className="text-sm text-slate-500 mt-1">Format .csv dengan Suhu Absolut</p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                        Atau Tempelkan (Paste) Teks Raw CSV:
+                    <div className="flex flex-col gap-3">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Atau Tempelkan (Paste) Raw CSV:
                       </label>
                       <textarea
                         rows={5}
                         value={csvTextAnnual}
                         onChange={(e) => setCsvTextAnnual(e.target.value)}
                         placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,24.41,27.22&#10;..."
-                        className="w-full border border-border rounded-xl p-3 text-xs font-mono bg-white focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full border border-slate-200 rounded-2xl p-4 text-xs font-mono bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none shadow-inner"
                       />
                       <button
                         type="button"
                         onClick={() => processAndUploadCSV(csvTextAnnual, 'annual')}
-                        className="w-full bg-primary text-white py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer mt-1"
+                        className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-900 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
                       >
-                        <span className="material-symbols-outlined text-base">cloud_upload</span>
-                        Proses &amp; Unggah Data CSV
+                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                        Proses &amp; Unggah CSV
                       </button>
                     </div>
                   </div>
 
-                  <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
-                    <h4 className="font-bold mb-4">Preview Grafik Suhu</h4>
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
+                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">monitoring</span> Preview Grafik Suhu</h4>
                     <TemperatureLineChart parsedData={climatePreviewAnnual} selectedRegion={selectedRegion} />
                   </div>
                 </div>
@@ -824,76 +936,131 @@ export default function AdminPage() {
             {activeTab === 'org' && (
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Form Tambah Anggota */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Input Data Anggota</h3>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Input Data Anggota</h3>
+                  </div>
                   <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
                     <div>
-                      <label className="block text-[14px] mb-1">Posisi Jabatan (Role ID)</label>
-                      <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Posisi / Kategori Visual (Role ID)</label>
+                      <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
                         <option value="">-- Pilih Posisi --</option>
-                        <option value="kepala">KEPALA UPT</option>
-                        <option value="kasubag">KEPALA SUB BAGIAN TATA USAHA</option>
-                        <option value="tim_1">KETUA TIM KERJA ANALISA...</option>
-                        <option value="tim_2">KETUA TIM KERJA MANAJEMEN...</option>
-                        <option value="tim_3">KETUA TIM KERJA OBSERVASI...</option>
-                        <option value="tim_4">KETUA TIM KERJA PELAYANAN...</option>
-                        <option value="tim_5">KETUA TIM KERJA INSTRUMENTASI...</option>
-                        <option value="tim_6">KETUA TIM KERJA TATA USAHA</option>
-                        <option value="fungsional_pmg">FUNGSIONAL PMG</option>
-                        <option value="fungsional_non_pmg">FUNGSIONAL NON PMG</option>
+                        <option value="kepala">KEPALA UPT (Biru Tua)</option>
+                        <option value="kasubag">KEPALA SUB BAGIAN (Hijau)</option>
+                        <option value="tim_1">KETUA TIM KERJA 1 (Oranye)</option>
+                        <option value="tim_2">KETUA TIM KERJA 2 (Biru)</option>
+                        <option value="tim_3">KETUA TIM KERJA 3 (Nila)</option>
+                        <option value="tim_4">KETUA TIM KERJA 4 (Merah Muda)</option>
+                        <option value="tim_5">KETUA TIM KERJA 5 (Ungu)</option>
+                        <option value="tim_6">KETUA TIM KERJA 6 (Hijau)</option>
+                        <option value="fungsional_pmg">FUNGSIONAL PMG (Oranye)</option>
+                        <option value="fungsional_non_pmg">FUNGSIONAL NON PMG (Hijau)</option>
+                        <option value="anggota">ANGGOTA / STAF BARU</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">Nama Jabatan Ditampilkan</label>
-                      <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="e.g. KEPALA UPT" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Di Bawah Siapa (Parent)</label>
+                      <select value={newOrgMember.parent_role_id} onChange={e => setNewOrgMember({...newOrgMember, parent_role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
+                        <option value="">-- Posisi Teratas (Tidak ada atasan) --</option>
+                        {orgMembers.map(m => (
+                          <option key={m.id} value={m.role_id}>{m.name} ({m.role_title})</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">Nama Pegawai</label>
-                      <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="Nama beserta gelar" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Jabatan Ditampilkan</label>
+                      <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="e.g. KEPALA UPT, ANGGOTA" />
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1">NIP (Opsional)</label>
-                      <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-border rounded-lg px-3 py-2 text-sm" type="text" placeholder="1974..." />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Pegawai</label>
+                      <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Nama beserta gelar" />
                     </div>
-                    <div className="pt-2 mt-auto">
-                      <button type="submit" className="w-full bg-primary-container text-on-primary py-2 rounded-lg font-medium hover:opacity-90">Simpan Anggota</button>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">NIP (Opsional)</label>
+                      <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="1974..." />
+                    </div>
+                    <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <input 
+                        type="checkbox" 
+                        id="showTitle"
+                        checked={newOrgMember.show_role_title}
+                        onChange={(e) => setNewOrgMember({...newOrgMember, show_role_title: e.target.checked})}
+                        className="w-5 h-5 rounded text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                      <label htmlFor="showTitle" className="text-sm font-semibold text-slate-700 cursor-pointer select-none">
+                        Tampilkan Nama Jabatan di Profil
+                      </label>
+                    </div>
+                    <div className="pt-4 mt-auto">
+                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">save</span>
+                        Simpan Anggota
+                      </button>
                     </div>
                   </form>
                 </div>
 
                 {/* Daftar Anggota */}
-                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Anggota Saat Ini</h3>
-                  <div className="space-y-3">
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">group</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Anggota Saat Ini</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {orgMembers.map(m => (
-                      <div key={m.id} className="p-4 rounded-xl border border-border flex justify-between items-start gap-4">
-                        <div>
-                          <span className="text-xs font-bold uppercase text-primary tracking-wider">{m.role_id}</span>
-                          <h4 className="font-bold text-text-primary text-base mt-1">{m.role_title}</h4>
-                          <p className="text-sm text-text-primary mt-1 font-semibold">{m.name}</p>
-                          <p className="text-xs text-text-secondary mt-1">NIP: {m.nip || "-"}</p>
+                      <div key={m.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                        <div className="flex-1">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                            {m.role_id.startsWith('anggota') ? 'ANGGOTA' : m.role_id}
+                          </span>
+                          {m.parent_role_id && (
+                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                              ↓ {orgMembers.find(o => o.role_id === m.parent_role_id)?.name || m.parent_role_id}
+                            </span>
+                          )}
+                          <h4 className="font-bold text-slate-800 text-sm mt-3 leading-tight">
+                            {m.role_title} 
+                            {!m.show_role_title && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 rounded uppercase">Hidden</span>}
+                          </h4>
+                          <p className="text-base text-primary mt-1 font-bold">{m.name}</p>
+                          <p className="text-xs text-slate-500 mt-1 font-mono">NIP: {m.nip || "-"}</p>
                         </div>
-                        <button onClick={() => handleDeleteOrgMember(m.id)} className="text-secondary hover:text-error transition-colors p-1 shrink-0">
-                          <span className="material-symbols-outlined text-sm">delete</span>
+                        <button onClick={() => handleDeleteOrgMember(m.id)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
                     ))}
-                    {orgMembers.length === 0 && <p className="text-sm text-text-secondary">Belum ada data anggota struktur organisasi.</p>}
+                    {orgMembers.length === 0 && (
+                      <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <span className="material-symbols-outlined text-4xl mb-2">group_off</span>
+                        <p className="text-sm font-medium">Belum ada data anggota.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
             )}
 
             {activeTab === 'tempmaps' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Form Upload/Edit */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col h-full">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">
-                    {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
-                  </h3>
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">map</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">
+                      {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
+                    </h3>
+                  </div>
                   <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
                     <div>
-                      <label className="block text-[14px] mb-1 font-medium">Gambar Peta {editTempMapId && "(Opsional)"}</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gambar Peta {editTempMapId && "(Opsional)"}</label>
                       <input 
                         type="file" 
                         accept="image/*" 
@@ -902,11 +1069,11 @@ export default function AdminPage() {
                           const file = e.target.files?.[0];
                           if (file) setNewTempMap({...newTempMap, file});
                         }} 
-                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100 cursor-pointer"
                       />
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1 font-medium">Tahun</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
                       <input 
                         required 
                         type="number" 
@@ -914,35 +1081,38 @@ export default function AdminPage() {
                         max="2100"
                         value={newTempMap.year} 
                         onChange={e => setNewTempMap({...newTempMap, year: parseInt(e.target.value) || new Date().getFullYear()})} 
-                        className="w-full border border-border rounded-lg px-3 py-2 text-sm" 
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
                       />
                     </div>
                     <div>
-                      <label className="block text-[14px] mb-1 font-medium">Kategori Kejadian</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Kejadian</label>
                       <select 
                         required 
                         value={newTempMap.category} 
                         onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
-                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-white"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
                       >
                         <option value="Normal">Normal</option>
                         <option value="El Niño">El Niño</option>
                         <option value="La Niña">La Niña</option>
                       </select>
                     </div>
-                    <div className="pt-2 mt-auto">
+                    <div className="pt-4 mt-auto">
                       <button 
                         type="submit" 
                         disabled={isUploadingTempMap}
-                        className={`w-full text-on-primary py-2 rounded-lg font-medium transition-opacity flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-primary hover:opacity-90'}`}
+                        className={`w-full text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-gradient-to-r from-primary to-blue-600 hover:scale-[1.02] active:scale-95'}`}
                       >
                         {isUploadingTempMap ? (
                           <>
-                            <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                            <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
                             <span>Menyimpan...</span>
                           </>
                         ) : (
-                          <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
+                          <>
+                            <span className="material-symbols-outlined text-[20px]">{editTempMapId ? 'save' : 'cloud_upload'}</span>
+                            <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
+                          </>
                         )}
                       </button>
                       {editTempMapId && (
@@ -950,7 +1120,7 @@ export default function AdminPage() {
                           type="button" 
                           onClick={cancelEditTempMap}
                           disabled={isUploadingTempMap}
-                          className="w-full text-text-secondary py-2 mt-2 rounded-lg font-medium bg-slate-100 hover:bg-slate-200 transition-colors"
+                          className="w-full text-slate-600 py-3 mt-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 transition-colors"
                         >
                           Batal Edit
                         </button>
@@ -960,51 +1130,56 @@ export default function AdminPage() {
                 </div>
 
                 {/* Daftar Peta */}
-                <div className="lg:col-span-2 bg-surface rounded-[16px] border border-border shadow-sm p-6">
-                  <h3 className="text-[1.75rem] font-semibold text-on-surface mb-4">Daftar Peta Suhu ({tempMaps.length})</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">photo_library</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Galeri Peta Suhu ({tempMaps.length})</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                     {tempMaps.map(m => (
-                      <div key={m.id} className="rounded-xl border border-border overflow-hidden bg-white shadow-sm flex flex-col group relative">
-                        <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden">
+                      <div key={m.id} className="rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col group relative">
+                        <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden group-hover:brightness-90 transition-all">
                           <img 
                             src={m.image_url} 
                             alt={`Peta Suhu ${m.year} - ${m.category}`} 
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             loading="lazy"
                           />
-                          <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-                            <span className="bg-white/90 backdrop-blur-sm text-text-primary px-2 py-1 rounded text-xs font-bold shadow-sm">
+                          <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                            <span className="bg-white/95 backdrop-blur-md text-slate-800 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm">
                               {m.year}
                             </span>
-                            <span className={`px-2 py-1 rounded text-xs font-bold shadow-sm text-white backdrop-blur-sm ${m.category === 'El Niño' ? 'bg-error/90' : m.category === 'La Niña' ? 'bg-primary/90' : 'bg-emerald-600/90'}`}>
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-black shadow-sm text-white backdrop-blur-md ${m.category === 'El Niño' ? 'bg-red-600/90' : m.category === 'La Niña' ? 'bg-blue-600/90' : 'bg-emerald-600/90'}`}>
                               {m.category}
                             </span>
                           </div>
-                        </div>
-                        <div className="p-3 bg-white flex justify-between items-center border-t border-border">
-                          <span className="text-xs text-text-secondary truncate pr-2">ID: {m.id}</span>
-                          <div className="flex gap-2">
+                          
+                          {/* Hover Actions */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                             <button 
                               onClick={() => startEditTempMap(m)} 
-                              className="text-primary hover:text-primary-dark bg-slate-50 hover:bg-blue-50 p-1.5 rounded-md transition-colors"
+                              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center hover:bg-primary hover:text-white hover:scale-110 transition-all shadow-lg"
                               title="Edit Peta"
                             >
-                              <span className="material-symbols-outlined text-sm">edit</span>
+                              <span className="material-symbols-outlined text-[20px]">edit</span>
                             </button>
                             <button 
                               onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
-                              className="text-secondary hover:text-error bg-slate-50 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center hover:bg-red-600 hover:text-white hover:scale-110 transition-all shadow-lg"
                               title="Hapus Peta"
                             >
-                              <span className="material-symbols-outlined text-sm">delete</span>
+                              <span className="material-symbols-outlined text-[20px]">delete</span>
                             </button>
                           </div>
                         </div>
                       </div>
                     ))}
                     {tempMaps.length === 0 && (
-                      <div className="col-span-full py-8 text-center text-text-secondary bg-slate-50 rounded-xl border border-slate-100 border-dashed">
-                        Belum ada data peta suhu. Silakan upload melalui form di samping.
+                      <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <span className="material-symbols-outlined text-4xl mb-2">map</span>
+                        <p className="text-sm font-medium">Belum ada data peta suhu.</p>
                       </div>
                     )}
                   </div>
@@ -1016,5 +1191,13 @@ export default function AdminPage() {
         </main>
       </div>
     </>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-background text-primary font-bold text-xl"><span className="material-symbols-outlined animate-spin mr-2">progress_activity</span> Memuat Panel Admin...</div>}>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

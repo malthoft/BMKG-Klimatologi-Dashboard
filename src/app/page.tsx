@@ -152,7 +152,10 @@ export default function Home() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredStations = stations.filter(st => st.station_name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredStations = stations.filter(st => {
+    const nameToSearch = st.display_name || st.station_name;
+    return nameToSearch.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   useEffect(() => {
     async function init() {
@@ -168,10 +171,10 @@ export default function Home() {
           const malang = sts.find((s: any) => s.table_name === "aws_malang");
           if (malang) {
             setSelectedStation("aws_malang");
-            setStationName(malang.station_name);
+            setStationName(malang.display_name || malang.station_name);
           } else {
             setSelectedStation(sts[0].table_name);
-            setStationName(sts[0].station_name);
+            setStationName(sts[0].display_name || sts[0].station_name);
           }
         }
       } catch (e) {
@@ -187,7 +190,7 @@ export default function Home() {
     async function loadData() {
       try {
         const st = stations.find(s => s.table_name === selectedStation);
-        if (st) setStationName(st.station_name);
+        if (st) setStationName(st.display_name || st.station_name);
 
         const latest = await supabaseFetch(selectedStation, "order=timestamp.desc&limit=1");
         if (latest && latest.length > 0) {
@@ -390,7 +393,7 @@ export default function Home() {
                                       setSearchQuery("");
                                     }}
                                   >
-                                    {st.station_name}
+                                    {st.display_name || st.station_name}
                                   </div>
                                 ))
                               ) : (

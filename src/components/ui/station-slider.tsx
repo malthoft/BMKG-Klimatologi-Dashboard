@@ -11,6 +11,7 @@ interface StationData {
   id: string;
   station_id: string;
   station_name: string;
+  display_name?: string;
   table_name: string;
   latitude: number;
   longitude: number;
@@ -24,6 +25,7 @@ interface StationCardData {
   rr: number;
   condition: string;
   icon: string;
+  min_temp?: number;
 }
 
 const getWeatherCondition = (temp: number, rh: number, rr: number) => {
@@ -78,7 +80,20 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
         const cardsData: StationCardData[] = [];
 
         for (const st of stations) {
+          // 1. Fetch latest data
           const latest = await supabaseFetch(st.table_name, "order=timestamp.desc&limit=1");
+          
+          // 2. Fetch min temp for today
+          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+          let minTemp = undefined;
+          try {
+            const minResult = await supabaseFetch(st.table_name, `date=eq.${today}&order=temp_min.asc&limit=1`);
+            if (minResult && minResult.length > 0) {
+              minTemp = Math.round(minResult[0].temp_min);
+            }
+          } catch (e) {
+            console.warn(`Could not fetch min temp for ${st.table_name}`);
+          }
 
           if (latest && latest.length > 0) {
             const data = latest[0];
@@ -91,6 +106,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
               rr: data.rr,
               condition: w.text,
               icon: w.icon,
+              min_temp: minTemp,
             });
           } else {
             cardsData.push({
@@ -101,6 +117,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
               rr: 0,
               condition: "Offline",
               icon: "cloud_off",
+              min_temp: undefined,
             });
           }
         }
@@ -263,7 +280,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
 
                   {/* Station Name */}
                   <h4 className="font-bold text-slate-800 text-[0.9rem] leading-snug text-center w-full px-4 break-words">
-                    {card.station.station_name.replace("AWS ", "")}
+                    {(card.station.display_name || card.station.station_name).replace("AWS ", "")}
                   </h4>
 
                   {/* Time Badge */}
@@ -283,11 +300,20 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
                   </div>
 
                   {/* Temperature */}
-                  <div className="flex items-start">
-                    <span className="text-[2.8rem] font-black text-slate-800 tracking-tighter leading-none tabular-nums">
-                      {card.temp !== 0 ? card.temp : "--"}
-                    </span>
-                    <span className="text-lg font-bold text-slate-300 ml-0.5 mt-1">°C</span>
+                  <div className="flex flex-col items-center">
+                    <div className="flex items-start">
+                      <span className="text-[2.8rem] font-black text-slate-800 tracking-tighter leading-none tabular-nums">
+                        {card.temp !== 0 ? card.temp : "--"}
+                      </span>
+                      <span className="text-lg font-bold text-slate-300 ml-0.5 mt-1">°C</span>
+                    </div>
+                    {/* Minimum Temperature Indicator */}
+                    {card.min_temp !== undefined && (
+                      <div className="flex items-center gap-1 mt-1 text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                        <span className="material-symbols-outlined text-[12px] text-blue-500">arrow_downward</span>
+                        <span className="text-[10px] font-bold">Min: {card.min_temp}°C</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Divider Line */}
