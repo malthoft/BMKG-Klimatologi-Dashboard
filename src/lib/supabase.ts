@@ -147,7 +147,7 @@ const SUPABASE_PROJECT_URL = SUPABASE_URL.replace("/rest/v1", "");
 
 export async function supabaseUploadFile(bucket: string, filePath: string, file: File) {
   try {
-    const res = await fetch(`${SUPABASE_PROJECT_URL}/storage/v1/object/${bucket}/${filePath}`, {
+    const doUpload = async () => fetch(`${SUPABASE_PROJECT_URL}/storage/v1/object/${bucket}/${filePath}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -157,11 +157,24 @@ export async function supabaseUploadFile(bucket: string, filePath: string, file:
       body: file,
     });
 
+    let res = await doUpload();
+
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText);
+      let errorText = await res.text();
+      // If it's an RLS error, it might be due to x-upsert triggering an UPDATE that is blocked.
+      // We workaround this by deleting the old file first and re-uploading as a new INSERT.
+      // Note: Supabase sometimes returns HTTP 400 with a JSON containing statusCode: 403 for this.
+      if (errorText.includes("row-level security policy")) {
+        await supabaseDeleteFile(bucket, filePath);
+        res = await doUpload();
+        if (!res.ok) {
+          errorText = await res.text();
+          throw new Error(errorText);
+        }
+      } else {
+        throw new Error(errorText);
+      }
     }
-    
     // Return the public URL
     return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${filePath}`;
   } catch (error) {
