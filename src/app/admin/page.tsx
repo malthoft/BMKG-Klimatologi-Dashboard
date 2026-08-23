@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
+import { Map, TableProperties, Info, UploadCloud } from "lucide-react";
 import shpjs from "shpjs";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
@@ -1222,7 +1223,7 @@ function AdminDashboardContent() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                           <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                              <MapIcon className="h-4 w-4 text-blue-500" />
+                              <Map className="h-4 w-4 text-blue-500" />
                               File Geometri (.shp)
                             </label>
                             <input 
@@ -1234,7 +1235,7 @@ function AdminDashboardContent() {
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                              <TableCellsIcon className="h-4 w-4 text-emerald-500" />
+                              <TableProperties className="h-4 w-4 text-emerald-500" />
                               File Atribut (.dbf)
                             </label>
                             <input 
@@ -1246,7 +1247,7 @@ function AdminDashboardContent() {
                           </div>
                           <div className="col-span-full mt-1">
                             <p className="text-xs text-slate-500 flex items-start gap-1.5">
-                              <InformationCircleIcon className="h-4 w-4 shrink-0 text-amber-500" />
+                              <Info className="h-4 w-4 shrink-0 text-amber-500" />
                               File SHP dan DBF akan diekstrak dan dikonversi menjadi GeoJSON secara aman di dalam browser sebelum disimpan. Pastikan kedua file adalah pasangan yang valid.
                             </p>
                           </div>
@@ -1254,7 +1255,7 @@ function AdminDashboardContent() {
                       ) : (
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                           <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                            <CloudArrowUpIcon className="h-4 w-4 text-primary" />
+                            <UploadCloud className="h-4 w-4 text-primary" />
                             File GeoJSON (.json)
                           </label>
                           <input 
@@ -1263,9 +1264,9 @@ function AdminDashboardContent() {
                             onChange={(e) => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})}
                             className="w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-lg cursor-pointer bg-white"
                           />
-                          <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-2">
-                            <InformationCircleIcon className="h-4 w-4 shrink-0 text-blue-500" />
-                            Upload file GeoJSON hasil konversi manual.
+                          <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-3">
+                            <Info className="h-4 w-4 shrink-0 text-blue-500" />
+                            Upload file GeoJSON hasil konversi manual..
                           </p>
                         </div>
                       )}
