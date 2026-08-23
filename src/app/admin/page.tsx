@@ -2,6 +2,9 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
+import { toast } from "sonner";
+import shpjs from "shpjs";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
@@ -84,6 +87,16 @@ function AdminDashboardContent() {
     onConfirm: () => {}
   });
 
+  // --- Rainfall Forecast Admin States ---
+  const [rainfallForecasts, setRainfallForecasts] = useState<any[]>([]);
+  const [newRainfall, setNewRainfall] = useState({ category: "dasarian", year: new Date().getFullYear(), month: "01", label: "", uploadMode: "shp", fileShp: null as File | null, fileDbf: null as File | null, fileJson: null as File | null });
+  const [isUploadingRainfall, setIsUploadingRainfall] = useState(false);
+
+  // --- HTH Admin States ---
+  const [hthConfig, setHthConfig] = useState({ judul: "MONITORING HARI TANPA HUJAN", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTi79gYQsWbuErXu85VpBLIiuMD7v2XnWEjWRBCPSIpyhxB_BxloWkztP19sAOOVQ/pub?gid=655976518&single=true&output=csv" });
+  const [isSyncingHth, setIsSyncingHth] = useState(false);
+  const [hthStats, setHthStats] = useState({ totalData: 0, lastUpdate: "-" });
+
   const openConfirm = (title: string, message: string, onConfirm: () => void) => {
     setConfirmConfig({ isOpen: true, title, message, onConfirm });
   };
@@ -99,7 +112,29 @@ function AdminDashboardContent() {
     loadOrgMembers();
     loadTempMaps();
     loadObservationData();
+    loadRainfallForecasts();
+    loadHthData();
   }, []);
+
+  const loadHthData = async () => {
+    try {
+      let currentConfig: any = null;
+      const publicUrl = supabaseGetPublicUrl("rainfall-data", "hth/config.json");
+      const res = await fetch(`${publicUrl}?t=${new Date().getTime()}`);
+      if (res.ok) {
+        currentConfig = await res.json();
+        setHthConfig(prev => ({ ...prev, ...currentConfig }));
+      }
+      const dataUrl = supabaseGetPublicUrl("rainfall-data", "hth/data.json");
+      const resData = await fetch(`${dataUrl}?t=${new Date().getTime()}`);
+      if (resData.ok) {
+        const hthData = await resData.json();
+        setHthStats({ totalData: hthData.length || 0, lastUpdate: currentConfig?.lastUpdate || new Date().toLocaleString('id-ID') });
+      }
+    } catch (e) {
+      console.warn("Failed to load HTH data", e);
+    }
+  };
 
   const loadObservationData = async () => {
     try {
@@ -345,6 +380,11 @@ function AdminDashboardContent() {
   const loadTempMaps = async () => {
     const maps = await supabaseFetch("temperature_maps", "order=year.desc,created_at.desc");
     setTempMaps(maps || []);
+  };
+
+  const loadRainfallForecasts = async () => {
+    const data = await supabaseFetch("rainfall_forecasts", "order=year.desc,month.desc,created_at.desc");
+    setRainfallForecasts(data || []);
   };
 
   const loadClimateData = async () => {
@@ -717,6 +757,133 @@ function AdminDashboardContent() {
     );
   };
 
+  const handleAddRainfall = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newRainfall.uploadMode === 'shp' && (!newRainfall.fileShp || !newRainfall.fileDbf)) {
+      toast.error("Harap pilih file .shp DAN .dbf secara bersamaan!");
+      return;
+    }
+    if (newRainfall.uploadMode === 'json' && !newRainfall.fileJson) {
+      toast.error("Harap pilih file .json!");
+      return;
+    }
+    setIsUploadingRainfall(true);
+
+    try {
+      let finalFileName = `prakiraan/${Date.now()}-${Math.random().toString(36).substring(7)}.json`;
+      let fileToUpload: File;
+
+      if (newRainfall.uploadMode === 'shp') {
+        const shapefile = require('shapefile');
+        const shpBytes = await newRainfall.fileShp!.arrayBuffer();
+        const dbfBytes = await newRainfall.fileDbf!.arrayBuffer();
+        
+        const geojson = await shapefile.read(shpBytes, dbfBytes);
+        
+        const geojsonStr = JSON.stringify(geojson);
+        fileToUpload = new File([geojsonStr], 'converted.json', { type: 'application/json' });
+      } else {
+        fileToUpload = newRainfall.fileJson!;
+      }
+
+      const uploadedUrl = await supabaseUploadFile("rainfall-data", finalFileName, fileToUpload);
+      if (!uploadedUrl) throw new Error("Gagal mengupload file ke Storage");
+
+      const result = await supabaseInsert("rainfall_forecasts", {
+        category: newRainfall.category,
+        year: newRainfall.year,
+        month: newRainfall.month,
+        label: newRainfall.label,
+        file_path: uploadedUrl
+      });
+
+      if (result) {
+        setNewRainfall({ category: "dasarian", year: new Date().getFullYear(), month: "01", label: "", uploadMode: "shp", fileShp: null, fileDbf: null, fileJson: null });
+        toast.success("Data Prakiraan Curah Hujan berhasil ditambahkan!");
+        loadRainfallForecasts();
+      } else {
+        throw new Error("Gagal menyimpan ke database");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Terjadi kesalahan saat memproses data.");
+    } finally {
+      setIsUploadingRainfall(false);
+    }
+  };
+
+  const handleDeleteRainfall = (id: number, filePath: string) => {
+    openConfirm(
+      "Hapus Prakiraan Hujan",
+      "Yakin ingin menghapus data ini? File GeoJSON di storage juga akan dihapus.",
+      async () => {
+        closeConfirm();
+        const deleted = await supabaseDelete("rainfall_forecasts", `id=eq.${id}`);
+        if (deleted) {
+          const bucketPathStr = "/rainfall-data/";
+          const pathIndex = filePath.indexOf(bucketPathStr);
+          if (pathIndex !== -1) {
+            const relativePath = filePath.substring(pathIndex + bucketPathStr.length);
+            await supabaseDeleteFile("rainfall-data", relativePath);
+          }
+          loadRainfallForecasts();
+          toast.success("Data prakiraan berhasil dihapus.");
+        }
+      }
+    );
+  };
+
+  const handleSaveHthTitle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const configStr = JSON.stringify({ ...hthConfig, lastUpdate: hthStats.lastUpdate });
+      const fileToUpload = new File([configStr], 'config.json', { type: 'application/json' });
+      const uploadedUrl = await supabaseUploadFile("rainfall-data", "hth/config.json", fileToUpload);
+      if (uploadedUrl) {
+        toast.success("Judul HTH berhasil diperbarui!");
+      } else {
+        throw new Error("Gagal upload config");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Gagal memperbarui judul HTH");
+    }
+  };
+
+  const handleSyncHth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hthConfig.url) {
+      toast.error("URL Google Sheets tidak boleh kosong");
+      return;
+    }
+    setIsSyncingHth(true);
+    try {
+      // 1. Fetch and Parse CSV
+      const { fetchAndParseHTHCsv } = await import("@/lib/hth-parser");
+      const data = await fetchAndParseHTHCsv(hthConfig.url);
+      
+      if (!data || data.length === 0) {
+        throw new Error("Gagal mengambil data atau data kosong");
+      }
+
+      // 2. Upload Data JSON to Storage
+      const dataStr = JSON.stringify(data);
+      const dataFile = new File([dataStr], 'data.json', { type: 'application/json' });
+      await supabaseUploadFile("rainfall-data", "hth/data.json", dataFile);
+
+      // 3. Update Config & Stats
+      const now = new Date().toLocaleString('id-ID');
+      const configStr = JSON.stringify({ ...hthConfig, lastUpdate: now });
+      const configFile = new File([configStr], 'config.json', { type: 'application/json' });
+      await supabaseUploadFile("rainfall-data", "hth/config.json", configFile);
+
+      setHthStats({ totalData: data.length, lastUpdate: now });
+      toast.success(`Sukses! Sinkronisasi berhasil. Total ${data.length} data pos diperbarui.`);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal sinkronisasi HTH");
+    } finally {
+      setIsSyncingHth(false);
+    }
+  };
+
   return (
     <>
       <ConfirmDialog {...confirmConfig} onCancel={closeConfirm} />
@@ -742,6 +909,8 @@ function AdminDashboardContent() {
               { id: 'climate', icon: 'thermostat', label: 'Warming Stripes' },
               { id: 'org', icon: 'account_tree', label: 'Struktur Organisasi', badge: orgMembers.length },
               { id: 'tempmaps', icon: 'map', label: 'Peta Suhu', badge: tempMaps.length },
+              { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan', badge: rainfallForecasts.length },
+              { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
             ].map(tab => (
               <a 
                 key={tab.id}
@@ -776,12 +945,14 @@ function AdminDashboardContent() {
             <div className="flex justify-between items-center w-full md:w-auto">
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-                  {activeTab === 'stations' && 'Manajemen AWS'}
-                  {activeTab === 'observations' && 'Data Pengamatan (Excel)'}
-                  {activeTab === 'announcements' && 'Kelola Pengumuman'}
-                  {activeTab === 'climate' && 'Data Iklim (Warming Stripes)'}
-                  {activeTab === 'org' && 'Struktur Organisasi'}
-                  {activeTab === 'tempmaps' && 'Peta Perubahan Suhu'}
+                  { activeTab === 'stations' && 'Manajemen AWS' }
+                  { activeTab === 'observations' && 'Data Pengamatan (Excel)' }
+                  { activeTab === 'announcements' && 'Kelola Pengumuman' }
+                  { activeTab === 'climate' && 'Data Iklim (Warming Stripes)' }
+                  { activeTab === 'org' && 'Struktur Organisasi' }
+                  { activeTab === 'tempmaps' && 'Peta Perubahan Suhu' }
+                  { activeTab === 'rainfall' && 'Prakiraan Curah Hujan' }
+                  { activeTab === 'hth' && 'Update Data HTH' }
                 </h1>
                 <p className="text-xs md:text-sm text-slate-500 mt-1">Kelola data dan konfigurasi sistem</p>
               </div>
@@ -790,6 +961,8 @@ function AdminDashboardContent() {
               <div className="md:hidden flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
                   <span className="material-symbols-outlined text-xl text-slate-600">person</span>
+                </div>
+              </div>
             </div>
 
             {/* Desktop Profile Info */}
@@ -811,6 +984,8 @@ function AdminDashboardContent() {
                   { id: 'climate', label: 'Stripes' },
                   { id: 'org', label: 'Organisasi' },
                   { id: 'tempmaps', label: 'Peta Suhu' },
+                  { id: 'rainfall', label: 'Hujan' },
+                  { id: 'hth', label: 'HTH' },
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -1028,6 +1203,72 @@ function AdminDashboardContent() {
                       <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
                         File: {observationDaily.source_file || "Manual"}
                       </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200">
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Metode Upload</label>
+                      <div className="flex gap-4 mb-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" checked={newRainfall.uploadMode === 'shp'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'shp'})} className="accent-primary" />
+                          <span className="text-sm font-medium">Konversi Otomatis (SHP & DBF)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" checked={newRainfall.uploadMode === 'json'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'json'})} className="accent-primary" />
+                          <span className="text-sm font-medium">Upload File GeoJSON (.json)</span>
+                        </label>
+                      </div>
+
+                      {newRainfall.uploadMode === 'shp' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                              <MapIcon className="h-4 w-4 text-blue-500" />
+                              File Geometri (.shp)
+                            </label>
+                            <input 
+                              type="file" 
+                              accept=".shp"
+                              onChange={(e) => setNewRainfall({...newRainfall, fileShp: e.target.files?.[0] || null})}
+                              className="w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors border border-slate-200 rounded-lg cursor-pointer bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                              <TableCellsIcon className="h-4 w-4 text-emerald-500" />
+                              File Atribut (.dbf)
+                            </label>
+                            <input 
+                              type="file" 
+                              accept=".dbf"
+                              onChange={(e) => setNewRainfall({...newRainfall, fileDbf: e.target.files?.[0] || null})}
+                              className="w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-colors border border-slate-200 rounded-lg cursor-pointer bg-white"
+                            />
+                          </div>
+                          <div className="col-span-full mt-1">
+                            <p className="text-xs text-slate-500 flex items-start gap-1.5">
+                              <InformationCircleIcon className="h-4 w-4 shrink-0 text-amber-500" />
+                              File SHP dan DBF akan diekstrak dan dikonversi menjadi GeoJSON secara aman di dalam browser sebelum disimpan. Pastikan kedua file adalah pasangan yang valid.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                          <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                            <CloudArrowUpIcon className="h-4 w-4 text-primary" />
+                            File GeoJSON (.json)
+                          </label>
+                          <input 
+                            type="file" 
+                            accept=".json,application/json"
+                            onChange={(e) => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})}
+                            className="w-full text-sm text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors border border-slate-200 rounded-lg cursor-pointer bg-white"
+                          />
+                          <p className="text-xs text-slate-500 flex items-start gap-1.5 mt-2">
+                            <InformationCircleIcon className="h-4 w-4 shrink-0 text-blue-500" />
+                            Upload file GeoJSON hasil konversi manual.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1872,6 +2113,273 @@ function AdminDashboardContent() {
                         <p className="text-sm font-medium">Belum ada data peta suhu.</p>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'rainfall' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Form Upload */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">
+                      Upload Prakiraan Hujan
+                    </h3>
+                  </div>
+                  <form onSubmit={handleAddRainfall} className="flex flex-col gap-4 flex-1">
+                    <div className="pt-2">
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">Metode Upload</label>
+                      <div className="flex gap-4 mb-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" checked={newRainfall.uploadMode === 'shp'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'shp'})} className="accent-primary" />
+                          <span className="text-sm font-medium">SHP & DBF (Konversi Otomatis)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="radio" checked={newRainfall.uploadMode === 'json'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'json'})} className="accent-primary" />
+                          <span className="text-sm font-medium">File GeoJSON (.json)</span>
+                        </label>
+                      </div>
+
+                      {newRainfall.uploadMode === 'shp' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                              <span>File .SHP (Geometri)</span>
+                              {newRainfall.fileShp && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                            </label>
+                            <input 
+                              type="file" 
+                              accept=".shp" 
+                              onChange={e => setNewRainfall({...newRainfall, fileShp: e.target.files?.[0] || null})} 
+                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                              <span>File .DBF (Atribut)</span>
+                              {newRainfall.fileDbf && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                            </label>
+                            <input 
+                              type="file" 
+                              accept=".dbf" 
+                              onChange={e => setNewRainfall({...newRainfall, fileDbf: e.target.files?.[0] || null})} 
+                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
+                            />
+                          </div>
+                          <div className="col-span-full mt-1">
+                            <p className="text-xs text-slate-500 flex items-start gap-1.5">
+                              <span className="material-symbols-outlined text-[16px] text-amber-500 shrink-0">info</span>
+                              File akan diekstrak dan dikonversi secara aman di browser sebelum disimpan. Pastikan kedua file valid.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                            <span>File GeoJSON (.json)</span>
+                            {newRainfall.fileJson && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                          </label>
+                          <input 
+                            type="file" 
+                            accept=".json,application/json" 
+                            onChange={e => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})} 
+                            className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                          />
+                          <p className="text-xs text-slate-500 mt-2 flex items-start gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
+                            Upload file GeoJSON yang sebelumnya sudah Anda konversi (seperti analisis_xxx.json).
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
+                      <input 
+                        required 
+                        type="number" 
+                        min="2000" 
+                        max="2100"
+                        value={newRainfall.year} 
+                        onChange={e => setNewRainfall({...newRainfall, year: parseInt(e.target.value) || new Date().getFullYear()})} 
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bulan</label>
+                      <select 
+                        required 
+                        value={newRainfall.month} 
+                        onChange={e => setNewRainfall({...newRainfall, month: e.target.value})} 
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
+                      >
+                        {Array.from({length: 12}, (_, i) => i + 1).map(m => {
+                          const monthStr = m.toString().padStart(2, '0');
+                          const monthName = new Date(2000, m - 1, 1).toLocaleString('id-ID', { month: 'long' });
+                          return <option key={monthStr} value={monthStr}>{monthName}</option>;
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Waktu</label>
+                      <select 
+                        required 
+                        value={newRainfall.category} 
+                        onChange={e => setNewRainfall({...newRainfall, category: e.target.value})} 
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
+                      >
+                        <option value="dasarian">Dasarian</option>
+                        <option value="bulanan">Bulanan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Label Tambahan</label>
+                      <input 
+                        type="text" 
+                        value={newRainfall.label} 
+                        onChange={e => setNewRainfall({...newRainfall, label: e.target.value})} 
+                        placeholder="e.g. Dasarian I"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
+                      />
+                    </div>
+                    <div className="pt-4 mt-auto">
+                      <button 
+                        type="submit" 
+                        disabled={isUploadingRainfall}
+                        className={`w-full text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isUploadingRainfall ? 'bg-primary/70 cursor-wait' : 'bg-gradient-to-r from-primary to-blue-600 hover:scale-[1.02] active:scale-95'}`}
+                      >
+                        {isUploadingRainfall ? (
+                          <>
+                            <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+                            <span>Memproses...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[20px]">cloud_upload</span>
+                            <span>Upload Data</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Daftar Prakiraan */}
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">list_alt</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Data Prakiraan ({rainfallForecasts.length})</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {rainfallForecasts.map(r => (
+                      <div key={r.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-md transition-all flex flex-col gap-2 relative group">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                              {r.category}
+                            </span>
+                            <h4 className="font-bold text-slate-800 mt-2 text-sm">{new Date(r.year, parseInt(r.month)-1, 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</h4>
+                            <p className="text-xs text-slate-500 font-medium">{r.label}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteRainfall(r.id, r.file_path)} 
+                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                            title="Hapus Data"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
+                        <div className="mt-2 text-[10px] text-slate-400 break-all font-mono bg-white p-2 rounded-lg border border-slate-100 line-clamp-1" title={r.file_path}>
+                          {r.file_path.split('/').pop()}
+                        </div>
+                      </div>
+                    ))}
+                    {rainfallForecasts.length === 0 && (
+                      <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <span className="material-symbols-outlined text-4xl mb-2">cloud_off</span>
+                        <p className="text-sm font-medium">Belum ada data prakiraan curah hujan.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* HTH Tab */}
+            {activeTab === 'hth' && (
+              <div className="space-y-6 max-w-4xl">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="p-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white flex justify-between items-center">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">settings</span>
+                        Konfigurasi & Sinkronisasi Data HTH
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Tarik data Hari Tanpa Hujan dari Google Sheets secara langsung.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    <form onSubmit={handleSaveHthTitle} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">Judul Peta HTH</label>
+                        <div className="flex gap-3">
+                          <input 
+                            type="text" 
+                            className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" 
+                            value={hthConfig.judul} 
+                            onChange={e => setHthConfig({...hthConfig, judul: e.target.value})} 
+                          />
+                          <button type="submit" className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors">
+                            Simpan Judul
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+
+                    <hr className="border-slate-100" />
+
+                    <form onSubmit={handleSyncHth} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">URL Google Sheets (CSV Format)</label>
+                        <p className="text-xs text-slate-500 mb-2 italic">Pastikan Google Sheet sudah di-Publish to Web dengan format CSV.</p>
+                        <input 
+                          type="url" 
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" 
+                          placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
+                          value={hthConfig.url} 
+                          onChange={e => setHthConfig({...hthConfig, url: e.target.value})} 
+                        />
+                      </div>
+                      
+                      <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                        <div>
+                          <div className="text-sm font-bold text-slate-700">Status Data Saat Ini:</div>
+                          <div className="text-xs text-slate-500 mt-1">
+                            Total Data: <strong className="text-primary">{hthStats.totalData} Pos</strong> &bull; Terakhir Diperbarui: <strong>{hthStats.lastUpdate}</strong>
+                          </div>
+                        </div>
+                        <button 
+                          type="submit" 
+                          disabled={isSyncingHth}
+                          className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSyncingHth ? (
+                            <><span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Menyinkronkan...</>
+                          ) : (
+                            <><span className="material-symbols-outlined">sync</span> Tarik Data Terbaru</>
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
               </div>

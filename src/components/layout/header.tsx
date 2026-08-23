@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 
 export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isClimateDropdownOpen, setIsClimateDropdownOpen] = useState(false);
+  const [openMobileDropdown, setOpenMobileDropdown] = useState<string | null>(null);
   const [dateStr, setDateStr] = useState("");
   const [wibTime, setWibTime] = useState({ hh: "--", mm: "--", ss: "--" });
   const [blink, setBlink] = useState(true);
@@ -59,7 +61,14 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
   const navLinks = [
     { href: "/", label: "Beranda" },
     { href: "/data-pengamatan", label: "Data Pengamatan" },
-    { href: "/perubahan-iklim", label: "Perubahan Iklim" },
+    { 
+      label: "Perubahan Iklim",
+      subLinks: [
+        { href: "/perubahan-iklim", label: "Visualisasi Iklim" },
+        { href: "/prakiraan-curah-hujan", label: "Prakiraan Curah Hujan" },
+        { href: "/hari-tanpa-hujan", label: "Hari Tanpa Hujan" },
+      ]
+    },
     { href: "/profil", label: "Profil" },
     { href: "/pengumuman", label: "Pengumuman" },
   ];
@@ -145,17 +154,60 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
           <div className="hidden md:block max-w-7xl mx-auto px-4 md:px-8">
             <nav className="flex items-center gap-[24px] h-[48px]">
               {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`h-full flex items-center border-b-2 px-1 text-sm font-medium transition-all ${
-                    activeRoute === link.href
-                      ? "text-primary font-bold border-primary"
-                      : "text-text-secondary hover:text-primary border-transparent"
-                  }`}
-                >
-                  {link.label}
-                </Link>
+                link.subLinks ? (
+                  <div
+                    key={link.label}
+                    className="relative group h-full flex items-center"
+                    onMouseEnter={() => setIsClimateDropdownOpen(true)}
+                    onMouseLeave={() => setIsClimateDropdownOpen(false)}
+                  >
+                    <button
+                      className={`flex items-center gap-1 border-b-2 px-1 text-sm font-medium transition-all ${
+                        link.subLinks.some((sub) => activeRoute === sub.href)
+                          ? "text-primary font-bold border-primary"
+                          : "text-text-secondary hover:text-primary border-transparent"
+                      }`}
+                    >
+                      {link.label}
+                      <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                    </button>
+                    <AnimatePresence>
+                      {isClimateDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute top-full left-0 mt-0 w-56 bg-white border border-slate-200 shadow-xl rounded-b-xl overflow-hidden"
+                        >
+                          {link.subLinks.map((sub) => (
+                            <Link
+                              key={sub.href}
+                              href={sub.href}
+                              className={`block px-4 py-3 text-sm font-medium transition-colors hover:bg-slate-50 ${
+                                activeRoute === sub.href ? "text-primary font-bold bg-slate-50" : "text-slate-600"
+                              }`}
+                            >
+                              {sub.label}
+                            </Link>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <Link
+                    key={link.href!}
+                    href={link.href!}
+                    className={`h-full flex items-center border-b-2 px-1 text-sm font-medium transition-all ${
+                      activeRoute === link.href
+                        ? "text-primary font-bold border-primary"
+                        : "text-text-secondary hover:text-primary border-transparent"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                )
               ))}
             </nav>
           </div>
@@ -200,18 +252,61 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                 {/* Sidebar Links */}
                 <div className="flex flex-col p-4 gap-2 overflow-y-auto flex-1">
                   {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`py-3 px-4 rounded-lg text-[15px] font-medium transition-colors ${
-                        activeRoute === link.href
-                          ? "bg-primary/10 text-primary font-bold border-l-4 border-primary"
-                          : "text-text-secondary hover:bg-tertiary/30 hover:text-primary border-l-4 border-transparent"
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
+                    link.subLinks ? (
+                      <div key={link.label} className="flex flex-col">
+                        <button
+                          onClick={() => setOpenMobileDropdown(openMobileDropdown === link.label ? null : link.label)}
+                          className={`flex items-center justify-between py-3 px-4 rounded-lg text-[15px] font-medium transition-colors ${
+                            link.subLinks.some((sub) => activeRoute === sub.href)
+                              ? "bg-primary/10 text-primary font-bold border-l-4 border-primary"
+                              : "text-text-secondary hover:bg-tertiary/30 hover:text-primary border-l-4 border-transparent"
+                          }`}
+                        >
+                          {link.label}
+                          <span className={`material-symbols-outlined transition-transform duration-300 ${openMobileDropdown === link.label ? "rotate-180" : ""}`}>
+                            expand_more
+                          </span>
+                        </button>
+                        <AnimatePresence>
+                          {openMobileDropdown === link.label && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden flex flex-col gap-1 pl-6 pt-1"
+                            >
+                              {link.subLinks.map((sub) => (
+                                <Link
+                                  key={sub.href}
+                                  href={sub.href}
+                                  onClick={() => setMobileMenuOpen(false)}
+                                  className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                                    activeRoute === sub.href
+                                      ? "text-primary font-bold bg-primary/5"
+                                      : "text-slate-500 hover:text-primary hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {sub.label}
+                                </Link>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ) : (
+                      <Link
+                        key={link.href!}
+                        href={link.href!}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`py-3 px-4 rounded-lg text-[15px] font-medium transition-colors ${
+                          activeRoute === link.href
+                            ? "bg-primary/10 text-primary font-bold border-l-4 border-primary"
+                            : "text-text-secondary hover:bg-tertiary/30 hover:text-primary border-l-4 border-transparent"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    )
                   ))}
 
                   {/* Date in mobile drawer */}

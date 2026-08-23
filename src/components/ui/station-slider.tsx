@@ -11,7 +11,7 @@ interface StationData {
   id: string;
   station_id: string;
   station_name: string;
-  display_name?: string;
+  display_name?: string | null;
   table_name: string;
   latitude: number;
   longitude: number;
@@ -79,46 +79,48 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
 
         const cardsData: StationCardData[] = [];
 
-        for (const st of stations) {
-          // 1. Fetch latest data
-          const latest = await supabaseFetch(st.table_name, "order=timestamp.desc&limit=1");
+        if (stations) {
+          for (const st of stations) {
+            // 1. Fetch latest data
+            const latest = await supabaseFetch(st.table_name, "order=timestamp.desc&limit=1");
           
-          // 2. Fetch min temp for today
-          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-          let minTemp = undefined;
-          try {
-            const minResult = await supabaseFetch(st.table_name, `date=eq.${today}&order=temp_min.asc&limit=1`);
-            if (minResult && minResult.length > 0) {
-              minTemp = Math.round(minResult[0].temp_min);
+            // 2. Fetch min temp for today
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            let minTemp = undefined;
+            try {
+              const minResult = await supabaseFetch(st.table_name, `date=eq.${today}&order=temp_min.asc&limit=1`);
+              if (minResult && minResult.length > 0) {
+                minTemp = Math.round(minResult[0].temp_min);
+              }
+            } catch (e) {
+              console.warn(`Could not fetch min temp for ${st.table_name}`);
             }
-          } catch (e) {
-            console.warn(`Could not fetch min temp for ${st.table_name}`);
-          }
 
-          if (latest && latest.length > 0) {
-            const data = latest[0];
-            const w = getWeatherCondition(data.temp, data.rh, data.rr);
-            cardsData.push({
-              station: st,
-              time: `${formatUTCtoWIB(data.time)} WIB`,
-              temp: Math.round(data.temp),
-              rh: Math.round(data.rh),
-              rr: data.rr,
-              condition: w.text,
-              icon: w.icon,
-              min_temp: minTemp,
-            });
-          } else {
-            cardsData.push({
-              station: st,
-              time: "--:-- WIB",
-              temp: 0,
-              rh: 0,
-              rr: 0,
-              condition: "Offline",
-              icon: "cloud_off",
-              min_temp: undefined,
-            });
+            if (latest && latest.length > 0) {
+              const data = latest[0];
+              const w = getWeatherCondition(data.temp, data.rh, data.rr);
+              cardsData.push({
+                station: st,
+                time: `${formatUTCtoWIB(data.time)} WIB`,
+                temp: Math.round(data.temp),
+                rh: Math.round(data.rh),
+                rr: data.rr,
+                condition: w.text,
+                icon: w.icon,
+                min_temp: minTemp,
+              });
+            } else {
+              cardsData.push({
+                station: st,
+                time: "--:-- WIB",
+                temp: 0,
+                rh: 0,
+                rr: 0,
+                condition: "Offline",
+                icon: "cloud_off",
+                min_temp: undefined,
+              });
+            }
           }
         }
 
