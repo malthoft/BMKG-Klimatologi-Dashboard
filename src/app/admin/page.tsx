@@ -14,6 +14,7 @@ import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
 import { parseObservationExcel, ParsedDailyObservation, ParsedHourlyObservation } from "@/lib/excel-parser";
 import { useToast } from "@/components/ui/toast-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SdmManager } from "@/components/admin/sdm-manager";
 
 function AdminDashboardContent() {
   const router = useRouter();
@@ -24,6 +25,7 @@ function AdminDashboardContent() {
   const setActiveTab = (tab: string) => {
     router.replace(`/admin?tab=${tab}`, { scroll: false });
   };
+  const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({ iklim: true, profil: true });
   const [stations, setStations] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [orgMembers, setOrgMembers] = useState<any[]>([]);
@@ -902,40 +904,149 @@ function AdminDashboardContent() {
               </div>
             </div>
           </div>
-          <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
-            {[
-              { id: 'stations', icon: 'sensors', label: 'Daftar AWS', badge: stations.length },
-              { id: 'observations', icon: 'fact_check', label: 'Data Pengamatan' },
-              { id: 'announcements', icon: 'campaign', label: 'Pengumuman', badge: announcements.length },
-              { id: 'climate', icon: 'thermostat', label: 'Warming Stripes' },
-              { id: 'org', icon: 'account_tree', label: 'Struktur Organisasi', badge: orgMembers.length },
-              { id: 'tempmaps', icon: 'map', label: 'Peta Suhu', badge: tempMaps.length },
-              { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan', badge: rainfallForecasts.length },
-              { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
-            ].map(tab => (
-              <a 
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
-                  activeTab === tab.id 
-                    ? 'bg-blue-50 text-primary font-bold shadow-sm' 
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
-                }`}
-              >
-                {activeTab === tab.id && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
-                )}
-                <div className="flex items-center gap-3">
-                  <span className={`material-symbols-outlined transition-transform duration-200 ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
-                  <span className="text-[14px]">{tab.label}</span>
+          <nav className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Beranda Group */}
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2">Beranda & Umum</div>
+              <div className="space-y-1">
+                {[
+                  { id: 'stations', icon: 'sensors', label: 'Daftar AWS', badge: stations.length },
+                  { id: 'announcements', icon: 'campaign', label: 'Pengumuman', badge: announcements.length },
+                ].map(tab => (
+                  <a 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
+                      activeTab === tab.id 
+                        ? 'bg-blue-50 text-primary font-bold shadow-sm' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    {activeTab === tab.id && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                    )}
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined transition-transform duration-200 text-[20px] ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
+                      <span className="text-[13px]">{tab.label}</span>
+                    </div>
+                    {tab.badge !== undefined && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
+                        {tab.badge}
+                      </span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Pengamatan Group */}
+            <div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 mt-4">Pengamatan</div>
+              <div className="space-y-1">
+                {[
+                  { id: 'observations', icon: 'fact_check', label: 'Data Pengamatan' },
+                ].map(tab => (
+                  <a 
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
+                      activeTab === tab.id 
+                        ? 'bg-blue-50 text-primary font-bold shadow-sm' 
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    {activeTab === tab.id && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                    )}
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined transition-transform duration-200 text-[20px] ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
+                      <span className="text-[13px]">{tab.label}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Perubahan Iklim Group */}
+            <div>
+              <button onClick={() => setOpenNavGroups({...openNavGroups, iklim: !openNavGroups.iklim})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 mt-4 hover:text-slate-600 transition-colors">
+                <span>Perubahan Iklim</span>
+                <span className="material-symbols-outlined text-[16px]">{openNavGroups.iklim ? 'expand_less' : 'expand_more'}</span>
+              </button>
+              {openNavGroups.iklim && (
+                <div className="space-y-1 pl-2 border-l-2 border-slate-100 ml-3">
+                  {[
+                    { id: 'climate', icon: 'thermostat', label: 'Warming Stripes' },
+                    { id: 'tempmaps', icon: 'map', label: 'Peta Suhu', badge: tempMaps.length },
+                    { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan', badge: rainfallForecasts.length },
+                    { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
+                  ].map(tab => (
+                    <a 
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
+                        activeTab === tab.id 
+                          ? 'bg-blue-50 text-primary font-bold shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      {activeTab === tab.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span className={`material-symbols-outlined transition-transform duration-200 text-[18px] ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
+                        <span className="text-[13px]">{tab.label}</span>
+                      </div>
+                      {tab.badge !== undefined && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
+                          {tab.badge}
+                        </span>
+                      )}
+                    </a>
+                  ))}
                 </div>
-                {tab.badge !== undefined && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
-                    {tab.badge}
-                  </span>
-                )}
-              </a>
-            ))}
+              )}
+            </div>
+
+            {/* Profil Group */}
+            <div>
+              <button onClick={() => setOpenNavGroups({...openNavGroups, profil: !openNavGroups.profil})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 mt-4 hover:text-slate-600 transition-colors">
+                <span>Profil</span>
+                <span className="material-symbols-outlined text-[16px]">{openNavGroups.profil ? 'expand_less' : 'expand_more'}</span>
+              </button>
+              {openNavGroups.profil && (
+                <div className="space-y-1 pl-2 border-l-2 border-slate-100 ml-3">
+                  {[
+                    { id: 'org', icon: 'account_tree', label: 'Struktur Organisasi', badge: orgMembers.length },
+                    { id: 'sdm', icon: 'groups', label: 'SDM / Pegawai' },
+                  ].map(tab => (
+                    <a 
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center justify-between px-4 py-2.5 rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden ${
+                        activeTab === tab.id 
+                          ? 'bg-blue-50 text-primary font-bold shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                      }`}
+                    >
+                      {activeTab === tab.id && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span className={`material-symbols-outlined transition-transform duration-200 text-[18px] ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
+                        <span className="text-[13px]">{tab.label}</span>
+                      </div>
+                      {tab.badge !== undefined && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'}`}>
+                          {tab.badge}
+                        </span>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </nav>
         </aside>
 
@@ -954,6 +1065,7 @@ function AdminDashboardContent() {
                   { activeTab === 'tempmaps' && 'Peta Perubahan Suhu' }
                   { activeTab === 'rainfall' && 'Prakiraan Curah Hujan' }
                   { activeTab === 'hth' && 'Update Data HTH' }
+                  { activeTab === 'sdm' && 'SDM / Profil Pegawai' }
                 </h1>
                 <p className="text-xs md:text-sm text-slate-500 mt-1">Kelola data dan konfigurasi sistem</p>
               </div>
@@ -977,29 +1089,37 @@ function AdminDashboardContent() {
               </div>
             </div>
 
-            {/* Mobile Tab Navigation (Horizontal Scroll) */}
-            <div className="md:hidden flex overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 gap-2">
-               {[
-                  { id: 'stations', label: 'AWS' },
-                  { id: 'announcements', label: 'Pengumuman' },
-                  { id: 'climate', label: 'Stripes' },
-                  { id: 'org', label: 'Organisasi' },
-                  { id: 'tempmaps', label: 'Peta Suhu' },
-                  { id: 'rainfall', label: 'Hujan' },
-                  { id: 'hth', label: 'HTH' },
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-primary text-white shadow-md shadow-primary/20'
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            {/* Mobile Tab Navigation (Dropdown) */}
+            <div className="md:hidden px-4 pb-4">
+              <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Pilih Menu Admin</label>
+              <div className="relative">
+                <select 
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <optgroup label="Beranda & Umum">
+                    <option value="stations">Daftar AWS</option>
+                    <option value="announcements">Pengumuman</option>
+                  </optgroup>
+                  <optgroup label="Pengamatan">
+                    <option value="observations">Data Pengamatan</option>
+                  </optgroup>
+                  <optgroup label="Perubahan Iklim">
+                    <option value="climate">Warming Stripes</option>
+                    <option value="tempmaps">Peta Suhu</option>
+                    <option value="rainfall">Prakiraan Hujan</option>
+                    <option value="hth">Hari Tanpa Hujan</option>
+                  </optgroup>
+                  <optgroup label="Profil">
+                    <option value="org">Struktur Organisasi</option>
+                    <option value="sdm">SDM / Pegawai</option>
+                  </optgroup>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                  <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                </div>
+              </div>
             </div>
           </header>
 
@@ -2384,6 +2504,10 @@ function AdminDashboardContent() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'sdm' && (
+              <SdmManager />
             )}
 
           </div>
