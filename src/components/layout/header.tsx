@@ -175,12 +175,14 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
       >
         <Link 
           href={item.href || "#"} 
-          className={`flex items-center justify-between w-full px-4 py-3 text-[13px] font-semibold transition-colors cursor-pointer ${
-            active ? "text-primary bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+          className={`flex items-center justify-between transition-all duration-300 cursor-pointer ${
+            level === 1 
+              ? `px-4 py-1.5 text-[13px] font-bold rounded-full border ${active ? "text-blue-700 bg-blue-50/80 border-blue-200/60 shadow-xs" : "text-slate-600 border-transparent hover:bg-slate-100/80 hover:text-slate-900"}`
+              : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
           }`}
         >
           {item.label}
-          <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover/item:text-primary transition-colors">
+          <span className={`material-symbols-outlined transition-transform duration-300 ${level === 1 ? 'text-[16px] ml-1.5' : 'text-[16px]'} ${active ? 'text-blue-600' : 'text-slate-400 group-hover/item:text-slate-600'} ${isOpen && level === 1 ? 'rotate-180' : ''}`}>
             {level === 1 ? 'expand_more' : 'chevron_right'}
           </span>
         </Link>
@@ -216,13 +218,15 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
       href={item.href!}
       target={item.isExternal ? "_blank" : undefined}
       rel={item.isExternal ? "noopener noreferrer" : undefined}
-      className={`flex items-center justify-between w-full px-4 py-2.5 text-[13px] font-medium transition-colors ${
-        active ? "text-primary font-bold bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+      className={`flex items-center justify-between transition-all duration-300 cursor-pointer ${
+        level === 1 
+          ? `px-4 py-1.5 text-[13px] font-bold rounded-full border ${active ? "text-blue-700 bg-blue-50/80 border-blue-200/60 shadow-xs" : "text-slate-600 border-transparent hover:bg-slate-100/80 hover:text-slate-900"}`
+          : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
       }`}
     >
       {item.label}
       {item.isExternal && (
-        <span className="material-symbols-outlined text-[14px] text-slate-400">open_in_new</span>
+        <span className={`material-symbols-outlined text-[13px] ml-1.5 opacity-60 ${active ? 'text-blue-500' : 'text-slate-400'}`}>language</span>
       )}
     </Link>
   );
@@ -297,7 +301,7 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
     >
       {item.label}
       {item.isExternal && (
-        <span className="material-symbols-outlined text-[14px] text-slate-400 ml-auto">open_in_new</span>
+        <span className="material-symbols-outlined text-[13px] text-slate-400 ml-auto opacity-60">language</span>
       )}
     </Link>
   );
@@ -369,26 +373,49 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="w-full z-50 sticky top-0"
       >
-        {/* ROW 1: Logo + Date/Time */}
-        <div className="bg-white/90 backdrop-blur-xl border-b border-slate-100">
-          <div className="flex justify-between items-center w-full px-4 md:px-8 py-2 md:py-3 max-w-7xl mx-auto">
-            {/* Logo Section */}
-            <Link href="/" className="flex items-center gap-3 md:gap-4 cursor-pointer hover:opacity-90 transition-opacity shrink-0 group">
-              <Image src="/logobmkg.png" alt="Logo BMKG" width={44} height={56} className="h-11 md:h-14 w-auto shrink-0 drop-shadow-xs" />
+        {/* SINGLE ROW HEADER */}
+        <div className="bg-white/90 backdrop-blur-xl border-b border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between w-full px-4 md:px-6 lg:px-8 h-20 lg:h-[88px] max-w-[1440px] mx-auto gap-4">
+            {/* Left: Logo Section */}
+            <Link href="/" className="flex items-center gap-3 md:gap-4 cursor-pointer hover:opacity-90 transition-opacity shrink-0 group relative z-20">
+              {/* Animated Glow Behind Logo */}
+              <div className="absolute -inset-2 bg-gradient-to-r from-blue-400/20 via-sky-300/10 to-amber-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+              
+              <div className="relative">
+                <Image src="/logobmkg.png" alt="Logo BMKG" width={40} height={50} className="h-9 lg:h-11 w-auto shrink-0 drop-shadow-md z-10 relative" />
+                {/* Decorative Climate Ring */}
+                <div className="absolute inset-0 border border-blue-500/20 rounded-full scale-[1.3] opacity-0 group-hover:opacity-100 group-hover:scale-[1.4] transition-all duration-500 pointer-events-none"></div>
+              </div>
+
               {/* Desktop Text */}
-              <div className="hidden md:flex flex-col justify-center ml-1">
-                <span className="text-slate-900 font-extrabold text-[17px] md:text-[19px] leading-tight tracking-tight">Stasiun Klimatologi Kelas I Jawa Timur</span>
-                <span className="text-slate-500 font-bold text-[10px] md:text-[11px] tracking-widest mt-0.5 uppercase">Badan Meteorologi, Klimatologi, dan Geofisika</span>
+              <div className="hidden lg:flex flex-col justify-center ml-1">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-800 font-extrabold text-[15px] leading-tight tracking-tight drop-shadow-2xs">
+                  Stasiun Klimatologi Kelas I Jawa Timur
+                </span>
+                <span className="text-slate-500 font-bold text-[9px] tracking-widest mt-0.5 uppercase">
+                  Badan Meteorologi, Klimatologi, dan Geofisika
+                </span>
               </div>
               {/* Mobile Text */}
-              <div className="flex md:hidden flex-col gap-0.5">
-                <span className="text-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Stasiun Klimatologi</span>
-                <span className="text-sky-600 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Kelas I Jawa Timur</span>
+              <div className="flex lg:hidden flex-col gap-0.5">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Stasiun Klimatologi</span>
+                <span className="text-blue-700 font-extrabold text-[13px] uppercase tracking-wide leading-tight drop-shadow-2xs">Kelas I Jawa Timur</span>
               </div>
             </Link>
 
+            {/* Center: Navigation Bar (Desktop) */}
+            <div className="hidden xl:flex items-center justify-center flex-1 z-10 px-4">
+              <nav className="flex items-center gap-1.5">
+                {navLinks.map((link, idx) => (
+                  <div key={idx} className="relative group h-full flex items-center">
+                    <DesktopDropdownItem item={link} activeRoute={activeRoute} />
+                  </div>
+                ))}
+              </nav>
+            </div>
+
             {/* Right Side: Date + Clock + Hamburger */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-end gap-3 shrink-0 z-20">
               {/* Date & Time Widgets (desktop) */}
               {dateStr && (
                 <div className="hidden md:flex flex-col items-end">
@@ -396,44 +423,28 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                     <span className="font-mono text-slate-900 font-bold text-[14px] leading-tight tracking-tight">
                       {wibTime.hh}<span className={colonClass}>:</span>{wibTime.mm}<span className={colonClass}>:</span>{wibTime.ss}
                     </span>
-                    <span className="text-slate-500 font-bold text-[9px] md:text-[10px] tracking-widest uppercase">WIB</span>
+                    <span className="text-slate-500 font-bold text-[9px] lg:text-[10px] tracking-widest uppercase">WIB</span>
                     {isBmkgSynced && (
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm ml-0.5 mb-0.5" title="Tersinkronisasi dengan Server Jam BMKG (time.bmkg.go.id)"></span>
                     )}
                   </div>
                   <div className="flex items-center mt-0.5">
-                    <span className="text-slate-500 font-bold text-[9px] md:text-[10px] tracking-widest uppercase">{dateStr}</span>
+                    <span className="text-slate-500 font-bold text-[9px] lg:text-[10px] tracking-widest uppercase">{dateStr}</span>
                   </div>
                 </div>
               )}
 
               {/* Mobile Menu Toggle */}
-              <div className="flex items-center md:hidden gap-3">
+              <div className="flex items-center xl:hidden gap-3 ml-2">
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   aria-label="Toggle Menu"
-                  className="text-primary p-2 rounded-md hover:bg-slate-50 transition-colors"
+                  className="text-primary p-2 rounded-md hover:bg-slate-50 border border-slate-100 transition-colors shadow-xs bg-white"
                 >
                   <span className="material-symbols-outlined">{mobileMenuOpen ? "close" : "menu"}</span>
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* ROW 2: Navigation Bar (Desktop) */}
-        <div className="bg-surface border-b border-border shadow-sm hidden md:block">
-          <div className="max-w-7xl mx-auto px-8">
-            <nav className="flex items-center gap-1 h-[52px]">
-              {navLinks.map((link, idx) => (
-                <div 
-                  key={idx}
-                  className="relative group h-full flex items-center"
-                >
-                  <DesktopDropdownItem item={link} activeRoute={activeRoute} />
-                </div>
-              ))}
-            </nav>
           </div>
         </div>
 
