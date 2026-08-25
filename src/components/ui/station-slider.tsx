@@ -54,8 +54,6 @@ const getConditionTheme = (condition: string) => {
   }
 };
 
-const CARDS_PER_PAGE = 6;
-
 interface StationSliderProps {
   onStationSelect?: (tableName: string) => void;
 }
@@ -65,8 +63,19 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [cardsPerPage, setCardsPerPage] = useState(6);
 
-  const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+  // Responsive cards per page
+  useEffect(() => {
+    const handleResize = () => {
+      setCardsPerPage(window.innerWidth < 640 ? 4 : 6);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const totalPages = Math.ceil(cards.length / cardsPerPage);
 
   useEffect(() => {
     async function loadData() {
@@ -158,8 +167,8 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
   }, [isPaused, totalPages]);
 
   const pageCards = cards.slice(
-    currentPage * CARDS_PER_PAGE,
-    (currentPage + 1) * CARDS_PER_PAGE
+    currentPage * cardsPerPage,
+    (currentPage + 1) * cardsPerPage
   );
 
   if (loading) {
@@ -188,15 +197,15 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
               <h3 className="font-bold text-text-primary text-[1.2rem] leading-tight">Suhu Realtime Per Wilayah</h3>
               <p className="text-xs text-text-secondary mt-0.5">{cards.length} stasiun terpantau</p>
             </div>
-            <div className="relative group/info ml-1 cursor-help mt-0.5">
-              <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 transition-colors">
-                <span className="material-symbols-outlined text-blue-500 text-[12px]">info</span>
+            <div className="relative group/info ml-1 cursor-pointer outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
+              <div className="w-6 h-6 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200/80 transition-all cursor-pointer shadow-2xs">
+                <span className="material-symbols-outlined text-[14px] font-bold">info</span>
               </div>
               
               {/* Tooltip Content */}
               <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-3 w-[240px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 text-left pointer-events-none">
                 <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
+                  <span className="material-symbols-outlined text-[16px] text-blue-500">info</span>
                   Indikator Cuaca Stasiun
                 </div>
                 <ul className="flex flex-col gap-2 text-slate-600 font-medium mt-3">
@@ -311,9 +320,14 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
                     </div>
                     {/* Minimum Temperature Indicator */}
                     {card.min_temp !== undefined && (
-                      <div className="flex items-center gap-1 mt-1 text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
-                        <span className="material-symbols-outlined text-[12px] text-blue-500">arrow_downward</span>
-                        <span className="text-[10px] font-bold">Min: {card.min_temp}°C</span>
+                      <div className="flex items-center gap-1 mt-1 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm shadow-slate-200/20 group-hover:border-blue-100 group-hover:shadow-blue-100/50 transition-all">
+                        <div className="flex items-center justify-center w-3 h-3 rounded-full bg-blue-50/80 text-blue-600">
+                          <span className="material-symbols-outlined font-bold" style={{ fontSize: '10px' }}>ac_unit</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-px">Min</span>
+                          <span className="text-[10px] font-black text-slate-700">{card.min_temp}°C</span>
+                        </div>
                       </div>
                     )}
                   </div>

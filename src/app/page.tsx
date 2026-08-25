@@ -12,6 +12,15 @@ import { supabaseFetch } from "@/lib/supabase";
 import { formatUTCtoWIB } from "@/lib/utils";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 
+const formatIndonesianDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+};
+
 const getWeatherCondition = (temp: number, rh: number, rr: number) => {
   if (rr > 5) return { text: "Hujan Lebat", icon: "rainy" };
   if (rr > 0) return { text: "Hujan Ringan", icon: "rainy" };
@@ -50,57 +59,61 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
   const feelsLike = Math.round(apparentTemp);
 
   return (
-    <div className="w-full max-w-[380px] flex flex-col gap-4 animate-fade-in shrink-0 mt-4 lg:mt-0">
-      <div className={`bg-white/90 backdrop-blur-xl rounded-[1.5rem] p-6 shadow-lg border-2 border-white/80 ring-1 ring-slate-100/50 relative group hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] hover:border-blue-100/60 hover:-translate-y-1 transition-all duration-500`}>
-        {/* Isolated Overflow Hidden wrapper for the blur effect */}
-        <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none">
-          <div className={`absolute -right-8 -top-8 w-48 h-48 bg-gradient-to-br from-blue-500/20 to-cyan-500/5 rounded-full blur-[40px] group-hover:scale-125 transition-transform duration-700 opacity-80`}></div>
-        </div>
-
+    <div className="w-full max-w-[360px] flex flex-col gap-3 animate-fade-in shrink-0 mt-4 lg:mt-0">
+      <div className="bg-white rounded-2xl p-5 shadow-md border border-slate-200/80 relative group hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300">
         <div className="relative z-10 flex flex-col items-center text-center">
           {/* Header Row */}
-          <div className="flex items-center justify-between w-full mb-3 relative">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50/80 border border-blue-100 text-blue-900 text-[10px] font-extrabold uppercase tracking-wider shadow-xs">
-              <span className="material-symbols-outlined text-[15px] text-blue-600">thermostat</span>
+          <div className="flex items-center justify-between w-full mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50/80 text-blue-700 text-[10px] font-extrabold uppercase tracking-wider border border-blue-100 shadow-2xs">
+              <span className="material-symbols-outlined text-[14px] text-blue-600">thermostat</span>
               Suhu Terasa
             </div>
-            <div className="relative group/info cursor-help outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
-              <div className="w-7 h-7 rounded-full bg-blue-50/80 flex items-center justify-center border border-blue-100 group-hover/info:bg-blue-100 group-focus/info:bg-blue-100 transition-colors shadow-2xs">
-                <span className="material-symbols-outlined text-blue-600 text-[15px]">info</span>
+
+            {/* Refined Blue Info Icon Button */}
+            <div className="relative group/info cursor-pointer outline-none" tabIndex={0} onClick={(e) => e.currentTarget.focus()}>
+              <div className="w-6 h-6 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200/80 transition-all cursor-pointer shadow-2xs">
+                <span className="material-symbols-outlined text-[14px] font-bold">info</span>
               </div>
 
               {/* Tooltip Content */}
-              <div className="absolute right-0 top-full mt-2 w-[270px] p-4 bg-white/95 backdrop-blur-md text-slate-700 text-[11px] rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-300 z-50 translate-y-2 group-hover/info:translate-y-0 group-focus/info:translate-y-0 text-left pointer-events-none">
-                <div className="font-bold text-xs mb-2 text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-blue-500">help</span>
+              <div className="absolute right-0 top-full mt-2 w-[260px] p-3.5 bg-white text-slate-700 text-[11px] rounded-xl shadow-xl border border-slate-200 opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible group-focus/info:opacity-100 group-focus/info:visible transition-all duration-200 z-50 translate-y-1 group-hover/info:translate-y-0 text-left pointer-events-none">
+                <div className="font-bold text-xs mb-1.5 text-slate-800 border-b border-slate-100 pb-1.5 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[15px] text-blue-600">info</span>
                   Tentang Suhu Terasa
                 </div>
-                <div className="text-slate-600 font-medium mt-2 leading-relaxed">
-                  Suhu terasa (Heat Index) ini dihitung menggunakan formula dari <strong>NOAA</strong> <em>(National Oceanic and Atmospheric Administration)</em>.
-                  <br/><br/>
-                  Nilai ini merupakan estimasi suhu yang dirasakan tubuh dengan memperhitungkan interaksi antara <strong>suhu udara aktual</strong> dan <strong>kelembaban relatif</strong>.
+                <div className="text-slate-600 font-medium leading-relaxed text-justify">
+                  Suhu terasa (Heat Index) ini dihitung menggunakan formula dari <strong>NOAA (National Oceanic and Atmospheric Administration)</strong>. Nilai ini menggambarkan suhu yang dirasakan tubuh berdasarkan kombinasi <strong>suhu udara</strong> dan <strong>kelembaban relatif</strong>.
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Centered Large Temperature Number */}
-          <div className="flex items-start justify-center gap-1 my-2 w-full">
-            <span className="text-[4.75rem] leading-none font-black tracking-tight bg-gradient-to-br from-blue-700 via-sky-600 to-indigo-700 bg-clip-text text-transparent drop-shadow-xs">
+          {/* Large Clean Dark Slate Temperature Display */}
+          <div className="flex items-baseline justify-center gap-1 my-1">
+            <span className="text-[3.85rem] leading-none font-black tracking-tight text-slate-800">
               {feelsLike || 0}
             </span>
-            <span className="text-[1.75rem] font-black text-sky-600 mt-2">°C</span>
+            <span className="text-[1.5rem] font-bold text-slate-500">°C</span>
           </div>
 
-          {/* Sub-metrics Grid (2 Columns: Suhu & Kelembaban) */}
-          <div className="w-full bg-slate-50/80 rounded-2xl py-3 px-3 grid grid-cols-2 divide-x divide-slate-200/60 border border-slate-100 shadow-2xs mt-2">
-            <div className="flex flex-col items-center justify-center w-full">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Suhu Udara</span>
-              <span className="font-extrabold text-slate-800 text-lg flex items-center gap-0.5">{Math.round(temp) || 0}<span className="text-[12px] font-bold text-slate-400">°C</span></span>
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3">Sensasi Suhu yang Dirasakan</span>
+
+          {/* Sub-metrics Grid (2 Columns: Suhu Udara & Kelembaban) */}
+          <div className="w-full grid grid-cols-2 gap-2 mt-1">
+            <div className="bg-slate-50 rounded-xl py-2 px-3 flex flex-col items-center justify-center border border-slate-100 shadow-2xs">
+              <div className="flex items-center gap-1 text-slate-500 mb-0.5">
+                <span className="material-symbols-outlined text-[14px] text-rose-500">thermostat</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Suhu Udara</span>
+              </div>
+              <span className="font-extrabold text-slate-800 text-base">{Math.round(temp) || 0}<span className="text-[11px] font-bold text-slate-400">°C</span></span>
             </div>
-            <div className="flex flex-col items-center justify-center w-full">
-              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-1">Kelembaban</span>
-              <span className="font-extrabold text-slate-800 text-lg flex items-center gap-0.5">{Math.round(rh) || 0}<span className="text-[12px] font-bold text-slate-400">%</span></span>
+
+            <div className="bg-slate-50 rounded-xl py-2 px-3 flex flex-col items-center justify-center border border-slate-100 shadow-2xs">
+              <div className="flex items-center gap-1 text-slate-500 mb-0.5">
+                <span className="material-symbols-outlined text-[14px] text-sky-500">water_drop</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">Kelembaban</span>
+              </div>
+              <span className="font-extrabold text-slate-800 text-base">{Math.round(rh) || 0}<span className="text-[11px] font-bold text-slate-400">%</span></span>
             </div>
           </div>
         </div>
@@ -112,6 +125,7 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
 export default function Home() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
 
   // --- Realtime Data States ---
   const [stations, setStations] = useState<any[]>([]);
@@ -184,32 +198,11 @@ export default function Home() {
       if (anns && anns.length > 0) {
         setAnnouncements(anns);
       } else {
-        setAnnouncements([
-          {
-            id: 1,
-            title: "Waspada Hujan Lebat & Angin Kencang",
-            content: "Potensi cuaca ekstrem disertai hujan lebat dan petir di wilayah Malang Raya.",
-            category: "peringatan_dini",
-            published_at: new Date().toISOString(),
-          },
-          {
-            id: 2,
-            title: "Proyeksi Awal Musim Kemarau 2026",
-            content: "Prakiraan awal musim kemarau tahun 2026 untuk wilayah Jawa Timur bagian selatan.",
-            category: "info",
-            published_at: new Date().toISOString(),
-          },
-          {
-            id: 3,
-            title: "Sosialisasi Pemahaman Iklim Bagi Petani",
-            content: "Kegiatan edukasi pemanfaatan data iklim terpadu untuk efisiensi sektor pertanian.",
-            category: "kegiatan",
-            published_at: new Date().toISOString(),
-          },
-        ]);
+        setAnnouncements([]);
       }
     } catch (e) {
       console.error("Error loading announcements", e);
+      setAnnouncements([]);
     } finally {
       setLoadingAnnouncements(false);
     }
@@ -217,9 +210,22 @@ export default function Home() {
 
   useEffect(() => {
     loadAnnouncements();
-    const interval = setInterval(loadAnnouncements, 10 * 60 * 1000); // Refresh setiap 10 Menit
+    loadInstagramPosts();
+    const interval = setInterval(() => {
+      loadAnnouncements();
+      loadInstagramPosts();
+    }, 10 * 60 * 1000); // Refresh setiap 10 Menit
     return () => clearInterval(interval);
   }, [loadAnnouncements]);
+
+  const loadInstagramPosts = async () => {
+    try {
+      const posts = await supabaseFetch("instagram_posts", "order=created_at.desc&limit=4");
+      if (posts) setInstagramPosts(posts);
+    } catch (e) {
+      console.error("Error loading instagram posts", e);
+    }
+  };
 
   const weather = latestData
     ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
@@ -347,9 +353,11 @@ export default function Home() {
                 </div>
 
                 {/* Center: Station & Location Info */}
-                <div className="flex flex-col gap-1.5 xl:border-l xl:border-slate-800/15 xl:pl-8 relative z-20 shrink-0">
+                <div className="flex flex-col gap-1 xl:border-l xl:border-slate-800/15 xl:pl-8 relative z-20 shrink-0">
                   <div className="flex items-center gap-2 text-slate-900 text-sm font-bold whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[18px] text-blue-700">location_on</span>
+                    <div className="w-5 flex justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[18px] text-blue-700">location_on</span>
+                    </div>
 
                     <div className="relative z-30">
                       <button
@@ -402,10 +410,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-slate-700 text-xs font-semibold whitespace-nowrap mt-2">
-                    <span className="material-symbols-outlined text-[14px] text-blue-700">schedule</span>
-                    {latestData?.date && <span>{latestData.date}</span>}
-                    <span>Pukul {latestData?.time ? formatUTCtoWIB(latestData.time) : "--:--"} WIB</span>
+                  <div className="flex items-center gap-2 text-slate-900 text-[11px] font-medium whitespace-nowrap mt-0.5">
+                    <div className="w-5 flex justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[18px] text-blue-700 font-bold drop-shadow-2xs">history_toggle_off</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3">
+                      <span className="opacity-80">Pukul {latestData?.time ? formatUTCtoWIB(latestData.time) : "--:--"} WIB</span>
+                    </div>
                   </div>
                 </div>
 
@@ -443,7 +454,7 @@ export default function Home() {
           <div className="w-full lg:flex-1 flex flex-col gap-4">
             <div>
               <span className="inline-block bg-primary/10 text-primary border border-primary/20 px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wider whitespace-nowrap">
-                STASIUN KLIMATOLOGI MALANG
+                LAYANAN INFORMASI CUACA & IKLIM
               </span>
             </div>
 
@@ -511,7 +522,7 @@ export default function Home() {
                 <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
                 <span className="text-slate-500 font-medium">Memuat pengumuman...</span>
               </div>
-            ) : (
+            ) : announcements && announcements.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 xl:gap-6 w-full">
                 {announcements.map((ann, idx) => (
                   <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full h-full">
@@ -519,7 +530,7 @@ export default function Home() {
                       <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] p-6 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col group relative overflow-hidden">
                         {/* Decorative Background Glow */}
                         <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.category)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
-                        
+
                         {/* Header: Icon & Date */}
                         <div className="flex justify-between items-start mb-5 relative z-10">
                           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.category)}`}>
@@ -540,7 +551,7 @@ export default function Home() {
                             {ann.title}
                           </h4>
                         </div>
-                        
+
                         <p className="text-[0.9rem] text-slate-500 line-clamp-2 mt-auto relative z-10 leading-relaxed font-medium">
                           {ann.content}
                         </p>
@@ -548,6 +559,11 @@ export default function Home() {
                     </Link>
                   </AnimatedContainer>
                 ))}
+              </div>
+            ) : (
+              <div className="w-full text-center py-12 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-[1.5rem] flex flex-col items-center justify-center gap-3">
+                <span className="material-symbols-outlined text-[48px] text-slate-300">campaign</span>
+                <p className="text-slate-500 font-medium">Belum ada pengumuman terbaru saat ini.</p>
               </div>
             )}
           </div>
@@ -559,47 +575,46 @@ export default function Home() {
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
             <AnimatedContainer animation="fadeInUp" once={true} className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
-              <div>
-                <h2 className="text-[1.5rem] font-bold text-text-primary flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary text-[28px]">photo_camera</span>
-                  Instagram @bmkg.iklimjatim
-                </h2>
-                <p className="text-text-secondary text-[0.9rem] mt-1">Dokumentasi kegiatan operasional, edukasi, dan pengamatan iklim.</p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-lg shadow-pink-500/20 shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">photo_camera</span>
+                </div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Instagram BMKG Malang</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Informasi terbaru melalui media sosial kami.</p>
+                </div>
               </div>
-              <a
-                className="inline-flex items-center gap-2 font-semibold text-primary hover:text-secondary transition-colors bg-surface border border-border px-4 py-2.5 rounded-full text-sm shadow-sm hover:shadow-md whitespace-nowrap"
-                href="https://www.instagram.com/bmkg.iklimjatim/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <span>Kunjungi Instagram</span>
-                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-              </a>
+              <Link href="/galeri" className="shrink-0 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 group">
+                Lihat Lebih Banyak
+                <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+              </Link>
             </AnimatedContainer>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-              {[
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuDJCz4HXllE5ZKWwkJK1niD6TsdSSNOXicUMe_HoyuITFg-PBoJwNdWsYmSF36tDI3MS3SSZa4GKQgN4Ls_0LuTa7gpnyagLwzLx0EruYCc5UO7S4KI5dUzWI_01zNngS4DM9N8jv67yn_EyScHh5OZWl9Rl7rNh_fvh_w1tTpKP4AKMrA8_OZpWSwBcbp08l-ARmr4TIte7U3cQ9NwYKdz5o1MWNITa6wxvdAK2nWa0tmKkMhAgYBVszW1jo7WKBZe0NZTRa7Xnys",
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuBDlmz34yJ9K7BJmKxn6tyXtSjIaPtOHHoES3vyCcoWT-oOrmH0JnX63Sh-Qv0bzMX6ZqGRQueubo9sGGmwS4qlBsVxoqoqy6BGR5KqiWfmEDfpcP45Wmz5-xjMgOok9Pll9AB7lIH5IZ72Uy-xyHT7LQw-StKXgcXAq9873HGTa5MXzgj_Zcryx9LoLMKJGQvXC8RvhK_USQrjIe3lVjmmxUYmZ8J6YlP1iKMWAxuGAvf4EHwCXZ3IwjFDGJiLPFna0oBL_btdTjM",
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuB8O3CFQkxw6oXSvVy8OB3ifIp10xLRDbsZkER7D3N-yZIF_EpnEuU2MfT0cFnF1gYhVs5at1a4BwYnnIJn1xZvV0eykd4MKzzlPJiANr1UMTV1qJbnE3JGUtZYRLzNHIcTqindw7gVlrLrQG3nenM_Y47T2kB8mHeyGx-hpfgh6zWedPSK1FjmEdvjWVUhZ_VqOxwuInZAcGf_4gHjV5l7mc0PommD3B2CzOq7Dt-fAsO4KlQh47QeY-neyPQRglyQX0pGtDlKcl4",
-                "https://lh3.googleusercontent.com/aida-public/AB6AXuAZYSwKCAYFrlQl0bLneconT-K1mTmNpk0iW2zBCN9eje1bPFp1Qyn-8hpgspuxWY4IO5ZTHiWZCaEArr9ZNSk6Hkr2EEhuXqHXM0e4zPTznzTkyU1L05ngBB6MMFWMHVQFkCQ9-D2DhYzQeNfJY7O_NnqgMB-PrPerppcfS0HlWJiNCenIXJI_olYZ7YaPCgPlxuzOqyGlMwUkg0loSfCSF6w06TglFKefpJkqukV6l84h-yAB4V0BD8kSekSAlj7DlxRH95mc2vQ",
-              ].map((src, idx) => (
-                <AnimatedContainer key={idx} animation="scaleIn" delay={0.08 * idx} once={true} className="w-full">
-                  <a href="https://www.instagram.com/bmkg.iklimjatim/" target="_blank" rel="noreferrer" className="block aspect-square bg-surface rounded-xl overflow-hidden relative group shadow-sm border border-border/70 w-full cursor-pointer">
-                    <img
-                      alt={`Instagram Post ${idx + 1}`}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      src={src}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-                      <div className="flex items-center gap-4 text-white text-sm font-medium">
-                        <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px]">open_in_new</span> Buka di IG</span>
+            {instagramPosts.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                {instagramPosts.map((post, idx) => (
+                  <AnimatedContainer key={idx} animation="scaleIn" delay={0.08 * idx} once={true} className="w-full">
+                    <a href={post.post_url} target="_blank" rel="noreferrer" className="block aspect-square bg-surface rounded-xl overflow-hidden relative group shadow-sm border border-border/70 w-full cursor-pointer">
+                      <img
+                        alt={`Instagram Post ${idx + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        src={post.image_url}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                        <div className="flex items-center gap-4 text-white text-sm font-medium">
+                          <span className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[18px]">open_in_new</span> Buka di IG</span>
+                        </div>
                       </div>
-                    </div>
-                  </a>
-                </AnimatedContainer>
-              ))}
-            </div>
+                    </a>
+                  </AnimatedContainer>
+                ))}
+              </div>
+            ) : (
+              <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                <span className="material-symbols-outlined text-4xl text-slate-300 mb-3">photo_camera</span>
+                <p className="text-slate-500 font-medium text-sm">Belum ada postingan Instagram terbaru.</p>
+              </div>
+            )}
           </div>
         </section>
       </main>

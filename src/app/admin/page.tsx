@@ -29,10 +29,12 @@ function AdminDashboardContent() {
   const [stations, setStations] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [orgMembers, setOrgMembers] = useState<any[]>([]);
+  const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
   
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
   const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "", parent_role_id: "", show_role_title: true });
+  const [newInstagram, setNewInstagram] = useState({ image_url: "", post_url: "" });
 
   // --- Observation Data States ---
   const [observationDaily, setObservationDaily] = useState<ParsedDailyObservation>({
@@ -117,7 +119,17 @@ function AdminDashboardContent() {
     loadObservationData();
     loadRainfallForecasts();
     loadHthData();
+    loadInstagramPosts();
   }, []);
+
+  const loadInstagramPosts = async () => {
+    try {
+      const result = await supabaseFetch("instagram_posts", "order=created_at.desc");
+      if (result) setInstagramPosts(result);
+    } catch (e) {
+      console.warn("Failed to load Instagram posts", e);
+    }
+  };
 
   const loadHthData = async () => {
     try {
@@ -586,16 +598,42 @@ function AdminDashboardContent() {
   };
 
   const handleDeleteAnnouncement = (id: number) => {
-    openConfirm(
-      "Hapus Pengumuman",
-      "Yakin ingin menghapus pengumuman ini?",
-      async () => {
-        closeConfirm();
-        await supabaseDelete("announcements", `id=eq.${id}`);
-        loadAnnouncements();
-        toast.success("Pengumuman berhasil dihapus.");
-      }
-    );
+    openConfirm("Hapus Pengumuman", "Yakin ingin menghapus pengumuman ini?", async () => {
+      closeConfirm();
+      await supabaseDelete("announcements", `id=eq.${id}`);
+      loadAnnouncements();
+      toast.success("Pengumuman berhasil dihapus.");
+    });
+  };
+
+  const handleAddInstagram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInstagram.image_url || !newInstagram.post_url) {
+      toast.error("Semua field (URL Gambar & URL Post) harus diisi.");
+      return;
+    }
+    const result = await supabaseInsert("instagram_posts", {
+      image_url: newInstagram.image_url,
+      post_url: newInstagram.post_url,
+      created_at: new Date().toISOString()
+    });
+    
+    if (result) {
+      toast.success("Postingan Instagram berhasil ditambahkan!");
+      setNewInstagram({ image_url: "", post_url: "" });
+      loadInstagramPosts();
+    } else {
+      toast.error("Gagal menambahkan. Pastikan tabel 'instagram_posts' sudah ada.");
+    }
+  };
+
+  const handleDeleteInstagram = (id: number) => {
+    openConfirm("Hapus Postingan", "Yakin ingin menghapus postingan Instagram ini?", async () => {
+      closeConfirm();
+      await supabaseDelete("instagram_posts", `id=eq.${id}`);
+      loadInstagramPosts();
+      toast.success("Postingan berhasil dihapus.");
+    });
   };
 
   const handleAddOrgMember = async (e: React.FormEvent) => {
@@ -912,6 +950,7 @@ function AdminDashboardContent() {
                 {[
                   { id: 'stations', icon: 'sensors', label: 'Daftar AWS', badge: stations.length },
                   { id: 'announcements', icon: 'campaign', label: 'Pengumuman', badge: announcements.length },
+                  { id: 'instagram', icon: 'photo_library', label: 'Galeri Instagram', badge: instagramPosts.length },
                 ].map(tab => (
                   <a 
                     key={tab.id}
@@ -1060,6 +1099,7 @@ function AdminDashboardContent() {
                   { activeTab === 'stations' && 'Manajemen AWS' }
                   { activeTab === 'observations' && 'Data Pengamatan (Excel)' }
                   { activeTab === 'announcements' && 'Kelola Pengumuman' }
+                  { activeTab === 'instagram' && 'Kelola Galeri Instagram' }
                   { activeTab === 'climate' && 'Data Iklim (Warming Stripes)' }
                   { activeTab === 'org' && 'Struktur Organisasi' }
                   { activeTab === 'tempmaps' && 'Peta Perubahan Suhu' }
@@ -1101,6 +1141,7 @@ function AdminDashboardContent() {
                   <optgroup label="Beranda & Umum">
                     <option value="stations">Daftar AWS</option>
                     <option value="announcements">Pengumuman</option>
+                    <option value="instagram">Galeri Instagram</option>
                   </optgroup>
                   <optgroup label="Pengamatan">
                     <option value="observations">Data Pengamatan</option>
@@ -1811,6 +1852,90 @@ function AdminDashboardContent() {
                       </div>
                     )}
                   </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'instagram' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">photo_library</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Tambah Postingan</h3>
+                  </div>
+                  <form onSubmit={handleAddInstagram} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL Gambar (Image Link)</label>
+                      <input 
+                        type="url" 
+                        required 
+                        placeholder="https://example.com/image.jpg"
+                        value={newInstagram.image_url} 
+                        onChange={(e) => setNewInstagram({...newInstagram, image_url: e.target.value})}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL Postingan Instagram</label>
+                      <input 
+                        type="url" 
+                        required 
+                        placeholder="https://www.instagram.com/p/..."
+                        value={newInstagram.post_url} 
+                        onChange={(e) => setNewInstagram({...newInstagram, post_url: e.target.value})}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 mt-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      Tambahkan
+                    </button>
+                  </form>
+                </div>
+
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Galeri Instagram</h3>
+                    <span className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full text-xs font-bold">{instagramPosts.length} post</span>
+                  </div>
+                  
+                  {instagramPosts.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {instagramPosts.map((post) => (
+                        <div key={post.id} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square">
+                          <img src={post.image_url} alt="Instagram Post" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                            <a 
+                              href={post.post_url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                              Buka IG
+                            </a>
+                            <button 
+                              onClick={() => handleDeleteInstagram(post.id)}
+                              className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                              Hapus
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-slate-400 py-12 flex flex-col items-center border-2 border-dashed border-slate-100 rounded-xl">
+                      <span className="material-symbols-outlined text-4xl mb-2">photo_library</span>
+                      <p className="text-sm font-medium">Belum ada foto galeri.</p>
+                    </div>
+                  )}
                 </div>
               </section>
             )}

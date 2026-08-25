@@ -95,6 +95,13 @@ export default function PengamatanHarian() {
     return `${val}${suffix}`;
   };
 
+  const getPeakWindInfo = () => {
+    if (!hourlyData || hourlyData.length === 0) return "Puncak hembusan gust 24 jam";
+    const peak = hourlyData.reduce((max, h) => (h.kecepatan_angin_kt > max.kecepatan_angin_kt ? h : max), hourlyData[0]);
+    if (!peak || !peak.jam) return "Puncak hembusan gust 24 jam";
+    return `Puncak hembusan pukul ${peak.jam} WIB`;
+  };
+
   const getMetricCards = (data: DailyObservation) => [
     {
       title: "Suhu Minimum (Terdingin)",
@@ -168,7 +175,7 @@ export default function PengamatanHarian() {
       color: "text-teal-600",
       bgColor: "bg-teal-50",
       borderColor: "border-teal-100",
-      desc: "Kecepatan puncak tertinggi dalam 24 jam",
+      desc: getPeakWindInfo(),
     },
   ];
 
@@ -206,49 +213,55 @@ export default function PengamatanHarian() {
     return [formatSectionContent(cleaned)];
   };
 
+  const executivePanelThemes = [
+    { tag: "ANOMALI SUHU", icon: "thermostat", tagColor: "text-rose-400 border-rose-500/30 bg-rose-500/10", iconColor: "text-rose-400" },
+    { tag: "SIRKULASI ANGIN", icon: "air", tagColor: "text-sky-400 border-sky-500/30 bg-sky-500/10", iconColor: "text-sky-400" },
+    { tag: "REKAP & FENOMENA", icon: "report_problem", tagColor: "text-amber-400 border-amber-500/30 bg-amber-500/10", iconColor: "text-amber-400" },
+  ];
+
   return (
     <>
       <Header activeRoute="/data-pengamatan" />
       <main className="flex-grow w-full bg-slate-50/60 pb-16">
         
-        {/* Banner Section */}
-        <section className="bg-gradient-to-br from-blue-900 via-slate-900 to-indigo-950 text-white pt-8 md:pt-12 pb-16 md:pb-20 relative overflow-hidden">
-          {/* Ambient Glow Effects */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-3xl pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none transform -translate-x-1/3 translate-y-1/3" />
+        {/* Banner Section — Clean Professional Institutional Theme */}
+        <section className="bg-gradient-to-r from-blue-50 via-slate-50 to-sky-50 text-slate-900 pt-8 md:pt-12 pb-16 md:pb-20 border-b border-slate-200/80 relative overflow-hidden">
+          {/* Subtle Ambient Shapes */}
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-3xl pointer-events-none transform translate-x-1/3 -translate-y-1/3" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-sky-100/50 rounded-full blur-3xl pointer-events-none transform -translate-x-1/3 translate-y-1/3" />
           
           <div className="max-w-7xl mx-auto px-6 md:px-8 relative z-10">
             <AnimatedContainer animation="fadeInUp" once={true}>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 w-full">
                 <div className="w-full lg:max-w-[680px]">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="bg-blue-500/20 text-sky-300 border border-sky-400/30 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-widest uppercase shadow-xs">
+                    <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-[11px] font-extrabold tracking-widest uppercase shadow-xs">
                       STASIUN KLIMATOLOGI JAWA TIMUR
                     </span>
                   </div>
-                  <h1 className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.25rem] font-black leading-[1.1] tracking-tight mb-3 drop-shadow-md">
+                  <h1 className="text-[2.25rem] sm:text-[2.75rem] md:text-[3.25rem] font-black leading-[1.1] tracking-tight mb-3 text-slate-900">
                     Laporan Pengamatan Harian
                   </h1>
-                  <p className="text-slate-300 text-[1rem] md:text-[1.1rem] leading-relaxed font-medium">
-                    Data sinoptik dan klimatologi hasil pencatatan instrumen stasiun. Pembaruan data otomatis setiap hari kerja pada pukul <span className="font-bold text-amber-300">09:00 WIB</span>.
+                  <p className="text-slate-600 text-[1rem] md:text-[1.1rem] leading-relaxed font-medium">
+                    Data sinoptik dan klimatologi hasil pencatatan instrumen stasiun. Pembaruan data otomatis setiap hari kerja pada pukul <span className="font-bold text-blue-700">09:00 WIB</span>.
                   </p>
                 </div>
                 
                 {/* Live Observation Date Card */}
-                <div className="bg-white/15 backdrop-blur-xl border border-white/20 p-5 rounded-2xl shadow-2xl shrink-0 w-full lg:w-auto min-w-[320px] flex flex-col justify-between">
+                <div className="bg-white p-5 rounded-2xl shadow-lg border border-slate-200/80 shrink-0 w-full lg:w-auto min-w-[320px] flex flex-col justify-between">
                   <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-2 text-sky-200 font-extrabold text-xs uppercase tracking-wider">
-                      <span className="material-symbols-outlined text-[20px] text-sky-300">calendar_month</span>
+                    <div className="flex items-center gap-2 text-slate-500 font-extrabold text-xs uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-[20px] text-blue-600">calendar_month</span>
                       Tanggal Pengamatan
                     </div>
                   </div>
 
-                  <div className="text-white font-black text-xl md:text-2xl tracking-tight my-2">
+                  <div className="text-slate-900 font-black text-xl md:text-2xl tracking-tight my-2">
                     {dailyData?.tanggal_pengamatan || "Hari Ini"}
                   </div>
 
-                  <div className="text-[11px] text-slate-300 font-medium pt-2.5 border-t border-white/10 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-sky-300">update</span>
+                  <div className="text-[11px] text-slate-500 font-medium pt-2.5 border-t border-slate-100 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-blue-600">update</span>
                     {formatSyncTimestamp(dailyData?.synced_at || dailyData?.updated_at)}
                   </div>
                 </div>
@@ -258,7 +271,7 @@ export default function PengamatanHarian() {
         </section>
 
         {/* Content Section */}
-        <section className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20 space-y-4 md:space-y-8">
+        <section className="max-w-7xl mx-auto px-4 md:px-8 -mt-10 relative z-20 space-y-6 md:space-y-8">
           {loading ? (
             <div className="bg-white rounded-3xl shadow-xl p-8 md:p-16 flex flex-col items-center justify-center border border-slate-200/80">
               <span className="material-symbols-outlined animate-spin text-[48px] text-primary mb-4">progress_activity</span>
@@ -287,28 +300,28 @@ export default function PengamatanHarian() {
           ) : (
             <>
               {/* Key Metrics Grid (4x2 = 8 Cards) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
                 {getMetricCards(dailyData).map((card, idx) => (
                   <AnimatedContainer key={idx} animation="fadeInUp" delay={0.05 * idx} once={true}>
-                    <Card className={`h-full border ${card.borderColor} shadow-xs hover:shadow-lg transition-all duration-300 p-5 md:p-6 rounded-2xl bg-white group flex flex-col justify-between relative overflow-hidden`}>
-                      <div className="flex items-start justify-between mb-3 relative z-10">
-                        <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center ${card.bgColor} ${card.color} group-hover:scale-105 transition-transform duration-300 shadow-2xs`}>
-                          <span className="material-symbols-outlined text-[22px] md:text-[24px]">{card.icon}</span>
+                    <Card className={`h-full border ${card.borderColor} shadow-xs hover:shadow-lg transition-all duration-300 p-4 sm:p-5 md:p-6 rounded-2xl bg-white group flex flex-col justify-between relative overflow-hidden`}>
+                      <div className="flex items-start justify-between mb-3 relative z-10 gap-2">
+                        <div className={`shrink-0 w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center ${card.bgColor} ${card.color} group-hover:scale-105 transition-transform duration-300 shadow-2xs`}>
+                          <span className="material-symbols-outlined text-[20px] md:text-[24px]">{card.icon}</span>
                         </div>
                         {card.badge && (
-                          <Badge variant={card.badgeText.includes("Hujan") ? "warning" : "neutral"} className="shadow-2xs">
+                          <span className={`inline-flex shrink items-center justify-center px-2 py-1 rounded-full text-[9px] md:text-[10px] font-extrabold uppercase tracking-wider whitespace-nowrap shadow-2xs ${card.badgeText.includes("Hujan") ? "bg-amber-100/80 text-amber-800 border border-amber-200" : "bg-slate-100/80 text-slate-600 border border-slate-200"}`}>
                             {card.badgeText}
-                          </Badge>
+                          </span>
                         )}
                       </div>
                       
                       <div className="relative z-10">
-                        <span className="text-slate-500 text-xs font-bold uppercase tracking-wider block mb-1">{card.title}</span>
-                        <div className="text-[1.65rem] md:text-[1.85rem] font-black text-slate-900 tracking-tight leading-tight mb-1.5">
+                        <span className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider block mb-1">{card.title}</span>
+                        <div className="text-[1.4rem] sm:text-[1.65rem] md:text-[1.85rem] font-black text-slate-900 tracking-tight leading-tight mb-1.5">
                           {card.value}
                         </div>
                         {card.desc && (
-                          <p className="text-xs text-slate-500 font-medium leading-relaxed">{card.desc}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-500 font-medium leading-relaxed">{card.desc}</p>
                         )}
                       </div>
                     </Card>
@@ -316,30 +329,32 @@ export default function PengamatanHarian() {
                 ))}
               </div>
 
-              {/* Combined Summary & Extreme Weather Panel (Placed ABOVE Chart) */}
+              {/* Combined Summary & Extreme Weather Panel (Restored Previous Mixed Gradient Theme & Size) */}
               <AnimatedContainer animation="fadeInUp" delay={0.15} once={true}>
-                <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl relative overflow-hidden border border-blue-800">
-                  <div className="absolute top-0 right-0 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl pointer-events-none" />
-                  
-                  <div className="relative z-10 flex flex-col sm:flex-row items-start gap-3.5 sm:gap-6">
-                    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0 shadow-inner">
-                      <span className="material-symbols-outlined text-amber-300 text-[24px] sm:text-[32px]">warning</span>
+                <div className="bg-gradient-to-r from-blue-50 via-slate-50 to-sky-50 border border-slate-200/80 shadow-md rounded-3xl p-5 sm:p-6 md:p-8 relative overflow-hidden">
+                  {/* Subtle Ambient Glow Shapes like Hero Banner */}
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-blue-100/40 rounded-full blur-3xl pointer-events-none transform translate-x-1/4 -translate-y-1/4" />
+                  <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-100/50 rounded-full blur-3xl pointer-events-none transform -translate-x-1/4 translate-y-1/4" />
+
+                  <div className="relative z-10 flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/90 border border-slate-200/80 flex items-center justify-center shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-blue-600 text-[26px] sm:text-[32px]">info</span>
                     </div>
 
                     <div className="flex-grow w-full">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="bg-amber-400/20 text-amber-300 border border-amber-300/30 text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full">
+                        <span className="bg-blue-600 text-white text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full shadow-2xs">
                           RINGKASAN & KEJADIAN EKSTRIM
                         </span>
                       </div>
-                      <h4 className="text-lg sm:text-xl md:text-2xl font-black mb-2 text-white tracking-tight leading-snug">
-                        Analisis Cuaca & Catatan Pengamatan Harian
+                      <h4 className="text-xl sm:text-2xl font-black mb-2 text-slate-900 tracking-tight leading-snug">
+                        Analisis & Catatan Cuaca Harian
                       </h4>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 md:gap-6 mt-3 md:mt-4 pt-3 md:pt-4 border-t border-white/10">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-3 md:mt-4 pt-3 md:pt-4 border-t border-slate-200/60">
                         {parseRangkumanItems(dailyData.rangkuman_info).map((item, idx) => (
-                          <div key={idx} className="flex flex-col text-slate-100 text-xs sm:text-sm md:text-base leading-relaxed font-medium">
-                            <p className="break-words font-medium text-slate-100/90 leading-relaxed whitespace-pre-line">
+                          <div key={idx} className="flex flex-col bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                            <p className="break-words font-semibold text-slate-800 leading-relaxed whitespace-pre-line text-xs sm:text-sm md:text-base">
                               {item}
                             </p>
                           </div>
@@ -369,24 +384,24 @@ export default function PengamatanHarian() {
                     </div>
 
                     {/* Chart Tabs Toggle */}
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 w-full lg:w-auto">
                       {[
                         { id: "suhu", label: "Suhu Udara", icon: "thermostat" },
                         { id: "kelembaban", label: "Kelembaban", icon: "water_drop" },
                         { id: "tekanan", label: "Tekanan Udara", icon: "speed" },
-                        { id: "angin", label: "Kecepatan Angin", icon: "air" },
+                        { id: "angin", label: "Kec. Angin", icon: "air" }, // Disematkan agar lebih rapi di HP
                       ].map((tab) => (
                         <button
                           key={tab.id}
                           onClick={() => setChartTab(tab.id as any)}
-                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                          className={`flex items-center justify-center gap-1.5 px-2 sm:px-3.5 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-extrabold transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 w-full whitespace-nowrap ${
                             chartTab === tab.id
                               ? "bg-white text-blue-700 shadow-sm border border-slate-200/80"
-                              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-white/50 border border-transparent"
                           }`}
                         >
-                          <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
-                          <span>{tab.label}</span>
+                          <span className="material-symbols-outlined text-[14px] sm:text-[16px] shrink-0">{tab.icon}</span>
+                          <span className="truncate">{tab.label}</span>
                         </button>
                       ))}
                     </div>
