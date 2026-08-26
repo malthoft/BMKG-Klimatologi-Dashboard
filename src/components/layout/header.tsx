@@ -126,6 +126,7 @@ export const navLinks: NavItem[] = [
     href: "/publikasi",
     subLinks: [
       { href: "/publikasi/berita-kegiatan", label: "Berita & Kegiatan" },
+      { href: "/publikasi/pengumuman", label: "Pengumuman" },
       { href: "/publikasi/e-buletin", label: "E-Buletin" },
       {
         label: "Survei",

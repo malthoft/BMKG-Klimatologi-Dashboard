@@ -123,8 +123,8 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
 };
 
 export default function Home() {
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [beritaKegiatan, setBeritaKegiatan] = useState<any[]>([]);
+  const [loadingBerita, setLoadingBerita] = useState(true);
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
 
   // --- Realtime Data States ---
@@ -192,31 +192,31 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [selectedStation, stations]);
 
-  const loadAnnouncements = useCallback(async () => {
+  const loadBeritaKegiatan = useCallback(async () => {
     try {
-      const anns = await supabaseFetch("announcements", "order=published_at.desc&limit=3");
-      if (anns && anns.length > 0) {
-        setAnnouncements(anns);
+      const berita = await supabaseFetch("berita_kegiatan", "order=published_at.desc&limit=3");
+      if (berita && berita.length > 0) {
+        setBeritaKegiatan(berita);
       } else {
-        setAnnouncements([]);
+        setBeritaKegiatan([]);
       }
     } catch (e) {
-      console.error("Error loading announcements", e);
-      setAnnouncements([]);
+      console.error("Error loading berita & kegiatan", e);
+      setBeritaKegiatan([]);
     } finally {
-      setLoadingAnnouncements(false);
+      setLoadingBerita(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAnnouncements();
+    loadBeritaKegiatan();
     loadInstagramPosts();
     const interval = setInterval(() => {
-      loadAnnouncements();
+      loadBeritaKegiatan();
       loadInstagramPosts();
     }, 10 * 60 * 1000); // Refresh setiap 10 Menit
     return () => clearInterval(interval);
-  }, [loadAnnouncements]);
+  }, [loadBeritaKegiatan]);
 
   const loadInstagramPosts = async () => {
     try {
@@ -502,58 +502,58 @@ export default function Home() {
 
 
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 5. PENGUMUMAN TERBARU — With color accent */}
+        {/* 5. BERITA & KEGIATAN TERBARU — With color accent */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="max-w-7xl mx-auto px-6 md:px-8 py-6 md:py-8 w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 w-full">
             <div>
               <span className="text-xs font-extrabold uppercase tracking-[0.15em] text-primary mb-2 block whitespace-nowrap">Informasi &amp; Peringatan</span>
-              <h2 className="text-[2rem] font-extrabold text-slate-800 leading-tight">Pengumuman Terbaru</h2>
+              <h2 className="text-[2rem] font-extrabold text-slate-800 leading-tight">Berita & Kegiatan Terbaru</h2>
             </div>
-            <Link href="/pengumuman" className="text-primary font-bold hover:text-secondary flex items-center gap-1.5 text-sm group whitespace-nowrap bg-blue-50/50 hover:bg-blue-50 px-4 py-2 rounded-full border border-blue-100 transition-colors">
+            <Link href="/publikasi/berita-kegiatan" className="text-primary font-bold hover:text-secondary flex items-center gap-1.5 text-sm group whitespace-nowrap bg-blue-50/50 hover:bg-blue-50 px-4 py-2 rounded-full border border-blue-100 transition-colors">
               Lihat Semua
               <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </Link>
           </div>
 
           <div className="w-full">
-            {loadingAnnouncements ? (
+            {loadingBerita ? (
               <div className="py-12 text-center flex flex-col items-center justify-center gap-3">
                 <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
-                <span className="text-slate-500 font-medium">Memuat pengumuman...</span>
+                <span className="text-slate-500 font-medium">Memuat berita & kegiatan...</span>
               </div>
-            ) : announcements && announcements.length > 0 ? (
+            ) : beritaKegiatan && beritaKegiatan.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 xl:gap-6 w-full">
-                {announcements.map((ann, idx) => (
+                {beritaKegiatan.map((ann, idx) => (
                   <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full h-full">
-                    <Link href="/pengumuman" className="block w-full h-full">
+                    <Link href={`/publikasi/berita-kegiatan/${ann.id}`} className="block w-full h-full">
                       <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] p-6 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col group relative overflow-hidden">
                         {/* Decorative Background Glow */}
-                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.category)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
+                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.kategori)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
 
                         {/* Header: Icon & Date */}
                         <div className="flex justify-between items-start mb-5 relative z-10">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.category)}`}>
-                            <span className={`material-symbols-outlined text-[22px] ${getCategoryIconColor(ann.category)}`}>{getCategoryIcon(ann.category)}</span>
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.kategori)}`}>
+                            <span className={`material-symbols-outlined text-[22px] ${getCategoryIconColor(ann.kategori)}`}>{getCategoryIcon(ann.kategori)}</span>
                           </div>
                           <div className="text-slate-500 font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
                             <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
-                            {ann.published_at ? new Date(ann.published_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Terbaru"}
+                            {(ann.published_at || ann.created_at) ? new Date(ann.published_at || ann.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Terbaru"}
                           </div>
                         </div>
 
                         {/* Content */}
                         <div className="mb-3 relative z-10 flex-grow">
-                          <Badge variant={getBadgeVariant(ann.category)} className="mb-3">
-                            {getCategoryLabel(ann.category)}
+                          <Badge variant={getBadgeVariant(ann.kategori)} className="mb-3">
+                            {getCategoryLabel(ann.kategori)}
                           </Badge>
                           <h4 className="text-[1.15rem] text-slate-800 font-extrabold leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                            {ann.title}
+                            {ann.judul}
                           </h4>
                         </div>
 
                         <p className="text-[0.9rem] text-slate-500 line-clamp-2 mt-auto relative z-10 leading-relaxed font-medium">
-                          {ann.content}
+                          {ann.deskripsi}
                         </p>
                       </div>
                     </Link>
@@ -563,7 +563,7 @@ export default function Home() {
             ) : (
               <div className="w-full text-center py-12 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-[1.5rem] flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-[48px] text-slate-300">campaign</span>
-                <p className="text-slate-500 font-medium">Belum ada pengumuman terbaru saat ini.</p>
+                <p className="text-slate-500 font-medium">Belum ada berita & kegiatan terbaru saat ini.</p>
               </div>
             )}
           </div>

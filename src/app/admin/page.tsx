@@ -27,12 +27,16 @@ function AdminDashboardContent() {
   };
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({ iklim: true, profil: true });
   const [stations, setStations] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [beritaKegiatan, setBeritaKegiatan] = useState<any[]>([]);
+  const [pengumuman, setPengumuman] = useState<any[]>([]);
   const [orgMembers, setOrgMembers] = useState<any[]>([]);
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
   
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
-  const [newAnnouncement, setNewAnnouncement] = useState({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
+  const [newBerita, setNewBerita] = useState({ judul: "", deskripsi: "", kategori: "Berita", penulis: "Admin", file_url: "" });
+  const [newPengumuman, setNewPengumuman] = useState({ judul: "", deskripsi: "", kategori: "Pengumuman", penulis: "Admin", file_url: "" });
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [beritaFile, setBeritaFile] = useState<File | null>(null);
   const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "", parent_role_id: "", show_role_title: true });
   const [newInstagram, setNewInstagram] = useState({ image_url: "", post_url: "" });
 
@@ -112,7 +116,8 @@ function AdminDashboardContent() {
 
   useEffect(() => {
     loadStations();
-    loadAnnouncements();
+    loadBeritaKegiatan();
+    loadPengumuman();
     loadClimateData();
     loadOrgMembers();
     loadTempMaps();
@@ -382,9 +387,14 @@ function AdminDashboardContent() {
     setStations(sts);
   };
 
-  const loadAnnouncements = async () => {
-    const anns = await supabaseFetch("announcements", "order=published_at.desc");
-    setAnnouncements(anns || []);
+  const loadBeritaKegiatan = async () => {
+    const res = await supabaseFetch("berita_kegiatan", "order=published_at.desc");
+    setBeritaKegiatan(res || []);
+  };
+
+  const loadPengumuman = async () => {
+    const res = await supabaseFetch("pengumuman", "order=published_at.desc");
+    setPengumuman(res || []);
   };
 
   const loadOrgMembers = async () => {
@@ -575,33 +585,100 @@ function AdminDashboardContent() {
     loadStations();
   };
 
-  const handleAddAnnouncement = async (e: React.FormEvent) => {
+  const handleAddBerita = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await supabaseInsert("announcements", {
-      title: newAnnouncement.title,
-      content: newAnnouncement.content,
-      category: newAnnouncement.category,
-      priority: newAnnouncement.priority,
-      image_url: newAnnouncement.image_url || null,
-      instagram_url: newAnnouncement.instagram_url || null,
-      is_featured: newAnnouncement.is_featured,
+    setIsUploadingFiles(true);
+    let imageUrl = null;
+    
+    if (beritaFile) {
+      const fileExt = beritaFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      imageUrl = await supabaseUploadFile("berita-kegiatan-files", fileName, beritaFile);
+      if (!imageUrl) {
+        toast.error("Gagal mengupload gambar.");
+        setIsUploadingFiles(false);
+        return;
+      }
+    }
+    
+    const result = await supabaseInsert("berita_kegiatan", {
+      judul: newBerita.judul,
+      deskripsi: newBerita.deskripsi,
+      kategori: newBerita.kategori,
+      penulis: newBerita.penulis,
+      file_url: imageUrl,
+      published_at: new Date().toISOString()
+    });
+    
+    if (result) {
+      toast.success("Berita berhasil dipublikasikan!");
+      setNewBerita({ judul: "", deskripsi: "", kategori: "Berita", penulis: "Admin", file_url: "" });
+      setBeritaFile(null);
+      loadBeritaKegiatan();
+    loadPengumuman();
+    } else {
+      toast.error("Gagal mempublikasikan berita.");
+    }
+    setIsUploadingFiles(false);
+  };
+
+  const handleDeleteBerita = (id: number, file_url: string) => {
+    openConfirm("Hapus Berita", "Yakin ingin menghapus berita ini?", async () => {
+      closeConfirm();
+      await supabaseDelete("berita_kegiatan", `id=eq.${id}`);
+      if (file_url) {
+        await supabaseDeleteFile("berita-kegiatan-files", file_url);
+      }
+      loadBeritaKegiatan();
+    loadPengumuman();
+      toast.success("Berita berhasil dihapus.");
+    });
+  };
+
+  const handleAddPengumuman = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploadingFiles(true);
+    let fileUrl = null;
+    
+    if (beritaFile) {
+      const fileExt = beritaFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      fileUrl = await supabaseUploadFile("pengumuman-files", fileName, beritaFile);
+      if (!fileUrl) {
+        toast.error("Gagal mengupload file pengumuman.");
+        setIsUploadingFiles(false);
+        return;
+      }
+    }
+    
+    const result = await supabaseInsert("pengumuman", {
+      judul: newPengumuman.judul,
+      deskripsi: newPengumuman.deskripsi,
+      kategori: newPengumuman.kategori,
+      penulis: newPengumuman.penulis,
+      file_url: fileUrl,
       published_at: new Date().toISOString()
     });
     
     if (result) {
       toast.success("Pengumuman berhasil dipublikasikan!");
-      setNewAnnouncement({ title: "", content: "", category: "info", priority: "normal", image_url: "", instagram_url: "", is_featured: false });
-      loadAnnouncements();
+      setNewPengumuman({ judul: "", deskripsi: "", kategori: "Pengumuman", penulis: "Admin", file_url: "" });
+      setBeritaFile(null);
+      loadPengumuman();
     } else {
-      toast.error("Gagal mempublikasikan. Pastikan tabel 'announcements' sudah ada.");
+      toast.error("Gagal mempublikasikan pengumuman.");
     }
+    setIsUploadingFiles(false);
   };
 
-  const handleDeleteAnnouncement = (id: number) => {
+  const handleDeletePengumuman = (id: number, file_url: string) => {
     openConfirm("Hapus Pengumuman", "Yakin ingin menghapus pengumuman ini?", async () => {
       closeConfirm();
-      await supabaseDelete("announcements", `id=eq.${id}`);
-      loadAnnouncements();
+      await supabaseDelete("pengumuman", `id=eq.${id}`);
+      if (file_url) {
+        await supabaseDeleteFile("pengumuman-files", file_url);
+      }
+      loadPengumuman();
       toast.success("Pengumuman berhasil dihapus.");
     });
   };
@@ -949,7 +1026,7 @@ function AdminDashboardContent() {
               <div className="space-y-1">
                 {[
                   { id: 'stations', icon: 'sensors', label: 'Daftar AWS', badge: stations.length },
-                  { id: 'announcements', icon: 'campaign', label: 'Pengumuman', badge: announcements.length },
+                  { id: 'berita', icon: 'campaign', label: 'Berita & Kegiatan', badge: beritaKegiatan.length },
                   { id: 'instagram', icon: 'photo_library', label: 'Galeri Instagram', badge: instagramPosts.length },
                 ].map(tab => (
                   <a 
@@ -1098,7 +1175,7 @@ function AdminDashboardContent() {
                 <h1 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
                   { activeTab === 'stations' && 'Manajemen AWS' }
                   { activeTab === 'observations' && 'Data Pengamatan (Excel)' }
-                  { activeTab === 'announcements' && 'Kelola Pengumuman' }
+                  { activeTab === 'berita' && 'Kelola Berita & Kegiatan' }
                   { activeTab === 'instagram' && 'Kelola Galeri Instagram' }
                   { activeTab === 'climate' && 'Data Iklim (Warming Stripes)' }
                   { activeTab === 'org' && 'Struktur Organisasi' }
@@ -1140,7 +1217,7 @@ function AdminDashboardContent() {
                 >
                   <optgroup label="Beranda & Umum">
                     <option value="stations">Daftar AWS</option>
-                    <option value="announcements">Pengumuman</option>
+                    <option value="berita">Berita & Kegiatan</option>
                     <option value="instagram">Galeri Instagram</option>
                   </optgroup>
                   <optgroup label="Pengamatan">
@@ -1778,74 +1855,128 @@ function AdminDashboardContent() {
               </section>
             )}
 
-            {activeTab === 'announcements' && (
+            {activeTab === 'berita' && (
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Form Tambah Pengumuman */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">campaign</span>
+                      <span className="material-symbols-outlined text-[18px]">newspaper</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Buat Pengumuman</h3>
+                    <h3 className="text-lg font-bold text-slate-800">Buat Berita/Kegiatan</h3>
                   </div>
-                  <form className="space-y-4 flex-1" onSubmit={handleAddAnnouncement}>
+                  <form className="space-y-4 flex-1" onSubmit={handleAddBerita}>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Judul Pengumuman</label>
-                      <input required value={newAnnouncement.title} onChange={e => setNewAnnouncement({...newAnnouncement, title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Masukkan judul..."/>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Judul</label>
+                      <input required value={newBerita.judul} onChange={e => setNewBerita({...newBerita, judul: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Masukkan judul..."/>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori</label>
-                      <select value={newAnnouncement.category} onChange={e => setNewAnnouncement({...newAnnouncement, category: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="info">Informasi Umum</option>
-                        <option value="peringatan_dini">Peringatan Dini</option>
-                        <option value="kegiatan">Kegiatan BMKG</option>
-                      </select>
+                      <input required value={newBerita.kategori} onChange={e => setNewBerita({...newBerita, kategori: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Berita / Kegiatan..."/>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Prioritas</label>
-                      <select value={newAnnouncement.priority} onChange={e => setNewAnnouncement({...newAnnouncement, priority: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="normal">Normal</option>
-                        <option value="tinggi">Tinggi (Merah)</option>
-                      </select>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gambar (Hanya Image)</label>
+                      <input type="file" accept="image/*" onChange={e => setBeritaFile(e.target.files?.[0] || null)} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"/>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Isi Konten</label>
-                      <textarea required rows={4} value={newAnnouncement.content} onChange={e => setNewAnnouncement({...newAnnouncement, content: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 resize-none" placeholder="Tulis isi pengumuman di sini..."/>
+                      <textarea required rows={4} value={newBerita.deskripsi} onChange={e => setNewBerita({...newBerita, deskripsi: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 resize-none" placeholder="Tulis deskripsi..."/>
                     </div>
                     <div className="pt-4 mt-auto">
-                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[20px]">send</span>
-                        Publikasikan
+                      <button type="submit" disabled={isUploadingFiles} className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">{isUploadingFiles ? 'progress_activity' : 'send'}</span>
+                        {isUploadingFiles ? 'Menyimpan...' : 'Publikasikan'}
                       </button>
                     </div>
                   </form>
                 </div>
 
-                {/* Daftar Pengumuman */}
                 <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-[18px]">list_alt</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Daftar Pengumuman Aktif</h3>
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Berita & Kegiatan</h3>
                   </div>
                   <div className="space-y-4">
-                    {announcements.map(ann => (
-                      <div key={ann.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                    {beritaKegiatan.map(item => (
+                      <div key={item.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${ann.priority === 'tinggi' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{ann.category}</span>
-                            {ann.priority === 'tinggi' && <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">Penting</span>}
-                          </div>
-                          <h4 className="font-bold text-slate-800 text-lg leading-tight">{ann.title}</h4>
-                          <p className="text-sm text-slate-600 line-clamp-2 mt-2 leading-relaxed">{ann.content}</p>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">{item.kategori}</span>
+                          <h4 className="font-bold text-slate-800 text-lg leading-tight mt-2">{item.judul}</h4>
+                          <p className="text-sm text-slate-600 line-clamp-2 mt-2 leading-relaxed">{item.deskripsi}</p>
                         </div>
-                        <button onClick={() => handleDeleteAnnouncement(ann.id)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
+                        <button onClick={() => handleDeleteBerita(item.id, item.file_url)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
                           <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
                     ))}
-                    {announcements.length === 0 && (
+                    {beritaKegiatan.length === 0 && (
+                      <div className="py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                        <span className="material-symbols-outlined text-4xl mb-2">newspaper</span>
+                        <p className="text-sm font-medium">Belum ada berita & kegiatan.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'pengumuman' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">campaign</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Buat Pengumuman</h3>
+                  </div>
+                  <form className="space-y-4 flex-1" onSubmit={handleAddPengumuman}>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Judul Pengumuman</label>
+                      <input required value={newPengumuman.judul} onChange={e => setNewPengumuman({...newPengumuman, judul: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Masukkan judul..."/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori</label>
+                      <input required value={newPengumuman.kategori} onChange={e => setNewPengumuman({...newPengumuman, kategori: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Pengumuman / Informasi..."/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">File Lampiran (PDF / Gambar)</label>
+                      <input type="file" accept="image/*,.pdf" onChange={e => setBeritaFile(e.target.files?.[0] || null)} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Isi Konten / Deskripsi</label>
+                      <textarea required rows={4} value={newPengumuman.deskripsi} onChange={e => setNewPengumuman({...newPengumuman, deskripsi: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 resize-none" placeholder="Tulis deskripsi..."/>
+                    </div>
+                    <div className="pt-4 mt-auto">
+                      <button type="submit" disabled={isUploadingFiles} className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">{isUploadingFiles ? 'progress_activity' : 'send'}</span>
+                        {isUploadingFiles ? 'Menyimpan...' : 'Publikasikan'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px]">list_alt</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">Daftar Pengumuman</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {pengumuman.map(item => (
+                      <div key={item.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                        <div className="flex-1">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600">{item.kategori}</span>
+                          <h4 className="font-bold text-slate-800 text-lg leading-tight mt-2">{item.judul}</h4>
+                          <p className="text-sm text-slate-600 line-clamp-2 mt-2 leading-relaxed">{item.deskripsi}</p>
+                        </div>
+                        <button onClick={() => handleDeletePengumuman(item.id, item.file_url)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                      </div>
+                    ))}
+                    {pengumuman.length === 0 && (
                       <div className="py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
                         <span className="material-symbols-outlined text-4xl mb-2">campaign</span>
                         <p className="text-sm font-medium">Belum ada pengumuman.</p>
@@ -1854,620 +1985,7 @@ function AdminDashboardContent() {
                   </div>
                 </div>
               </section>
-            )}
-
-            {activeTab === 'instagram' && (
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">photo_library</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">Tambah Postingan</h3>
-                  </div>
-                  <form onSubmit={handleAddInstagram} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL Gambar (Image Link)</label>
-                      <input 
-                        type="url" 
-                        required 
-                        placeholder="https://example.com/image.jpg"
-                        value={newInstagram.image_url} 
-                        onChange={(e) => setNewInstagram({...newInstagram, image_url: e.target.value})}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1">URL Postingan Instagram</label>
-                      <input 
-                        type="url" 
-                        required 
-                        placeholder="https://www.instagram.com/p/..."
-                        value={newInstagram.post_url} 
-                        onChange={(e) => setNewInstagram({...newInstagram, post_url: e.target.value})}
-                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500"
-                      />
-                    </div>
-                    <button 
-                      type="submit" 
-                      className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 mt-2"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">add</span>
-                      Tambahkan
-                    </button>
-                  </form>
-                </div>
-
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <h3 className="text-lg font-bold text-slate-800">Daftar Galeri Instagram</h3>
-                    <span className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full text-xs font-bold">{instagramPosts.length} post</span>
-                  </div>
-                  
-                  {instagramPosts.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {instagramPosts.map((post) => (
-                        <div key={post.id} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square">
-                          <img src={post.image_url} alt="Instagram Post" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-                            <a 
-                              href={post.post_url} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                              Buka IG
-                            </a>
-                            <button 
-                              onClick={() => handleDeleteInstagram(post.id)}
-                              className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">delete</span>
-                              Hapus
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center text-slate-400 py-12 flex flex-col items-center border-2 border-dashed border-slate-100 rounded-xl">
-                      <span className="material-symbols-outlined text-4xl mb-2">photo_library</span>
-                      <p className="text-sm font-medium">Belum ada foto galeri.</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {activeTab === 'climate' && (
-              <section className="space-y-8">
-                {/* 1. Warming Stripes Management */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 space-y-6">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[20px]">thermostat</span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-800">Kelola Data CSV Warming Stripes</h3>
-                        <p className="text-sm text-slate-500 mt-0.5">
-                          Sistem akan otomatis mendeteksi kolom tahun dan wilayah.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleResetDefaultCSV('stripes')}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-                        <span>Reset ke Default</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleClearCSV('stripes')}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
-                        <span>Kosongkan</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div
-                      onClick={() => document.getElementById("adminCsvInputStripes")?.click()}
-                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-4 group"
-                    >
-                      <input
-                        type="file"
-                        id="adminCsvInputStripes"
-                        accept=".csv"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleFileUpload(e, 'stripes')}
-                      />
-                      <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined text-[28px]">upload_file</span>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">Klik untuk Memilih Berkas CSV</h4>
-                        <p className="text-sm text-slate-500 mt-1">Format .csv dengan Anomali Suhu</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Atau Tempelkan (Paste) Raw CSV:
-                      </label>
-                      <textarea
-                        rows={5}
-                        value={csvTextStripes}
-                        onChange={(e) => setCsvTextStripes(e.target.value)}
-                        placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,-0.338,-0.834&#10;..."
-                        className="w-full border border-slate-200 rounded-2xl p-4 text-xs font-mono bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => processAndUploadCSV(csvTextStripes, 'stripes')}
-                        className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-900 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                        Proses &amp; Unggah CSV
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
-                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">visibility</span> Preview Warming Stripes</h4>
-                    <WarmingStripesViewer parsedData={climatePreviewStripes} selectedRegion={selectedRegion} onRegionChange={setSelectedRegion} />
-                  </div>
-                </div>
-
-                {/* 2. Annual Temperatures Management */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 space-y-6">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[20px]">timeline</span>
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-800">Kelola Data CSV Suhu Tahunan</h3>
-                        <p className="text-sm text-slate-500 mt-0.5">
-                          Suhu absolut rata-rata untuk ditampilkan sebagai grafik garis.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleResetDefaultCSV('annual')}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-                        <span>Reset ke Default</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleClearCSV('annual')}
-                        className="px-4 py-2.5 rounded-xl text-sm font-bold border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete_sweep</span>
-                        <span>Kosongkan</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div
-                      onClick={() => document.getElementById("adminCsvInputAnnual")?.click()}
-                      className="border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all gap-4 group"
-                    >
-                      <input
-                        type="file"
-                        id="adminCsvInputAnnual"
-                        accept=".csv"
-                        style={{ display: "none" }}
-                        onChange={(e) => handleFileUpload(e, 'annual')}
-                      />
-                      <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <span className="material-symbols-outlined text-[28px]">upload_file</span>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">Klik untuk Memilih Berkas CSV</h4>
-                        <p className="text-sm text-slate-500 mt-1">Format .csv dengan Suhu Absolut</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Atau Tempelkan (Paste) Raw CSV:
-                      </label>
-                      <textarea
-                        rows={5}
-                        value={csvTextAnnual}
-                        onChange={(e) => setCsvTextAnnual(e.target.value)}
-                        placeholder="Tahun,KAB. MALANG,KOTA SURABAYA&#10;1991,24.41,27.22&#10;..."
-                        className="w-full border border-slate-200 rounded-2xl p-4 text-xs font-mono bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none shadow-inner"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => processAndUploadCSV(csvTextAnnual, 'annual')}
-                        className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-900 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                        Proses &amp; Unggah CSV
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
-                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">monitoring</span> Preview Grafik Suhu</h4>
-                    <TemperatureLineChart parsedData={climatePreviewAnnual} selectedRegion={selectedRegion} />
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {activeTab === 'org' && (
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Form Tambah Anggota */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">person_add</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">Input Data Anggota</h3>
-                  </div>
-                  <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Posisi / Kategori Visual (Role ID)</label>
-                      <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="">-- Pilih Posisi --</option>
-                        <option value="kepala">KEPALA UPT (Biru Tua)</option>
-                        <option value="kasubag">KEPALA SUB BAGIAN (Hijau)</option>
-                        <option value="tim_1">KETUA TIM KERJA 1 (Oranye)</option>
-                        <option value="tim_2">KETUA TIM KERJA 2 (Biru)</option>
-                        <option value="tim_3">KETUA TIM KERJA 3 (Nila)</option>
-                        <option value="tim_4">KETUA TIM KERJA 4 (Merah Muda)</option>
-                        <option value="tim_5">KETUA TIM KERJA 5 (Ungu)</option>
-                        <option value="tim_6">KETUA TIM KERJA 6 (Hijau)</option>
-                        <option value="fungsional_pmg">FUNGSIONAL PMG (Oranye)</option>
-                        <option value="fungsional_non_pmg">FUNGSIONAL NON PMG (Hijau)</option>
-                        <option value="anggota">ANGGOTA / STAF BARU</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Di Bawah Siapa (Parent)</label>
-                      <select value={newOrgMember.parent_role_id} onChange={e => setNewOrgMember({...newOrgMember, parent_role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="">-- Posisi Teratas (Tidak ada atasan) --</option>
-                        {orgMembers.map(m => (
-                          <option key={m.id} value={m.role_id}>{m.name} ({m.role_title})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Jabatan Ditampilkan</label>
-                      <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="e.g. KEPALA UPT, ANGGOTA" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Pegawai</label>
-                      <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Nama beserta gelar" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">NIP (Opsional)</label>
-                      <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="1974..." />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <input 
-                        type="checkbox" 
-                        id="showTitle"
-                        checked={newOrgMember.show_role_title}
-                        onChange={(e) => setNewOrgMember({...newOrgMember, show_role_title: e.target.checked})}
-                        className="w-5 h-5 rounded text-primary focus:ring-primary/20 cursor-pointer"
-                      />
-                      <label htmlFor="showTitle" className="text-sm font-semibold text-slate-700 cursor-pointer select-none">
-                        Tampilkan Nama Jabatan di Profil
-                      </label>
-                    </div>
-                    <div className="pt-4 mt-auto">
-                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[20px]">save</span>
-                        Simpan Anggota
-                      </button>
-                    </div>
-                  </form>
-                </div>
-
-                {/* Daftar Anggota */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">group</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">Daftar Anggota Saat Ini</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {orgMembers.map(m => (
-                      <div key={m.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
-                        <div className="flex-1">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                            {m.role_id.startsWith('anggota') ? 'ANGGOTA' : m.role_id}
-                          </span>
-                          {m.parent_role_id && (
-                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                              ↓ {orgMembers.find(o => o.role_id === m.parent_role_id)?.name || m.parent_role_id}
-                            </span>
-                          )}
-                          <h4 className="font-bold text-slate-800 text-sm mt-3 leading-tight">
-                            {m.role_title} 
-                            {!m.show_role_title && <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-1.5 rounded uppercase">Hidden</span>}
-                          </h4>
-                          <p className="text-base text-primary mt-1 font-bold">{m.name}</p>
-                          <p className="text-xs text-slate-500 mt-1 font-mono">NIP: {m.nip || "-"}</p>
-                        </div>
-                        <button onClick={() => handleDeleteOrgMember(m.id)} className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100">
-                          <span className="material-symbols-outlined text-[20px]">delete</span>
-                        </button>
-                      </div>
-                    ))}
-                    {orgMembers.length === 0 && (
-                      <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                        <span className="material-symbols-outlined text-4xl mb-2">group_off</span>
-                        <p className="text-sm font-medium">Belum ada data anggota.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {activeTab === 'tempmaps' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Form Upload/Edit */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">map</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">
-                      {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
-                    </h3>
-                  </div>
-                  <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gambar Peta {editTempMapId && "(Opsional)"}</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        required={!editTempMapId}
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) setNewTempMap({...newTempMap, file});
-                        }} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100 cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
-                      <input 
-                        required 
-                        type="number" 
-                        min="1900" 
-                        max="2100"
-                        value={newTempMap.year} 
-                        onChange={e => setNewTempMap({...newTempMap, year: parseInt(e.target.value) || new Date().getFullYear()})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Kejadian</label>
-                      <select 
-                        required 
-                        value={newTempMap.category} 
-                        onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
-                      >
-                        <option value="Normal">Normal</option>
-                        <option value="El Niño">El Niño</option>
-                        <option value="La Niña">La Niña</option>
-                      </select>
-                    </div>
-                    <div className="pt-4 mt-auto">
-                      <button 
-                        type="submit" 
-                        disabled={isUploadingTempMap}
-                        className={`w-full text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${isUploadingTempMap ? 'bg-primary/70 cursor-wait' : 'bg-gradient-to-r from-primary to-blue-600 hover:scale-[1.02] active:scale-95'}`}
-                      >
-                        {isUploadingTempMap ? (
-                          <>
-                            <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                            <span>Menyimpan...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-[20px]">{editTempMapId ? 'save' : 'cloud_upload'}</span>
-                            <span>{editTempMapId ? "Simpan Perubahan" : "Simpan Peta"}</span>
-                          </>
-                        )}
-                      </button>
-                      {editTempMapId && (
-                        <button 
-                          type="button" 
-                          onClick={cancelEditTempMap}
-                          disabled={isUploadingTempMap}
-                          className="w-full text-slate-600 py-3 mt-3 rounded-xl font-bold bg-slate-100 hover:bg-slate-200 transition-colors"
-                        >
-                          Batal Edit
-                        </button>
-                      )}
-                    </div>
-                  </form>
-                </div>
-
-                {/* Daftar Peta */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">photo_library</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">Galeri Peta Suhu ({tempMaps.length})</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {tempMaps.map(m => (
-                      <div key={m.id} className="rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col group relative">
-                        <div className="aspect-[3/4] w-full bg-slate-100 relative overflow-hidden group-hover:brightness-90 transition-all">
-                          <img 
-                            src={m.image_url} 
-                            alt={`Peta Suhu ${m.year} - ${m.category}`} 
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            loading="lazy"
-                          />
-                          <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-                            <span className="bg-white/95 backdrop-blur-md text-slate-800 px-2.5 py-1 rounded-lg text-xs font-black shadow-sm">
-                              {m.year}
-                            </span>
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-black shadow-sm text-white backdrop-blur-md ${m.category === 'El Niño' ? 'bg-red-600/90' : m.category === 'La Niña' ? 'bg-blue-600/90' : 'bg-emerald-600/90'}`}>
-                              {m.category}
-                            </span>
-                          </div>
-                          
-                          {/* Hover Actions */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <button 
-                              onClick={() => startEditTempMap(m)} 
-                              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center hover:bg-primary hover:text-white hover:scale-110 transition-all shadow-lg"
-                              title="Edit Peta"
-                            >
-                              <span className="material-symbols-outlined text-[20px]">edit</span>
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteTempMap(m.id, m.image_url)} 
-                              className="w-10 h-10 rounded-full bg-white text-slate-800 flex items-center justify-center hover:bg-red-600 hover:text-white hover:scale-110 transition-all shadow-lg"
-                              title="Hapus Peta"
-                            >
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {tempMaps.length === 0 && (
-                      <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                        <span className="material-symbols-outlined text-4xl mb-2">map</span>
-                        <p className="text-sm font-medium">Belum ada data peta suhu.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'rainfall' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Form Upload */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-800">
-                      Upload Prakiraan Hujan
-                    </h3>
-                  </div>
-                  <form onSubmit={handleAddRainfall} className="flex flex-col gap-4 flex-1">
-                    <div className="pt-2">
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">Metode Upload</label>
-                      <div className="flex gap-4 mb-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" checked={newRainfall.uploadMode === 'shp'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'shp'})} className="accent-primary" />
-                          <span className="text-sm font-medium">SHP & DBF (Konversi Otomatis)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" checked={newRainfall.uploadMode === 'json'} onChange={() => setNewRainfall({...newRainfall, uploadMode: 'json'})} className="accent-primary" />
-                          <span className="text-sm font-medium">File GeoJSON (.json)</span>
-                        </label>
-                      </div>
-
-                      {newRainfall.uploadMode === 'shp' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
-                              <span>File .SHP (Geometri)</span>
-                              {newRainfall.fileShp && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
-                            </label>
-                            <input 
-                              type="file" 
-                              accept=".shp" 
-                              onChange={e => setNewRainfall({...newRainfall, fileShp: e.target.files?.[0] || null})} 
-                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
-                              <span>File .DBF (Atribut)</span>
-                              {newRainfall.fileDbf && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
-                            </label>
-                            <input 
-                              type="file" 
-                              accept=".dbf" 
-                              onChange={e => setNewRainfall({...newRainfall, fileDbf: e.target.files?.[0] || null})} 
-                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
-                            />
-                          </div>
-                          <div className="col-span-full mt-1">
-                            <p className="text-xs text-slate-500 flex items-start gap-1.5">
-                              <span className="material-symbols-outlined text-[16px] text-amber-500 shrink-0">info</span>
-                              File akan diekstrak dan dikonversi secara aman di browser sebelum disimpan. Pastikan kedua file valid.
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
-                            <span>File GeoJSON (.json)</span>
-                            {newRainfall.fileJson && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
-                          </label>
-                          <input 
-                            type="file" 
-                            accept=".json,application/json" 
-                            onChange={e => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})} 
-                            className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                          />
-                          <p className="text-xs text-slate-500 mt-2 flex items-start gap-1.5">
-                            <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
-                            Upload file GeoJSON yang sebelumnya sudah Anda konversi (seperti analisis_xxx.json).
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
-                      <input 
-                        required 
-                        type="number" 
-                        min="2000" 
-                        max="2100"
-                        value={newRainfall.year} 
-                        onChange={e => setNewRainfall({...newRainfall, year: parseInt(e.target.value) || new Date().getFullYear()})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bulan</label>
-                      <select 
-                        required 
-                        value={newRainfall.month} 
-                        onChange={e => setNewRainfall({...newRainfall, month: e.target.value})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
-                      >
-                        {Array.from({length: 12}, (_, i) => i + 1).map(m => {
-                          const monthStr = m.toString().padStart(2, '0');
-                          const monthName = new Date(2000, m - 1, 1).toLocaleString('id-ID', { month: 'long' });
-                          return <option key={monthStr} value={monthStr}>{monthName}</option>;
-                        })}
+            )}}
                       </select>
                     </div>
                     <div>
