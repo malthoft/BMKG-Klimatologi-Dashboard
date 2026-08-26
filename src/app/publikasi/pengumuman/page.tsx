@@ -6,19 +6,19 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { supabaseFetch } from "@/lib/supabase";
 
-export default function BeritaKegiatanPage() {
+export default function PengumumanPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const result = await supabaseFetch("berita_kegiatan", "order=published_at.desc");
+        const result = await supabaseFetch("pengumuman", "order=published_at.desc");
         if (result && result.length > 0) {
           setData(result);
         }
       } catch (e) {
-        console.error("Error fetching berita_kegiatan:", e);
+        console.error("Error fetching pengumuman:", e);
       } finally {
         setLoading(false);
       }
@@ -35,10 +35,10 @@ export default function BeritaKegiatanPage() {
 
   return (
     <>
-      <Header activeRoute="/publikasi/berita-kegiatan" />
+      <Header activeRoute="/publikasi/pengumuman" />
       <main className="min-h-screen bg-slate-50 pt-24 pb-12 w-full">
         <div className="max-w-4xl mx-auto px-6">
-          <h1 className="text-3xl font-extrabold text-slate-800 mb-8 border-b-2 border-primary pb-4 inline-block">Berita & Kegiatan</h1>
+          <h1 className="text-3xl font-extrabold text-slate-800 mb-8 border-b-2 border-primary pb-4 inline-block">Pengumuman</h1>
 
           {loading ? (
             <div className="flex justify-center py-10">
@@ -61,7 +61,7 @@ export default function BeritaKegiatanPage() {
                       {item.penulis || "Admin"}
                     </span>
                   </div>
-                  <Link href={`/publikasi/berita-kegiatan/${item.id}`} className="text-primary font-bold hover:text-secondary flex items-center gap-1 text-sm mt-2 transition-colors">
+                  <Link href={`/publikasi/pengumuman/${item.id}`} className="text-primary font-bold hover:text-secondary flex items-center gap-1 text-sm mt-2 transition-colors">
                     Baca Selengkapnya
                     <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                   </Link>
@@ -70,7 +70,7 @@ export default function BeritaKegiatanPage() {
             </div>
           ) : (
             <div className="text-center py-12 text-slate-500">
-              Belum ada berita atau kegiatan.
+              Belum ada pengumuman.
             </div>
           )}
         </div>
