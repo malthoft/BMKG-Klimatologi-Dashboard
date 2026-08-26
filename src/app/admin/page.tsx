@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Map, TableProperties, Info, UploadCloud } from "lucide-react";
+import { InstagramIcon as Instagram } from "@/components/ui/instagram-icon";
 import shpjs from "shpjs";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseRpc, supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
@@ -39,6 +40,20 @@ function AdminDashboardContent() {
   const [beritaFile, setBeritaFile] = useState<File | null>(null);
   const [newOrgMember, setNewOrgMember] = useState({ role_id: "", role_title: "", name: "", nip: "", parent_role_id: "", show_role_title: true });
   const [newInstagram, setNewInstagram] = useState({ image_url: "", post_url: "" });
+  const [isPreviewingIg, setIsPreviewingIg] = useState(false);
+  const [previewIgData, setPreviewIgData] = useState({ image_url: "", post_url: "" });
+  const [isEditingIg, setIsEditingIg] = useState(false);
+  const [editIgData, setEditIgData] = useState({ id: 0, image_url: "", post_url: "" });
+  const [previewImageError, setPreviewImageError] = useState(false);
+
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return url.startsWith("http://") || url.startsWith("https://");
+    } catch {
+      return false;
+    }
+  };
 
   // --- Observation Data States ---
   const [observationDaily, setObservationDaily] = useState<ParsedDailyObservation>({
@@ -687,18 +702,74 @@ function AdminDashboardContent() {
       toast.error("Semua field (URL Gambar & URL Post) harus diisi.");
       return;
     }
-    const result = await supabaseInsert("instagram_posts", {
-      image_url: newInstagram.image_url,
-      post_url: newInstagram.post_url,
-      created_at: new Date().toISOString()
-    });
+    if (!isValidUrl(newInstagram.image_url) || !isValidUrl(newInstagram.post_url)) {
+      toast.error("URL tidak valid. Pastikan diawali dengan http:// atau https://");
+      return;
+    }
     
-    if (result) {
-      toast.success("Postingan Instagram berhasil ditambahkan!");
-      setNewInstagram({ image_url: "", post_url: "" });
-      loadInstagramPosts();
-    } else {
-      toast.error("Gagal menambahkan. Pastikan tabel 'instagram_posts' sudah ada.");
+    // Auto-convert Google Drive viewer links to direct image links
+    let finalImageUrl = newInstagram.image_url;
+    const driveMatch = finalImageUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      finalImageUrl = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+
+    setPreviewImageError(false);
+    setPreviewIgData({ image_url: finalImageUrl, post_url: newInstagram.post_url });
+    setIsPreviewingIg(true);
+  };
+
+  const confirmPublishInstagram = async () => {
+    try {
+      const result = await supabaseInsert("instagram_posts", {
+        image_url: previewIgData.image_url,
+        post_url: previewIgData.post_url,
+        created_at: new Date().toISOString()
+      });
+      
+      if (result) {
+        toast.success("Postingan Instagram berhasil ditambahkan!");
+        setNewInstagram({ image_url: "", post_url: "" });
+        setIsPreviewingIg(false);
+        loadInstagramPosts();
+      } else {
+        toast.error("Gagal menambahkan. Pastikan tabel 'instagram_posts' sudah ada.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan saat menyimpan data.");
+    }
+  };
+
+  const handleEditSubmitIg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidUrl(editIgData.image_url) || !isValidUrl(editIgData.post_url)) {
+      toast.error("URL tidak valid. Pastikan diawali dengan http:// atau https://");
+      return;
+    }
+    
+    let finalImageUrl = editIgData.image_url;
+    const driveMatch = finalImageUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      finalImageUrl = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+
+    try {
+      const result = await supabaseUpdate("instagram_posts", `id=eq.${editIgData.id}`, {
+        image_url: finalImageUrl,
+        post_url: editIgData.post_url
+      });
+      
+      if (result) {
+        toast.success("Postingan Instagram berhasil diperbarui!");
+        setIsEditingIg(false);
+        loadInstagramPosts();
+      } else {
+        toast.error("Gagal memperbarui data.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan saat memperbarui data.");
     }
   };
 
@@ -1989,14 +2060,14 @@ function AdminDashboardContent() {
 
             {activeTab === 'instagram' && (
               <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 h-fit sticky top-24">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-[18px]">photo_library</span>
                     </div>
                     <h3 className="text-lg font-bold text-slate-800">Tambah Postingan</h3>
                   </div>
-                  <form onSubmit={handleAddInstagram} className="space-y-4">
+                  <form onSubmit={handleAddInstagram} className="space-y-4 animate-in fade-in duration-200">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">URL Gambar (Image Link)</label>
                       <input 
@@ -2021,10 +2092,10 @@ function AdminDashboardContent() {
                     </div>
                     <button 
                       type="submit" 
-                      className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-pink-500/20 flex items-center justify-center gap-2 mt-2"
+                      className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-slate-900/20 flex items-center justify-center gap-2 mt-2"
                     >
-                      <span className="material-symbols-outlined text-[18px]">add</span>
-                      Tambahkan
+                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      Preview Postingan
                     </button>
                   </form>
                 </div>
@@ -2038,24 +2109,41 @@ function AdminDashboardContent() {
                   {instagramPosts.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {instagramPosts.map((post) => (
-                        <div key={post.id} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square">
-                          <img src={post.image_url} alt="Instagram Post" className="w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                        <div key={post.id} className="relative group rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm bg-slate-50 aspect-square">
+                          {/* Blurred Background */}
+                          <div className="absolute inset-0 w-full h-full overflow-hidden">
+                            <Image
+                              alt="Background Blur"
+                              src={post.image_url}
+                              fill
+                              className="object-cover opacity-50 blur-xl scale-125 saturate-150"
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                            />
+                          </div>
+                          
+                          {/* Foreground Image */}
+                          <Image src={post.image_url} alt="Instagram Post" className="object-contain relative z-10 transition-transform duration-500 group-hover:scale-105" fill sizes="(max-width: 768px) 50vw, 33vw" />
+                          
+                          {/* Hover Controls */}
+                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 z-20">
                             <a 
                               href={post.post_url} 
                               target="_blank" 
                               rel="noreferrer"
-                              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                              className="bg-white/95 hover:bg-white text-slate-800 px-4 py-2 rounded-xl text-xs font-bold shadow-lg transition-transform hover:scale-105 flex items-center gap-1.5"
                             >
-                              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                              <Instagram size={14} className="text-[#dc2743]" />
                               Buka IG
                             </a>
                             <button 
-                              onClick={() => handleDeleteInstagram(post.id)}
-                              className="bg-red-500/80 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                              onClick={() => {
+                                setEditIgData({ id: post.id, image_url: post.image_url, post_url: post.post_url });
+                                setIsEditingIg(true);
+                              }}
+                              className="bg-slate-800/90 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-slate-900/20 transition-transform hover:scale-105 flex items-center gap-1.5"
                             >
-                              <span className="material-symbols-outlined text-[14px]">delete</span>
-                              Hapus
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                              Edit
                             </button>
                           </div>
                         </div>
@@ -2769,6 +2857,135 @@ function AdminDashboardContent() {
           </div>
         </main>
       </div>
+
+      {/* Modal Edit Instagram */}
+      {isEditingIg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-slate-700">edit_square</span>
+                Edit Postingan IG
+              </h3>
+              <button onClick={() => setIsEditingIg(false)} className="text-slate-400 hover:text-slate-700 transition-colors w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmitIg} className="p-5">
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl relative aspect-square overflow-hidden shadow-inner mb-4 flex items-center justify-center group">
+                {editIgData.image_url ? (
+                  <Image src={editIgData.image_url} alt="Preview Instagram" className="object-contain" fill sizes="(max-width: 768px) 100vw, 33vw" onError={() => setPreviewImageError(true)} onLoad={() => setPreviewImageError(false)} />
+                ) : (
+                  <span className="material-symbols-outlined text-4xl text-slate-300">image</span>
+                )}
+              </div>
+              {previewImageError && (
+                <div className="text-center text-sm font-medium text-red-600 mb-6 bg-red-50 py-2.5 px-3 rounded-xl border border-red-200/50 flex flex-col items-center justify-center gap-1">
+                  <span className="material-symbols-outlined text-[20px]">broken_image</span>
+                  Gagal memuat gambar. Tautan mungkin rusak atau salah.
+                </div>
+              )}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">URL Gambar (Image Link)</label>
+                  <input 
+                    type="url" 
+                    required 
+                    value={editIgData.image_url} 
+                    onChange={(e) => {
+                      setEditIgData({...editIgData, image_url: e.target.value});
+                      setPreviewImageError(false);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">URL Postingan Instagram</label>
+                  <input 
+                    type="url" 
+                    required 
+                    value={editIgData.post_url} 
+                    onChange={(e) => setEditIgData({...editIgData, post_url: e.target.value})}
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-3">
+                <button 
+                  type="submit" 
+                  disabled={previewImageError}
+                  className="w-full bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md disabled:shadow-none flex items-center justify-center gap-2 text-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">save</span>
+                  Simpan Perubahan
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsEditingIg(false);
+                    handleDeleteInstagram(editIgData.id);
+                  }}
+                  className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-sm border border-red-200"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                  Hapus Postingan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview Instagram */}
+      {isPreviewingIg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Instagram size={20} className="text-[#dc2743]" />
+                Preview Instagram
+              </h3>
+              <button onClick={() => setIsPreviewingIg(false)} className="text-slate-400 hover:text-slate-700 transition-colors w-8 h-8 rounded-full hover:bg-slate-200 flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="p-5">
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl relative aspect-square overflow-hidden shadow-inner mb-4 flex items-center justify-center group">
+                <Image src={previewIgData.image_url} alt="Preview Instagram" className="object-contain" fill sizes="(max-width: 768px) 100vw, 33vw" onError={() => setPreviewImageError(true)} />
+              </div>
+              {previewImageError ? (
+                <div className="text-center text-sm font-medium text-red-600 mb-6 bg-red-50 py-2.5 px-3 rounded-xl border border-red-200/50 flex flex-col items-center justify-center gap-1">
+                  <span className="material-symbols-outlined text-[20px]">broken_image</span>
+                  Gagal memuat gambar. Tautan mungkin rusak, salah, atau dihapus.
+                </div>
+              ) : (
+                <div className="text-center text-sm font-medium text-slate-500 mb-6 bg-yellow-50 text-yellow-800 py-2.5 px-3 rounded-xl border border-yellow-200/50">
+                  Pastikan gambar termuat utuh dan tidak pecah sebelum di-publish.
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setIsPreviewingIg(false)}
+                  className="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-sm border border-slate-200"
+                >
+                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                  Batal / Edit
+                </button>
+                <button 
+                  type="button" 
+                  disabled={previewImageError}
+                  onClick={confirmPublishInstagram}
+                  className="w-1/2 bg-pink-600 hover:bg-pink-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-pink-500/20 disabled:shadow-none flex items-center justify-center gap-2 text-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">publish</span>
+                  Publish
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Tambah Baris Jam */}
       {isAddHourlyModalOpen && (
