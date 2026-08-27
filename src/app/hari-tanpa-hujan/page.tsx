@@ -65,40 +65,38 @@ export default function HariTanpaHujanPage() {
 
           {/* LEGEND SIDEBAR */}
           <div className="w-full lg:w-1/4 flex flex-col gap-4">
-            <div className="bg-white p-5 rounded-2xl border-l-[5px] border-l-[#005596] shadow-sm">
-              <h6 className="font-bold border-b pb-3 mb-4 text-center text-slate-800 text-sm">
-                KETERANGAN :
-              </h6>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                <span className="material-symbols-outlined text-primary text-[20px]">format_list_bulleted</span>
+                <h6 className="font-bold text-slate-800 text-sm m-0">KETERANGAN</h6>
+              </div>
               
-              <div className="flex flex-col gap-3 text-[13px] text-slate-700">
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#7FFF00' }}></span> 
-                  <span>1 - 5 Sangat Pendek (Very Short)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#FFFF00' }}></span> 
-                  <span>6 - 10 Pendek (Short)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#D2691E' }}></span> 
-                  <span>11 - 20 Menengah (Moderate)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#8B4513' }}></span> 
-                  <span>21 - 30 Panjang (Long)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#FFC0CB' }}></span> 
-                  <span>31 - 60 Sangat Panjang (Very Long)</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#FF0000' }}></span> 
-                  <span>&gt; 60 Kekeringan Ekstrem (Extreme Drought)</span>
-                </div>
+              <div className="flex flex-col gap-2">
+                {[
+                  { range: "1 - 5 Hari", label: "Sangat Pendek", color: "#7FFF00" },
+                  { range: "6 - 10 Hari", label: "Pendek", color: "#FFFF00" },
+                  { range: "11 - 20 Hari", label: "Menengah", color: "#D2691E" },
+                  { range: "21 - 30 Hari", label: "Panjang", color: "#8B4513" },
+                  { range: "31 - 60 Hari", label: "Sangat Panjang", color: "#FFC0CB" },
+                  { range: "> 60 Hari", label: "Kekeringan Ekstrem", color: "#FF0000" },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl p-2 hover:bg-slate-100 transition-colors">
+                    <span className="w-8 h-8 rounded-lg shrink-0 shadow-sm border border-slate-200" style={{ background: item.color }}></span>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-bold text-slate-800 leading-tight">{item.range}</span>
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{item.label}</span>
+                    </div>
+                  </div>
+                ))}
                 
-                <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
-                  <span className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" style={{ background: '#006400' }}></span> 
-                  <span>Masih Ada Hujan s/d Updating (No Drought)</span>
+                <div className="mt-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl p-2 hover:bg-slate-100 transition-colors">
+                    <span className="w-8 h-8 rounded-lg shrink-0 shadow-sm border border-slate-200" style={{ background: '#006400' }}></span>
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-bold text-slate-800 leading-tight">Masih Ada Hujan</span>
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">No Drought</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
