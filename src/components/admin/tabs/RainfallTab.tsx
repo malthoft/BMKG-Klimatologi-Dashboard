@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { useCrud } from "@/hooks/useCrud";
 import { supabaseUploadFile } from "@/lib/supabase";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 export function RainfallTab() {
+  const confirm = useConfirm();
+  const { success, error, info } = useToast();
   const { items: rainfallForecasts, isLoading, load, add, remove } = useCrud<any>("rainfall_forecasts", "rainfall-data");
   
   const [newRainfall, setNewRainfall] = useState<{
@@ -29,17 +33,17 @@ export function RainfallTab() {
   const [isUploadingRainfall, setIsUploadingRainfall] = useState(false);
 
   useEffect(() => {
-    load();
+    load("order=year.desc,month.desc,created_at.desc");
   }, [load]);
 
   const handleAddRainfall = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newRainfall.uploadMode === 'shp' && (!newRainfall.fileShp || !newRainfall.fileDbf)) {
-      toast.error("Harap pilih file .shp DAN .dbf secara bersamaan!");
+      error("Harap pilih file .shp DAN .dbf secara bersamaan!");
       return;
     }
     if (newRainfall.uploadMode === 'json' && !newRainfall.fileJson) {
-      toast.error("Harap pilih file .json!");
+      error("Harap pilih file .json!");
       return;
     }
     setIsUploadingRainfall(true);
@@ -74,17 +78,17 @@ export function RainfallTab() {
 
       if (success) {
         setNewRainfall({ category: "dasarian", year: new Date().getFullYear(), month: "01", label: "", uploadMode: "shp", fileShp: null, fileDbf: null, fileJson: null });
-        load();
+        load("order=year.desc,month.desc,created_at.desc");
       }
     } catch (err: any) {
-      toast.error(err.message || "Terjadi kesalahan saat memproses data.");
+      error(err.message || "Terjadi kesalahan saat memproses data.");
     } finally {
       setIsUploadingRainfall(false);
     }
   };
 
-  const handleDeleteRainfall = (id: number, filePath: string) => {
-    if (confirm("Yakin ingin menghapus data ini? File GeoJSON di storage juga akan dihapus.")) {
+  const handleDeleteRainfall = async (id: number, filePath: string) => {
+    if (await confirm("Yakin ingin menghapus data ini? File GeoJSON di storage juga akan dihapus.")) {
       remove(id, filePath, "Data dihapus");
     }
   };
@@ -117,34 +121,52 @@ export function RainfallTab() {
                       </div>
 
                       {newRainfall.uploadMode === 'shp' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="grid grid-cols-1 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                           <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between items-center">
                               <span>File .SHP (Geometri)</span>
-                              {newRainfall.fileShp && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                              {newRainfall.fileShp && <span className="text-emerald-500 text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full"><i className="fas fa-check-circle"></i> Terpilih</span>}
                             </label>
-                            <input 
-                              type="file" 
-                              accept=".shp" 
-                              onChange={e => setNewRainfall({...newRainfall, fileShp: e.target.files?.[0] || null})} 
-                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
-                            />
+                            <label className={`flex items-center justify-between w-full border ${newRainfall.fileShp ? 'border-primary/50 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-primary/30 hover:bg-slate-50'} rounded-xl px-4 py-3 cursor-pointer transition-all group`}>
+                              <div className="flex items-center gap-3 truncate">
+                                <span className="material-symbols-outlined text-primary/70">upload_file</span>
+                                <span className={`text-sm truncate font-medium ${newRainfall.fileShp ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                  {newRainfall.fileShp ? newRainfall.fileShp.name : "Pilih file .shp..."}
+                                </span>
+                              </div>
+                              <input 
+                                type="file" 
+                                accept=".shp" 
+                                className="hidden"
+                                onChange={e => setNewRainfall({...newRainfall, fileShp: e.target.files?.[0] || null})} 
+                              />
+                              <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors shrink-0">Browse</span>
+                            </label>
                           </div>
                           
                           <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between items-center">
                               <span>File .DBF (Atribut)</span>
-                              {newRainfall.fileDbf && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                              {newRainfall.fileDbf && <span className="text-emerald-500 text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full"><i className="fas fa-check-circle"></i> Terpilih</span>}
                             </label>
-                            <input 
-                              type="file" 
-                              accept=".dbf" 
-                              onChange={e => setNewRainfall({...newRainfall, fileDbf: e.target.files?.[0] || null})} 
-                              className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-primary hover:file:bg-blue-100"
-                            />
+                            <label className={`flex items-center justify-between w-full border ${newRainfall.fileDbf ? 'border-primary/50 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-primary/30 hover:bg-slate-50'} rounded-xl px-4 py-3 cursor-pointer transition-all group`}>
+                              <div className="flex items-center gap-3 truncate">
+                                <span className="material-symbols-outlined text-primary/70">upload_file</span>
+                                <span className={`text-sm truncate font-medium ${newRainfall.fileDbf ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                  {newRainfall.fileDbf ? newRainfall.fileDbf.name : "Pilih file .dbf..."}
+                                </span>
+                              </div>
+                              <input 
+                                type="file" 
+                                accept=".dbf" 
+                                className="hidden"
+                                onChange={e => setNewRainfall({...newRainfall, fileDbf: e.target.files?.[0] || null})} 
+                              />
+                              <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors shrink-0">Browse</span>
+                            </label>
                           </div>
                           <div className="col-span-full mt-1">
-                            <p className="text-xs text-slate-500 flex items-start gap-1.5">
+                            <p className="text-xs text-slate-500 flex items-start gap-1.5 bg-white p-3 rounded-xl border border-slate-100">
                               <span className="material-symbols-outlined text-[16px] text-amber-500 shrink-0">info</span>
                               File akan diekstrak dan dikonversi secara aman di browser sebelum disimpan. Pastikan kedua file valid.
                             </p>
@@ -152,71 +174,80 @@ export function RainfallTab() {
                         </div>
                       ) : (
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex justify-between">
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between items-center">
                             <span>File GeoJSON (.json)</span>
-                            {newRainfall.fileJson && <span className="text-emerald-500"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                            {newRainfall.fileJson && <span className="text-emerald-500 text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full"><i className="fas fa-check-circle"></i> Terpilih</span>}
                           </label>
-                          <input 
-                            type="file" 
-                            accept=".json,application/json" 
-                            onChange={e => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})} 
-                            className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                          />
-                          <p className="text-xs text-slate-500 mt-2 flex items-start gap-1.5">
+                          <label className={`flex items-center justify-between w-full border ${newRainfall.fileJson ? 'border-primary/50 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-primary/30 hover:bg-slate-50'} rounded-xl px-4 py-3 cursor-pointer transition-all group`}>
+                            <div className="flex items-center gap-3 truncate">
+                              <span className="material-symbols-outlined text-primary/70">data_object</span>
+                              <span className={`text-sm truncate font-medium ${newRainfall.fileJson ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                {newRainfall.fileJson ? newRainfall.fileJson.name : "Pilih file .json..."}
+                              </span>
+                            </div>
+                            <input 
+                              type="file" 
+                              accept=".json,application/json" 
+                              className="hidden"
+                              onChange={e => setNewRainfall({...newRainfall, fileJson: e.target.files?.[0] || null})} 
+                            />
+                            <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors shrink-0">Browse</span>
+                          </label>
+                          <p className="text-xs text-slate-500 mt-3 flex items-start gap-1.5 bg-white p-3 rounded-xl border border-slate-100">
                             <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
                             Upload file GeoJSON yang sebelumnya sudah Anda konversi (seperti analisis_xxx.json).
                           </p>
                         </div>
                       )}
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
-                      <input 
-                        required 
-                        type="number" 
-                        min="2000" 
-                        max="2100"
-                        value={newRainfall.year} 
-                        onChange={e => setNewRainfall({...newRainfall, year: parseInt(e.target.value) || new Date().getFullYear()})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bulan</label>
-                      <select 
-                        required 
-                        value={newRainfall.month} 
-                        onChange={e => setNewRainfall({...newRainfall, month: e.target.value})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
-                      >
-                        {Array.from({length: 12}, (_, i) => i + 1).map(m => {
-                          const monthStr = m.toString().padStart(2, '0');
-                          const monthName = new Date(2000, m - 1, 1).toLocaleString('id-ID', { month: 'long' });
-                          return <option key={monthStr} value={monthStr}>{monthName}</option>;
-                        })}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Waktu</label>
-                      <select 
-                        required 
-                        value={newRainfall.category} 
-                        onChange={e => setNewRainfall({...newRainfall, category: e.target.value})} 
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer"
-                      >
-                        <option value="dasarian">Dasarian</option>
-                        <option value="bulanan">Bulanan</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Label Tambahan</label>
-                      <input 
-                        type="text" 
-                        value={newRainfall.label} 
-                        onChange={e => setNewRainfall({...newRainfall, label: e.target.value})} 
-                        placeholder="e.g. Dasarian I"
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tahun</label>
+                        <input 
+                          required 
+                          type="number" 
+                          min="2000" 
+                          max="2100"
+                          value={newRainfall.year} 
+                          onChange={e => setNewRainfall({...newRainfall, year: parseInt(e.target.value) || new Date().getFullYear()})} 
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bulan</label>
+                        <CustomSelect
+                          required
+                          value={newRainfall.month}
+                          onChange={(val) => setNewRainfall({...newRainfall, month: val})}
+                          options={Array.from({length: 12}, (_, i) => i + 1).map(m => {
+                            const monthStr = m.toString().padStart(2, '0');
+                            const monthName = new Date(2000, m - 1, 1).toLocaleString('id-ID', { month: 'long' });
+                            return { value: monthStr, label: monthName };
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori Waktu</label>
+                        <CustomSelect
+                          required
+                          value={newRainfall.category}
+                          onChange={(val) => setNewRainfall({...newRainfall, category: val})}
+                          options={[
+                            { value: "dasarian", label: "Dasarian" },
+                            { value: "bulanan", label: "Bulanan" }
+                          ]}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Label Tambahan</label>
+                        <input 
+                          type="text" 
+                          value={newRainfall.label} 
+                          onChange={e => setNewRainfall({...newRainfall, label: e.target.value})} 
+                          placeholder="e.g. Dasarian I"
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" 
+                        />
+                      </div>
                     </div>
                     <div className="pt-4 mt-auto">
                       <button 
@@ -250,25 +281,32 @@ export function RainfallTab() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {rainfallForecasts.map(r => (
-                      <div key={r.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-white hover:shadow-md transition-all flex flex-col gap-2 relative group">
-                        <div className="flex justify-between items-start">
+                      <div key={r.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col gap-3 relative group overflow-hidden">
+                        {/* Decorative Background Accent */}
+                        <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-[100px] opacity-10 -mr-4 -mt-4 transition-transform duration-500 group-hover:scale-110 ${r.category.toLowerCase() === 'dasarian' ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
+                        
+                        <div className="flex justify-between items-start relative z-10">
                           <div>
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full ${r.category.toLowerCase() === 'dasarian' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
                               {r.category}
                             </span>
-                            <h4 className="font-bold text-slate-800 mt-2 text-sm">{new Date(r.year, parseInt(r.month)-1, 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}</h4>
-                            <p className="text-xs text-slate-500 font-medium">{r.label}</p>
+                            <h4 className="font-bold text-slate-800 mt-3 text-[15px] flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[18px] text-slate-400">calendar_month</span>
+                              {new Date(r.year, parseInt(r.month)-1, 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' })}
+                            </h4>
+                            {r.label && <p className="text-xs text-slate-500 font-bold mt-1 bg-white inline-block px-2 py-0.5 rounded border border-slate-100">{r.label}</p>}
                           </div>
                           <button 
                             onClick={() => handleDeleteRainfall(r.id, r.file_path)} 
-                            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                            className="w-8 h-8 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm opacity-0 group-hover:opacity-100"
                             title="Hapus Data"
                           >
                             <span className="material-symbols-outlined text-[18px]">delete</span>
                           </button>
                         </div>
-                        <div className="mt-2 text-[10px] text-slate-400 break-all font-mono bg-white p-2 rounded-lg border border-slate-100 line-clamp-1" title={r.file_path}>
-                          {r.file_path?.split('/').pop()}
+                        <div className="mt-auto text-[10px] text-slate-500 font-mono bg-white p-2.5 rounded-xl border border-slate-200 line-clamp-1 relative z-10 flex items-center gap-2" title={r.file_path}>
+                          <span className="material-symbols-outlined text-[14px] text-primary">data_object</span>
+                          <span className="truncate">{r.file_path?.split('/').pop()}</span>
                         </div>
                       </div>
                     ))}

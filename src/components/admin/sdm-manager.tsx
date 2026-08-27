@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseUploadFile, supabaseGetPublicUrl } from "@/lib/supabase";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
 import { User, Image as ImageIcon, Trash2, Edit2, Save, Plus, X } from "lucide-react";
 import Image from "next/image";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 interface Employee {
   id: string;
@@ -15,8 +16,10 @@ interface Employee {
 }
 
 export function SdmManager() {
+  const confirm = useConfirm();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { success, error, info } = useToast();
   
   const [isEditing, setIsEditing] = useState(false);
   const [currentEmp, setCurrentEmp] = useState<Partial<Employee>>({
@@ -32,10 +35,10 @@ export function SdmManager() {
   const loadEmployees = async () => {
     setIsLoading(true);
     try {
-      const data = await supabaseFetch("employees?order=order_index.asc,created_at.asc");
+      const data = await supabaseFetch("employees", "order=order_index.asc,created_at.asc");
       if (data) setEmployees(data);
     } catch (e) {
-      toast.error("Gagal memuat data pegawai");
+      error("Gagal memuat data pegawai");
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +52,7 @@ export function SdmManager() {
 
       // Upload new files if any
       if (uploadFiles.length > 0) {
-        toast.info(`Mengunggah ${uploadFiles.length} foto...`);
+        info(`Mengunggah ${uploadFiles.length} foto...`);
         for (const file of uploadFiles) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -71,29 +74,29 @@ export function SdmManager() {
 
       if (currentEmp.id) {
         await supabaseUpdate("employees", `id=eq.${currentEmp.id}`, payload);
-        toast.success("Data pegawai berhasil diperbarui!");
+        success("Data pegawai berhasil diperbarui!");
       } else {
         await supabaseInsert("employees", [payload]);
-        toast.success("Data pegawai berhasil ditambahkan!");
+        success("Data pegawai berhasil ditambahkan!");
       }
 
       resetForm();
       loadEmployees();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal menyimpan data pegawai");
+    } catch (err: any) {
+      error(err.message || "Gagal menyimpan data pegawai");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus pegawai ini?")) return;
+    if (!await confirm("Yakin ingin menghapus pegawai ini?")) return;
     try {
       await supabaseDelete("employees", `id=eq.${id}`);
-      toast.success("Data pegawai dihapus");
+      success("Data pegawai dihapus");
       loadEmployees();
     } catch (e) {
-      toast.error("Gagal menghapus data");
+      error("Gagal menghapus data");
     }
   };
 
@@ -192,45 +195,74 @@ export function SdmManager() {
         <form onSubmit={handleSave} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-            <input required value={currentEmp.nama} onChange={e => setCurrentEmp({...currentEmp, nama: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input required placeholder="Contoh: Dr. Budi Santoso, M.Si" value={currentEmp.nama} onChange={e => setCurrentEmp({...currentEmp, nama: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">NIP</label>
-            <input value={currentEmp.nip} onChange={e => setCurrentEmp({...currentEmp, nip: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input placeholder="Opsional, cth: 198001012005011001" value={currentEmp.nip} onChange={e => setCurrentEmp({...currentEmp, nip: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 font-mono" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Jabatan</label>
-            <input value={currentEmp.jabatan} onChange={e => setCurrentEmp({...currentEmp, jabatan: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input placeholder="Contoh: Kepala Stasiun Klimatologi" value={currentEmp.jabatan} onChange={e => setCurrentEmp({...currentEmp, jabatan: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bagian / Unit</label>
-            <input value={currentEmp.bagian} onChange={e => setCurrentEmp({...currentEmp, bagian: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none" />
+            <input placeholder="Contoh: Sub Bagian Tata Usaha" value={currentEmp.bagian} onChange={e => setCurrentEmp({...currentEmp, bagian: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Foto Profil</label>
-            <input 
-              type="file" 
-              accept="image/*" 
-              multiple 
-              onChange={e => {
-                if (e.target.files) {
-                  setUploadFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-                }
-              }} 
-              className="w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-200 rounded-xl cursor-pointer"
-            />
-            {uploadFiles.length > 0 && <p className="text-xs text-blue-600 mt-2">{uploadFiles.length} file dipilih untuk diunggah.</p>}
+            
+            <label className={`w-full relative flex items-center justify-between p-3 rounded-xl border-2 border-dashed transition-all cursor-pointer ${uploadFiles.length > 0 ? 'border-primary/50 bg-blue-50/30' : 'border-slate-200 hover:border-primary/40 hover:bg-slate-50'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${uploadFiles.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <span className="material-symbols-outlined text-[20px]">{uploadFiles.length > 0 ? 'imagesmode' : 'add_photo_alternate'}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-700">Pilih Foto Baru</p>
+                  <p className="text-xs text-slate-500 font-medium">Maks 2MB (Opsional)</p>
+                </div>
+              </div>
+              
+              {uploadFiles.length > 0 && (
+                <div className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-md">
+                  {uploadFiles.length} Terpilih
+                </div>
+              )}
+              
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files) {
+                    const files = Array.from(e.target.files);
+                    const validFiles = files.filter(f => {
+                      if (f.size > 2 * 1024 * 1024) {
+                        error(`Ukuran foto ${f.name} melebihi batas 2MB.`);
+                        return false;
+                      }
+                      return true;
+                    });
+                    setUploadFiles(prev => [...prev, ...validFiles]);
+                  }
+                }} 
+              />
+            </label>
             
             {currentEmp.foto && currentEmp.foto.length > 0 && (
-              <div className="mt-3 flex gap-2 flex-wrap">
-                {currentEmp.foto.map((url, i) => (
-                  <div key={i} className="relative w-12 h-12 rounded border border-slate-200 overflow-hidden group">
-                    <Image src={url} alt="Foto" fill className="object-cover" />
-                    <button type="button" onClick={() => removePhoto(i)} className="absolute inset-0 bg-red-500/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="w-4 h-4 text-white" />
-                    </button>
-                  </div>
-                ))}
+              <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Foto Saat Ini</p>
+                <div className="flex gap-2 flex-wrap">
+                  {currentEmp.foto.map((url, i) => (
+                    <div key={i} className="relative w-14 h-14 rounded-lg border-2 border-white shadow-sm overflow-hidden group">
+                      <Image src={url} alt="Foto" fill className="object-cover" />
+                      <button type="button" onClick={() => removePhoto(i)} className="absolute inset-0 bg-red-500/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]">
+                        <X className="w-4 h-4 text-white drop-shadow-sm" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

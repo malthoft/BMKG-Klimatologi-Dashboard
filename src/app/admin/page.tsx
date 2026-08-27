@@ -49,6 +49,28 @@ function AdminDashboardContent() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<{id: string|number, type: string, label: string, title: string, tab: string}[]>([]);
+  const [offlineCount, setOfflineCount] = useState(0);
+
+  // Fetch offline stations count for badge
+  useEffect(() => {
+    if (!user) return;
+    const fetchOffline = async () => {
+      try {
+        const stations = await supabaseFetch("stations");
+        if (stations) {
+          const count = stations.filter((s: any) => s.status !== "Online").length;
+          setOfflineCount(count);
+        }
+      } catch (e) {
+        // fail silently
+      }
+    };
+    fetchOffline();
+    
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchOffline, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   // Search logic aggregation
   useEffect(() => {
@@ -167,6 +189,11 @@ function AdminDashboardContent() {
                     <span className={`material-symbols-outlined transition-transform duration-200 text-[18px] ${activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110'}`}>{tab.icon}</span>
                     <span className="text-[13px]">{tab.label}</span>
                   </div>
+                  {tab.id === 'stations' && offlineCount > 0 && (
+                    <span className="bg-red-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-sm">
+                      {offlineCount}
+                    </span>
+                  )}
                 </a>
               ))}
             </div>
@@ -440,17 +467,18 @@ function AdminDashboardContent() {
               >
                 <optgroup label="Beranda & Umum">
                   <option value="stations">Daftar AWS</option>
-                  <option value="announcements">Pengumuman</option>
-                  <option value="instagram">Galeri Instagram</option>
                 </optgroup>
-                <optgroup label="Pengamatan">
+                <optgroup label="Iklim">
                   <option value="observations">Data Pengamatan</option>
-                </optgroup>
-                <optgroup label="Perubahan Iklim">
                   <option value="climate">Warming Stripes</option>
-                  <option value="tempmaps">Peta Suhu</option>
                   <option value="rainfall">Prakiraan Hujan</option>
+                  <option value="tempmaps">Peta Suhu</option>
                   <option value="hth">Hari Tanpa Hujan</option>
+                </optgroup>
+                <optgroup label="Publikasi">
+                  <option value="berita">Berita & Kegiatan</option>
+                  <option value="pengumuman">Pengumuman</option>
+                  <option value="instagram">Galeri Instagram</option>
                 </optgroup>
                 {user?.role === "super_admin" && (
                 <optgroup label="Profil">
@@ -459,7 +487,7 @@ function AdminDashboardContent() {
                 </optgroup>
                 )}
                 {user?.role === "super_admin" && (
-                <optgroup label="Sistem">
+                <optgroup label="Sistem & Akses">
                   <option value="admin_users">Kelola Admin Users</option>
                 </optgroup>
                 )}

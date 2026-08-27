@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
 import { supabaseUploadFile, supabaseGetPublicUrl } from "@/lib/supabase";
 
 export function HthTab() {
+  const { success, error, info } = useToast();
   const [hthConfig, setHthConfig] = useState({ judul: "MONITORING HARI TANPA HUJAN", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTi79gYQsWbuErXu85VpBLIiuMD7v2XnWEjWRBCPSIpyhxB_BxloWkztP19sAOOVQ/pub?gid=655976518&single=true&output=csv" });
   const [isSyncingHth, setIsSyncingHth] = useState(false);
   const [hthStats, setHthStats] = useState({ totalData: 0, lastUpdate: "-" });
@@ -38,19 +39,19 @@ export function HthTab() {
       const fileToUpload = new File([configStr], 'config.json', { type: 'application/json' });
       const uploadedUrl = await supabaseUploadFile("rainfall-data", "hth/config.json", fileToUpload);
       if (uploadedUrl) {
-        toast.success("Judul HTH berhasil diperbarui!");
+        success("Judul HTH berhasil diperbarui!");
       } else {
         throw new Error("Gagal upload config");
       }
     } catch (e: any) {
-      toast.error(e.message || "Gagal memperbarui judul HTH");
+      error(e.message || "Gagal memperbarui judul HTH");
     }
   };
 
   const handleSyncHth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hthConfig.url) {
-      toast.error("URL Google Sheets tidak boleh kosong");
+      error("URL Google Sheets tidak boleh kosong");
       return;
     }
     setIsSyncingHth(true);
@@ -72,9 +73,9 @@ export function HthTab() {
       await supabaseUploadFile("rainfall-data", "hth/config.json", configFile);
 
       setHthStats({ totalData: data.length, lastUpdate: now });
-      toast.success(`Sukses! Sinkronisasi berhasil. Total ${data.length} data pos diperbarui.`);
+      success(`Sukses! Sinkronisasi berhasil. Total ${data.length} data pos diperbarui.`);
     } catch (e: any) {
-      toast.error(e.message || "Gagal sinkronisasi HTH");
+      error(e.message || "Gagal sinkronisasi HTH");
     } finally {
       setIsSyncingHth(false);
     }
@@ -83,7 +84,7 @@ export function HthTab() {
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 h-fit">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-6 h-fit">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-[18px]">edit_document</span>
@@ -114,7 +115,7 @@ export function HthTab() {
                   </form>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">

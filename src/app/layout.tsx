@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { WhatsappFab } from "@/components/ui/whatsapp-fab";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import { ConfirmProvider } from "@/components/ui/confirm-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -62,10 +63,12 @@ export default function RootLayout({
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-slate-500 font-medium animate-pulse">Memuat aplikasi...</p>
         </div>
-        <ToastProvider>
-          {children}
-          <WhatsappFab />
-        </ToastProvider>
+        <ConfirmProvider>
+          <ToastProvider>
+            {children}
+            <WhatsappFab />
+          </ToastProvider>
+        </ConfirmProvider>
       </body>
     </html>
   );

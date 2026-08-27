@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
 import { supabaseUploadFile, supabaseDeleteFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { parseCSVText, ClimateParsedResult } from "@/lib/climate-parser";
 import { WarmingStripesViewer } from "@/components/climate/warming-stripes-viewer";
 import { TemperatureLineChart } from "@/components/climate/temperature-line-chart";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 export function ClimateTab() {
+  const confirm = useConfirm();
+  const { success, error, info } = useToast();
   const [csvTextStripes, setCsvTextStripes] = useState("");
   const [csvTextAnnual, setCsvTextAnnual] = useState("");
   const [climatePreviewStripes, setClimatePreviewStripes] = useState<ClimateParsedResult | null>(null);
@@ -44,7 +47,7 @@ export function ClimateTab() {
 
   const processAndUploadCSV = async (textToProcess: string, type: 'stripes' | 'annual') => {
     if (!textToProcess.trim()) {
-      toast.error("Teks CSV kosong!");
+      error("Teks CSV kosong!");
       return;
     }
     
@@ -66,16 +69,16 @@ export function ClimateTab() {
       const uploadedUrl = await supabaseUploadFile("climate-data", filename, fileObj);
       
       if (uploadedUrl) {
-        toast.success(`Berhasil mengunggah data CSV ${type === 'stripes' ? 'Warming Stripes' : 'Suhu Tahunan'}!`);
+        success(`Berhasil mengunggah data CSV ${type === 'stripes' ? 'Warming Stripes' : 'Suhu Tahunan'}!`);
       } else {
-        toast.error("Gagal mengunggah file ke Supabase Storage. Cek bucket 'climate-data'.");
+        error("Gagal mengunggah file ke Supabase Storage. Cek bucket 'climate-data'.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal memproses file CSV.");
+      error(err.message || "Gagal memproses file CSV.");
     }
   };
 
-  const handleFileUpload = (evt: React.ChangeEvent<HTMLInputElement>, type: 'stripes' | 'annual') => {
+  const handleFileUpload = async (evt: React.ChangeEvent<HTMLInputElement>, type: 'stripes' | 'annual') => {
     const file = evt.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
@@ -89,8 +92,8 @@ export function ClimateTab() {
     evt.target.value = "";
   };
 
-  const handleClearCSV = (type: 'stripes' | 'annual') => {
-    if (confirm(`Apakah Anda yakin ingin mengosongkan data CSV iklim (${type}) dari Supabase Storage?`)) {
+  const handleClearCSV = async (type: 'stripes' | 'annual') => {
+    if (await confirm(`Apakah Anda yakin ingin mengosongkan data CSV iklim (${type}) dari Supabase Storage?`)) {
       (async () => {
         const filename = type === 'stripes' ? 'warming-stripes.csv' : 'annual-temperatures.csv';
         const deleted = await supabaseDeleteFile("climate-data", filename);
@@ -102,16 +105,16 @@ export function ClimateTab() {
             setCsvTextAnnual("");
             setClimatePreviewAnnual(null);
           }
-          toast.success("Data CSV berhasil dihapus dari storage.");
+          success("Data CSV berhasil dihapus dari storage.");
         } else {
-          toast.error("Gagal menghapus file dari storage.");
+          error("Gagal menghapus file dari storage.");
         }
       })();
     }
   };
 
-  const handleResetDefaultCSV = (type: 'stripes' | 'annual') => {
-    if (confirm(`Apakah Anda yakin ingin mereset data (${type}) ke dataset default bawaan sistem? Ini akan mengunggah file default ke Supabase Storage.`)) {
+  const handleResetDefaultCSV = async (type: 'stripes' | 'annual') => {
+    if (await confirm(`Apakah Anda yakin ingin mereset data (${type}) ke dataset default bawaan sistem? Ini akan mengunggah file default ke Supabase Storage.`)) {
       (async () => {
         try {
           const fallbackPath = type === 'stripes' ? "/Hasil_Anomali_38_Kabupaten_1991_2025_v2.csv" : "/Rata_Rata_Suhu_Tahunan.csv";
@@ -120,10 +123,10 @@ export function ClimateTab() {
             const text = await res.text();
             await processAndUploadCSV(text, type);
           } else {
-            toast.error("Gagal mengambil dataset default.");
+            error("Gagal mengambil dataset default.");
           }
         } catch (e) {
-          toast.error("Gagal mereset CSV default.");
+          error("Gagal mereset CSV default.");
         }
       })();
     }

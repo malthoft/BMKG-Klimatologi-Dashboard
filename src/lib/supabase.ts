@@ -209,5 +209,9 @@ export async function supabaseDeleteFile(bucket: string, filePath: string) {
 }
 
 export function supabaseGetPublicUrl(bucket: string, filePath: string) {
+  if (!filePath) return "";
+  if (filePath.startsWith("http://") || filePath.startsWith("https://")) {
+    return filePath;
+  }
   return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${filePath}`;
 }
