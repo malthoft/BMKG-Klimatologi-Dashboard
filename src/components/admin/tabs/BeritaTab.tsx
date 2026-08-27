@@ -105,7 +105,7 @@ export function BeritaTab() {
   };
 
   const handleDeleteBerita = async (id: number, fileUrl: string) => {
-    if (await confirm("Yakin ingin menghapus berita ini?")) {
+    if (await confirm("Apakah Anda yakin ingin menghapus berita ini? Tindakan ini tidak dapat dibatalkan.", "Hapus Berita")) {
       const res = await remove(id);
       if (res) {
         if (fileUrl) {
