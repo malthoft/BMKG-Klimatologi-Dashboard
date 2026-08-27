@@ -3,9 +3,13 @@ import { useCrud } from "@/hooks/useCrud";
 import { TempMap } from "@/types/admin";
 import { supabaseUploadFile } from "@/lib/supabase";
 import Image from "next/image";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 export function TempMapsTab() {
+  const confirm = useConfirm();
+  const { success, error, info } = useToast();
   const { items: tempMaps, isLoading, load, add, update, remove } = useCrud<TempMap>("temperature_maps", "temperature-maps");
   
   const [newTempMap, setNewTempMap] = useState<{year: number, category: string, file: File | null}>({ year: new Date().getFullYear(), category: "Normal", file: null });
@@ -19,7 +23,7 @@ export function TempMapsTab() {
   const handleAddTempMap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTempMap.file) {
-      toast.error("Silakan pilih file gambar peta suhu!");
+      error("Silakan pilih file gambar peta suhu!");
       return;
     }
     setIsUploadingTempMap(true);
@@ -43,10 +47,10 @@ export function TempMapsTab() {
 
       if (success) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
-        load();
+        load("order=year.desc");
       }
     } catch (err: any) {
-      toast.error(err.message || "Terjadi kesalahan.");
+      error(err.message || "Terjadi kesalahan.");
     } finally {
       setIsUploadingTempMap(false);
     }
@@ -82,10 +86,10 @@ export function TempMapsTab() {
       if (success) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
         setEditTempMapId(null);
-        load();
+        load("order=year.desc");
       }
     } catch (err: any) {
-      toast.error(err.message || "Terjadi kesalahan.");
+      error(err.message || "Terjadi kesalahan.");
     } finally {
       setIsUploadingTempMap(false);
     }
@@ -101,8 +105,8 @@ export function TempMapsTab() {
     setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
   };
 
-  const handleDeleteTempMap = (id: number, imageUrl: string) => {
-    if (confirm("Yakin ingin menghapus peta suhu ini?")) {
+  const handleDeleteTempMap = async (id: number, imageUrl: string) => {
+    if (await confirm("Yakin ingin menghapus peta suhu ini?")) {
       remove(id, imageUrl, "Peta Suhu berhasil dihapus");
     }
   };
@@ -121,17 +125,29 @@ export function TempMapsTab() {
                   </div>
                   <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gambar Peta {editTempMapId && "(Opsional)"}</label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        required={!editTempMapId}
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) setNewTempMap({...newTempMap, file});
-                        }} 
-                        className="w-full border border-slate-200 bg-white rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                      />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between items-center">
+                        <span>Gambar Peta {editTempMapId && "(Opsional)"}</span>
+                        {newTempMap.file && <span className="text-emerald-500 text-[10px] bg-emerald-50 px-2 py-0.5 rounded-full"><i className="fas fa-check-circle"></i> Terpilih</span>}
+                      </label>
+                      <label className={`flex items-center justify-between w-full border ${newTempMap.file ? 'border-primary/50 bg-blue-50/50' : 'border-slate-200 bg-white hover:border-primary/30 hover:bg-slate-50'} rounded-xl px-4 py-3 cursor-pointer transition-all group`}>
+                        <div className="flex items-center gap-3 truncate">
+                          <span className="material-symbols-outlined text-primary/70">map</span>
+                          <span className={`text-sm truncate font-medium ${newTempMap.file ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                            {newTempMap.file ? newTempMap.file.name : "Pilih file gambar peta..."}
+                          </span>
+                        </div>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden"
+                          required={!editTempMapId}
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) setNewTempMap({...newTempMap, file});
+                          }} 
+                        />
+                        <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors shrink-0">Browse</span>
+                      </label>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -147,15 +163,15 @@ export function TempMapsTab() {
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kategori</label>
-                        <select 
-                          required 
-                          value={newTempMap.category} 
-                          onChange={e => setNewTempMap({...newTempMap, category: e.target.value})} 
-                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all cursor-pointer bg-white"
-                        >
-                          <option value="Normal">Normal</option>
-                          <option value="Anomali">Anomali</option>
-                        </select>
+                        <CustomSelect
+                          required
+                          value={newTempMap.category}
+                          onChange={(val) => setNewTempMap({...newTempMap, category: val})}
+                          options={[
+                            { value: "Normal", label: "Normal" },
+                            { value: "Anomali", label: "Anomali" }
+                          ]}
+                        />
                       </div>
                     </div>
                     <div className="pt-4 mt-auto flex gap-3">
@@ -201,7 +217,7 @@ export function TempMapsTab() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {tempMaps.map(m => (
-                      <div key={m.id} className="group rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 relative flex flex-col">
+                      <div key={m.id} className="group rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col">
                         <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
                           {m.image_url ? (
                             <Image 

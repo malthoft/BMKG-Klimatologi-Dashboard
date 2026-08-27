@@ -21,7 +21,7 @@ const formatDate = (dateStr: string) => {
 export default async function PengumumanPage() {
   let data: any[] = [];
   try {
-    const result = await supabaseFetch("pengumuman", "order=published_at.desc");
+    const result = await supabaseFetch("pengumuman", "order=created_at.desc");
     if (result && result.length > 0) {
       data = result;
     }

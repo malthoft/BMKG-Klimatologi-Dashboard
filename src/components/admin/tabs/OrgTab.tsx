@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useCrud } from "@/hooks/useCrud";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 interface OrgMemberData {
   id?: number;
@@ -12,6 +14,7 @@ interface OrgMemberData {
 }
 
 export function OrgTab() {
+  const confirm = useConfirm();
   const { items: orgMembers, load, add, remove } = useCrud<OrgMemberData>("org_members");
   
   const [newOrgMember, setNewOrgMember] = useState<OrgMemberData>({
@@ -24,7 +27,7 @@ export function OrgTab() {
   });
 
   useEffect(() => {
-    load();
+    load("order=created_at.desc");
   }, [load]);
 
   const handleAddOrgMember = async (e: React.FormEvent) => {
@@ -42,12 +45,12 @@ export function OrgTab() {
         nip: "",
         show_role_title: true
       });
-      load();
+      load("order=created_at.desc");
     }
   };
 
-  const handleDeleteOrgMember = (id: number) => {
-    if (confirm("Yakin ingin menghapus anggota ini?")) {
+  const handleDeleteOrgMember = async (id: number) => {
+    if (await confirm("Yakin ingin menghapus anggota ini?")) {
       remove(id, undefined, "Anggota organisasi berhasil dihapus");
     }
   };
@@ -63,60 +66,99 @@ export function OrgTab() {
                     </div>
                     <h3 className="text-lg font-bold text-slate-800">Input Data Anggota</h3>
                   </div>
-                  <form className="space-y-4 flex-1" onSubmit={handleAddOrgMember}>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Posisi / Kategori Visual (Role ID)</label>
-                      <select required value={newOrgMember.role_id} onChange={e => setNewOrgMember({...newOrgMember, role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="">-- Pilih Posisi --</option>
-                        <option value="kepala">KEPALA UPT (Biru Tua)</option>
-                        <option value="kasubag">KEPALA SUB BAGIAN (Hijau)</option>
-                        <option value="tim_1">KETUA TIM KERJA 1 (Oranye)</option>
-                        <option value="tim_2">KETUA TIM KERJA 2 (Biru)</option>
-                        <option value="tim_3">KETUA TIM KERJA 3 (Nila)</option>
-                        <option value="tim_4">KETUA TIM KERJA 4 (Merah Muda)</option>
-                        <option value="tim_5">KETUA TIM KERJA 5 (Ungu)</option>
-                        <option value="tim_6">KETUA TIM KERJA 6 (Hijau)</option>
-                        <option value="fungsional_pmg">FUNGSIONAL PMG (Oranye)</option>
-                        <option value="fungsional_non_pmg">FUNGSIONAL NON PMG (Hijau)</option>
-                        <option value="anggota">ANGGOTA / STAF BARU</option>
-                      </select>
+                  <form className="space-y-4 flex-1 flex flex-col" onSubmit={handleAddOrgMember}>
+                    {/* Grup 1: Posisi & Hierarki */}
+                    <div className="p-4 bg-slate-50/80 border border-slate-100 rounded-2xl space-y-4">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-indigo-500">account_tree</span> 
+                        Hierarki Organisasi
+                      </h4>
+                      
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Posisi / Kategori Warna</label>
+                        <CustomSelect
+                          required
+                          value={newOrgMember.role_id}
+                          onChange={(val) => setNewOrgMember({...newOrgMember, role_id: val})}
+                          options={[
+                            { value: "", label: "-- Pilih Posisi --" },
+                            { value: "kepala", label: "KEPALA UPT (Biru Tua)" },
+                            { value: "kasubag", label: "KEPALA SUB BAGIAN (Hijau)" },
+                            { value: "tim_1", label: "KETUA TIM KERJA 1 (Oranye)" },
+                            { value: "tim_2", label: "KETUA TIM KERJA 2 (Biru)" },
+                            { value: "tim_3", label: "KETUA TIM KERJA 3 (Nila)" },
+                            { value: "tim_4", label: "KETUA TIM KERJA 4 (Merah Muda)" },
+                            { value: "tim_5", label: "KETUA TIM KERJA 5 (Ungu)" },
+                            { value: "tim_6", label: "KETUA TIM KERJA 6 (Hijau)" },
+                            { value: "fungsional_pmg", label: "FUNGSIONAL PMG (Oranye)" },
+                            { value: "fungsional_non_pmg", label: "FUNGSIONAL NON PMG (Hijau)" },
+                            { value: "anggota", label: "ANGGOTA / STAF BARU" }
+                          ]}
+                        />
+                      </div>
+                      
+                      <div className="relative z-[90]">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Atasan Langsung (Parent)</label>
+                        <CustomSelect
+                          value={newOrgMember.parent_role_id || ""}
+                          onChange={(val) => setNewOrgMember({...newOrgMember, parent_role_id: val})}
+                          options={[
+                            { value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" },
+                            { value: "kepala", label: "KEPALA UPT" },
+                            { value: "kasubag", label: "KEPALA SUB BAGIAN" },
+                            { value: "tim_1", label: "KETUA TIM KERJA 1" },
+                            { value: "tim_2", label: "KETUA TIM KERJA 2" },
+                            { value: "tim_3", label: "KETUA TIM KERJA 3" },
+                            { value: "tim_4", label: "KETUA TIM KERJA 4" },
+                            { value: "tim_5", label: "KETUA TIM KERJA 5" },
+                            { value: "tim_6", label: "KETUA TIM KERJA 6" },
+                            { value: "fungsional_pmg", label: "FUNGSIONAL PMG" },
+                            { value: "fungsional_non_pmg", label: "FUNGSIONAL NON PMG" }
+                          ]}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Di Bawah Siapa (Parent)</label>
-                      <select value={newOrgMember.parent_role_id} onChange={e => setNewOrgMember({...newOrgMember, parent_role_id: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option value="">-- Posisi Teratas (Tidak ada atasan) --</option>
-                        {orgMembers.map((m: any) => (
-                          <option key={m.id} value={m.role_id}>{m.name} ({m.role_title})</option>
-                        ))}
-                      </select>
+
+                    {/* Grup 2: Identitas Pegawai */}
+                    <div className="p-4 bg-slate-50/80 border border-slate-100 rounded-2xl space-y-4">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-teal-500">badge</span> 
+                        Identitas Pegawai
+                      </h4>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lengkap & Gelar</label>
+                        <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 bg-white" type="text" placeholder="Cth: Dr. Budi Santoso, M.Si" />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Jabatan (Ditampilkan)</label>
+                        <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 bg-white" type="text" placeholder="Cth: KEPALA STASIUN KLIMATOLOGI" />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nomor Induk Pegawai (NIP)</label>
+                        <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 font-mono bg-white" type="text" placeholder="Opsional..." />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Jabatan Ditampilkan</label>
-                      <input required value={newOrgMember.role_title} onChange={e => setNewOrgMember({...newOrgMember, role_title: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="e.g. KEPALA UPT, ANGGOTA" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Pegawai</label>
-                      <input required value={newOrgMember.name} onChange={e => setNewOrgMember({...newOrgMember, name: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="Nama beserta gelar" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">NIP (Opsional)</label>
-                      <input value={newOrgMember.nip} onChange={e => setNewOrgMember({...newOrgMember, nip: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" type="text" placeholder="1974..." />
-                    </div>
-                    <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+
+                    {/* Pengaturan Tambahan */}
+                    <div className="flex items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm hover:border-primary/30 transition-colors cursor-pointer group">
                       <input 
                         type="checkbox" 
                         id="showTitle"
                         checked={newOrgMember.show_role_title}
                         onChange={(e) => setNewOrgMember({...newOrgMember, show_role_title: e.target.checked})}
-                        className="w-5 h-5 rounded text-primary focus:ring-primary/20 cursor-pointer"
+                        className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
                       />
-                      <label htmlFor="showTitle" className="text-sm font-semibold text-slate-700 cursor-pointer select-none">
-                        Tampilkan Nama Jabatan di Profil
+                      <label htmlFor="showTitle" className="text-sm font-bold text-slate-700 cursor-pointer select-none group-hover:text-primary transition-colors flex-1">
+                        Tampilkan Nama Jabatan di Diagram
                       </label>
                     </div>
-                    <div className="pt-4 mt-auto">
-                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[20px]">save</span>
+
+                    <div className="pt-2 mt-auto">
+                      <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/25 py-3.5 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">person_add</span>
                         Simpan Anggota
                       </button>
                     </div>

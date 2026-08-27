@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabaseFetch, supabaseUpdate, supabaseInsert, supabaseDelete } from "@/lib/supabase";
 import { parseObservationExcel, ParsedDailyObservation, ParsedHourlyObservation } from "@/lib/excel-parser";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
 import { Info, Map, TableProperties, UploadCloud } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
 
 export function ObservationTab() {
+  const confirm = useConfirm();
+  const { success, error, info } = useToast();
   const [activeObservationDate, setActiveObservationDate] = useState("-");
   const [activeObservationSync, setActiveObservationSync] = useState("-");
   
@@ -92,14 +95,14 @@ export function ObservationTab() {
     if (!file) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      toast.error("Ukuran file terlalu besar! Maksimal 10 MB.");
+      error("Ukuran file terlalu besar! Maksimal 10 MB.");
       evt.target.value = "";
       return;
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!['xlsx', 'xls', 'csv'].includes(ext || '')) {
-      toast.error("Format file tidak didukung! Harap unggah file .xlsx, .xls, atau .csv.");
+      error("Format file tidak didukung! Harap unggah file .xlsx, .xls, atau .csv.");
       evt.target.value = "";
       return;
     }
@@ -112,21 +115,21 @@ export function ObservationTab() {
       setObservationHourly(result.hourly);
       
       if (result.hourly.length === 0) {
-        toast.info("File berhasil dibaca, namun tidak ada data per jam yang terdeteksi. Silakan isi manual jika perlu.");
+        info("File berhasil dibaca, namun tidak ada data per jam yang terdeteksi. Silakan isi manual jika perlu.");
       } else {
-        toast.success(`Berhasil mengekstrak ${file.name}! Terdeteksi ${result.hourly.length} data observasi jam.`);
+        success(`Berhasil mengekstrak ${file.name}! Terdeteksi ${result.hourly.length} data observasi jam.`);
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal memproses file Excel.");
+      error(err.message || "Gagal memproses file Excel.");
     } finally {
       setIsParsingExcel(false);
       evt.target.value = "";
     }
   };
 
-  const handleSaveObservation = (e: React.FormEvent) => {
+  const handleSaveObservation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirm("Apakah Anda yakin ingin menimpa data pengamatan harian sebelumnya? Tindakan ini akan mengganti data yang sedang aktif di website.")) {
+    if (!await confirm("Apakah Anda yakin ingin menimpa data pengamatan harian sebelumnya? Tindakan ini akan mengganti data yang sedang aktif di website.")) {
       return;
     }
 
@@ -181,12 +184,12 @@ export function ObservationTab() {
           await supabaseDelete("hourly_observations", "id=gt.0");
         }
 
-        toast.success("Data pengamatan harian berhasil diperbarui dan aktif di website!");
+        success("Data pengamatan harian berhasil diperbarui dan aktif di website!");
         setActiveObservationDate(observationDaily.tanggal_pengamatan || "-");
         setActiveObservationSync(nowIso);
         loadObservationData();
       } catch (err: any) {
-        toast.error(err.message || "Gagal menyimpan data pengamatan.");
+        error(err.message || "Gagal menyimpan data pengamatan.");
       } finally {
         setIsSavingObservation(false);
       }
@@ -218,14 +221,14 @@ export function ObservationTab() {
     e.preventDefault();
     const jamRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!jamRegex.test(newHourlyRow.jam)) {
-      toast.error("Format jam tidak valid! Gunakan format HH:MM.");
+      error("Format jam tidak valid! Gunakan format HH:MM.");
       return;
     }
     const normalizedJam = newHourlyRow.jam.padStart(5, '0');
     const rowToSave = { ...newHourlyRow, jam: normalizedJam };
     const isDuplicate = observationHourly.some(row => row.jam === normalizedJam);
     if (isDuplicate) {
-      toast.error(`Data untuk jam ${normalizedJam} sudah ada!`);
+      error(`Data untuk jam ${normalizedJam} sudah ada!`);
       return;
     }
 
@@ -233,7 +236,7 @@ export function ObservationTab() {
       const newArray = [...prev, rowToSave];
       return newArray.sort((a, b) => a.jam.localeCompare(b.jam));
     });
-    toast.success(`Data observasi untuk jam ${normalizedJam} berhasil ditambahkan!`);
+    success(`Data observasi untuk jam ${normalizedJam} berhasil ditambahkan!`);
     setIsAddHourlyModalOpen(false);
   };
 
@@ -244,7 +247,7 @@ export function ObservationTab() {
   return (
     <>
       <div className="flex flex-col gap-6">
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col md:flex-row gap-4 items-center justify-between">
                   <div>
                     <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary">cloud_sync</span>
@@ -285,7 +288,7 @@ export function ObservationTab() {
                 </div>
 
                 {/* 2. Upload Excel Dropzone */}
-                <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                   <h4 className="text-base font-bold text-text-primary mb-3 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">upload_file</span>
                     Unggah Berkas Excel (.xlsx / .xls)
@@ -320,7 +323,7 @@ export function ObservationTab() {
                 {/* 3. Form Editor: Parameter Harian & Tabel Jam */}
                 <form onSubmit={handleSaveObservation} className="space-y-6">
                   {/* Parameter Harian Card */}
-                  <div className="bg-surface rounded-[16px] border border-border shadow-sm p-6 space-y-6">
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
                     <div className="flex justify-between items-center border-b border-border pb-3">
                       <h4 className="text-base font-bold text-text-primary flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary">thermostat</span>
@@ -331,122 +334,142 @@ export function ObservationTab() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-blue-500">calendar_month</span>
                           Tanggal Pengamatan
                         </label>
                         <input
                           type="date"
                           value={observationDaily.tanggal_pengamatan || ""}
                           onChange={(e) => setObservationDaily({ ...observationDaily, tanggal_pengamatan: e.target.value })}
-                          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-red-500">device_thermostat</span>
+                          Suhu Maks (°C)
+                        </label>
+                        <input
+                          type="number" step="0.1"
+                          value={observationDaily.suhu_maksimum ?? ""}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_maksimum: parseFloat(e.target.value) || 0 })}
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="Maks"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          Suhu Maks / Min (°C)
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-blue-500">device_thermostat</span>
+                          Suhu Min (°C)
                         </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="number" step="0.1"
-                            value={observationDaily.suhu_maksimum ?? ""}
-                            onChange={(e) => setObservationDaily({ ...observationDaily, suhu_maksimum: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="Maks"
-                            required
-                          />
-                          <input
-                            type="number" step="0.1"
-                            value={observationDaily.suhu_minimum ?? ""}
-                            onChange={(e) => setObservationDaily({ ...observationDaily, suhu_minimum: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="Min"
-                            required
-                          />
-                        </div>
+                        <input
+                          type="number" step="0.1"
+                          value={observationDaily.suhu_minimum ?? ""}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_minimum: parseFloat(e.target.value) || 0 })}
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="Min"
+                          required
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-cyan-500">rainy</span>
                           Curah Hujan (mm)
                         </label>
                         <input
                           type="number" step="0.1"
                           value={observationDaily.curah_hujan_mm ?? ""}
                           onChange={(e) => setObservationDaily({ ...observationDaily, curah_hujan_mm: parseFloat(e.target.value) || 0 })}
-                          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="Curah Hujan"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-indigo-500">cloud</span>
                           Kategori Hujan
                         </label>
                         <input
                           type="text"
                           value={observationDaily.kategori_hujan || ""}
                           onChange={(e) => setObservationDaily({ ...observationDaily, kategori_hujan: e.target.value })}
-                          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="Kategori"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-orange-500">thermostat</span>
+                          Suhu Rata-rata (°C)
+                        </label>
+                        <input
+                          type="number" step="0.1"
+                          value={observationDaily.suhu_udara_rata ?? ""}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, suhu_udara_rata: parseFloat(e.target.value) || 0 })}
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="Suhu Rata"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          Rata-rata Suhu / Kelembaban
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-emerald-500">water_drop</span>
+                          Kelembaban (%)
+                        </label>
+                        <input
+                          type="number" step="0.1"
+                          value={observationDaily.kelembaban_rata ?? ""}
+                          onChange={(e) => setObservationDaily({ ...observationDaily, kelembaban_rata: parseFloat(e.target.value) || 0 })}
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                          placeholder="RH %"
+                        />
+                      </div>
+                      <div className="col-span-1 sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-teal-500">air</span>
+                          Arah & Kec. Angin (Dominan / Rata / Max)
                         </label>
                         <div className="flex gap-2">
-                          <input
-                            type="number" step="0.1"
-                            value={observationDaily.suhu_udara_rata ?? ""}
-                            onChange={(e) => setObservationDaily({ ...observationDaily, suhu_udara_rata: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="Suhu °C"
-                          />
-                          <input
-                            type="number" step="0.1"
-                            value={observationDaily.kelembaban_rata ?? ""}
-                            onChange={(e) => setObservationDaily({ ...observationDaily, kelembaban_rata: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="RH %"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                          Angin (Arah / Rata-rata / Max)
-                        </label>
-                        <div className="flex gap-1">
                           <input
                             type="text"
                             value={observationDaily.angin_arah_dominan || ""}
                             onChange={(e) => setObservationDaily({ ...observationDaily, angin_arah_dominan: e.target.value })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-2 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
+                            className="w-1/3 text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                             placeholder="Arah"
                           />
                           <input
                             type="number" step="0.1"
                             value={observationDaily.angin_kecepatan_rata_kt ?? ""}
                             onChange={(e) => setObservationDaily({ ...observationDaily, angin_kecepatan_rata_kt: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-2 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="Rata"
+                            className="w-1/3 text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            placeholder="Rata (kt)"
                           />
                           <input
                             type="number" step="0.1"
                             value={observationDaily.angin_kecepatan_max_kt ?? ""}
                             onChange={(e) => setObservationDaily({ ...observationDaily, angin_kecepatan_max_kt: parseFloat(e.target.value) || 0 })}
-                            className="w-full text-sm border border-slate-200 rounded-lg px-2 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none"
-                            placeholder="Max"
+                            className="w-1/3 text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                            placeholder="Max (kt)"
                           />
                         </div>
                       </div>
-                      <div className="col-span-full">
-                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-4">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-amber-500">article</span>
                           Rangkuman Cuaca (Opsional)
                         </label>
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={observationDaily.rangkuman_info || ""}
                           onChange={(e) => setObservationDaily({ ...observationDaily, rangkuman_info: e.target.value })}
-                          className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-1 focus:ring-primary outline-none resize-none"
+                          className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 bg-slate-50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition-all"
                           placeholder="Tuliskan rangkuman informasi cuaca hari ini jika ada..."
                         />
                       </div>
@@ -454,7 +477,7 @@ export function ObservationTab() {
                   </div>
 
                   {/* Tabel Data Per Jam */}
-                  <div className="bg-surface rounded-[16px] border border-border shadow-sm flex flex-col overflow-hidden">
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-border bg-slate-50/50 flex justify-between items-center flex-wrap gap-4">
                       <div>
                         <h4 className="text-base font-bold text-text-primary flex items-center gap-2">
@@ -476,65 +499,65 @@ export function ObservationTab() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse min-w-[650px]">
                         <thead>
-                          <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
-                            <th className="py-3 px-4 font-bold text-center w-20">Jam</th>
-                            <th className="py-3 px-4 font-bold text-center">Suhu (°C)</th>
-                            <th className="py-3 px-4 font-bold text-center">RH (%)</th>
-                            <th className="py-3 px-4 font-bold text-center">QFE (mbar)</th>
-                            <th className="py-3 px-4 font-bold text-center">Kecepatan Angin (kt)</th>
-                            <th className="py-3 px-4 font-bold text-center">Arah Angin</th>
-                            <th className="py-3 px-4 font-bold text-center w-16">Aksi</th>
+                          <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 text-slate-700 text-[11px] font-extrabold uppercase tracking-widest">
+                            <th className="py-3.5 px-4 text-center w-24">Jam</th>
+                            <th className="py-3.5 px-4 text-center">Suhu (°C)</th>
+                            <th className="py-3.5 px-4 text-center">RH (%)</th>
+                            <th className="py-3.5 px-4 text-center">QFE (mbar)</th>
+                            <th className="py-3.5 px-4 text-center">Kec. Angin (kt)</th>
+                            <th className="py-3.5 px-4 text-center">Arah Angin</th>
+                            <th className="py-3.5 px-4 text-center w-16">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm">
                           {observationHourly.map((row, idx) => (
-                            <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/70 transition-colors">
-                              <td className="py-2 px-4 text-center">
+                            <tr key={idx} className="border-b border-slate-100 even:bg-slate-50/50 hover:bg-blue-50/30 transition-colors">
+                              <td className="py-2.5 px-4 text-center">
                                 <input
                                   type="text"
                                   value={row.jam}
                                   onChange={(e) => handleHourlyRowChange(idx, "jam", e.target.value)}
-                                  className="w-16 text-center text-sm font-bold bg-white border border-slate-200 rounded px-1 py-1 focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-16 text-center text-sm font-bold bg-white border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                 />
                               </td>
-                              <td className="py-2 px-4">
+                              <td className="py-2.5 px-4">
                                 <input
                                   type="number" step="0.1"
                                   value={row.suhu_c}
                                   onChange={(e) => handleHourlyRowChange(idx, "suhu_c", parseFloat(e.target.value) || 0)}
-                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                 />
                               </td>
-                              <td className="py-2 px-4">
+                              <td className="py-2.5 px-4">
                                 <input
                                   type="number" step="0.1"
                                   value={row.kelembaban_percent}
                                   onChange={(e) => handleHourlyRowChange(idx, "kelembaban_percent", parseFloat(e.target.value) || 0)}
-                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                 />
                               </td>
-                              <td className="py-2 px-4">
+                              <td className="py-2.5 px-4">
                                 <input
                                   type="number" step="0.1"
                                   value={row.tekanan_mbar}
                                   onChange={(e) => handleHourlyRowChange(idx, "tekanan_mbar", parseFloat(e.target.value) || 0)}
-                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                 />
                               </td>
-                              <td className="py-2 px-4">
+                              <td className="py-2.5 px-4">
                                 <input
                                   type="number" step="0.1"
                                   value={row.kecepatan_angin_kt}
                                   onChange={(e) => handleHourlyRowChange(idx, "kecepatan_angin_kt", parseFloat(e.target.value) || 0)}
-                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                                 />
                               </td>
-                              <td className="py-2 px-4">
+                              <td className="py-2.5 px-4">
                                 <input
                                   type="text"
                                   value={row.arah_angin}
                                   onChange={(e) => handleHourlyRowChange(idx, "arah_angin", e.target.value)}
-                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded px-2 py-1 focus:ring-1 focus:ring-primary outline-none uppercase"
+                                  className="w-full text-center text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all uppercase font-medium"
                                 />
                               </td>
                               <td className="py-2 px-4 text-center">

@@ -3,8 +3,11 @@ import { useCrud } from "@/hooks/useCrud";
 import { Station } from "@/types/admin";
 import { supabaseUpdate } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 export function StationsTab() {
+  const confirm = useConfirm();
   const { user } = useAuth();
   const { items: stations, isLoading, load, add, remove } = useCrud<Station>("stations");
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
@@ -26,7 +29,7 @@ export function StationsTab() {
     
     if (success) {
       setNewStation({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
-      load();
+      load("order=created_at.desc");
     }
   };
 
@@ -34,12 +37,12 @@ export function StationsTab() {
     const payload = { [field]: !currentValue };
     const result = await supabaseUpdate("stations", `id=eq.${id}`, payload);
     if (result) {
-      load();
+      load("order=created_at.desc");
     }
   };
 
-  const handleDeleteStation = (id: number) => {
-    if (confirm("Yakin ingin menghapus stasiun ini?")) {
+  const handleDeleteStation = async (id: number) => {
+    if (await confirm("Yakin ingin menghapus stasiun ini?")) {
       remove(id, undefined, "Stasiun berhasil dihapus");
     }
   };
@@ -49,7 +52,7 @@ export function StationsTab() {
     <>
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Manage AWS Table Card */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col overflow-hidden">
+                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden">
                   <div className="p-6 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-blue-100 text-primary flex items-center justify-center">
@@ -119,7 +122,7 @@ export function StationsTab() {
                 </div>
 
                 {user?.role === "super_admin" && (
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 p-6 flex flex-col h-fit sticky top-28">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 p-6 flex flex-col h-fit sticky top-28">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-[18px]">add_circle</span>
@@ -141,11 +144,16 @@ export function StationsTab() {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Initial Status</label>
-                      <select value={newStation.status} onChange={e => setNewStation({...newStation, status: e.target.value})} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white cursor-pointer">
-                        <option>Online</option>
-                        <option>Offline</option>
-                        <option>Maintenance</option>
-                      </select>
+                      <CustomSelect
+                        required
+                        value={newStation.status}
+                        onChange={(val) => setNewStation({...newStation, status: val})}
+                        options={[
+                          { value: "Online", label: "Online" },
+                          { value: "Offline", label: "Offline" },
+                          { value: "Maintenance", label: "Maintenance" }
+                        ]}
+                      />
                     </div>
                     <div className="pt-4 mt-auto">
                       <button type="submit" className="w-full bg-gradient-to-r from-primary to-blue-600 text-white shadow-md shadow-primary/20 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">

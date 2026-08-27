@@ -95,11 +95,15 @@ export default function PengamatanHarian() {
     return `${val}${suffix}`;
   };
 
-  const getPeakWindInfo = () => {
-    if (!hourlyData || hourlyData.length === 0) return "Puncak hembusan gust 24 jam";
-    const peak = hourlyData.reduce((max, h) => (h.kecepatan_angin_kt > max.kecepatan_angin_kt ? h : max), hourlyData[0]);
-    if (!peak || !peak.jam) return "Puncak hembusan gust 24 jam";
-    return `Puncak hembusan pukul ${peak.jam} WIB`;
+  const getPeakWindInfo = (data: DailyObservation) => {
+    if (data && data.rangkuman_info) {
+      // Find any time format like 10:00, 10.00, 09:30 in the text
+      const match = data.rangkuman_info.match(/(\d{1,2}[:.]\d{2})/);
+      if (match && match[1]) {
+        return `Puncak hembusan pukul ${match[1].replace('.', ':')} WIB`;
+      }
+    }
+    return "Kecepatan maksimal (gust) dalam 24 jam";
   };
 
   const getMetricCards = (data: DailyObservation) => [
@@ -175,7 +179,7 @@ export default function PengamatanHarian() {
       color: "text-teal-600",
       bgColor: "bg-teal-50",
       borderColor: "border-teal-100",
-      desc: getPeakWindInfo(),
+      desc: getPeakWindInfo(data),
     },
   ];
 

@@ -1,58 +1,70 @@
 import { useState, useCallback } from "react";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseDeleteFile, supabaseUploadFile } from "@/lib/supabase";
-import { toast } from "sonner";
+import { useToast } from "@/components/ui/toast-provider";
+import { useAuth } from "@/hooks/useAuth";
 
 export function useCrud<T>(tableName: string, bucketName?: string) {
   const [items, setItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const { success, error, info } = useToast();
+  const { user } = useAuth();
 
   const load = useCallback(async (query: string = "") => {
     setIsLoading(true);
+    setIsError(false);
     try {
       const data = await supabaseFetch(tableName, query);
-      if (data) setItems(data);
+      if (data) {
+        setItems(data);
+      } else {
+        setIsError(true);
+      }
     } catch (e) {
-      toast.error(`Gagal memuat data ${tableName}`);
+      setIsError(true);
+      error(`Gagal memuat data ${tableName}`);
     } finally {
       setIsLoading(false);
     }
-  }, [tableName]);
+  }, [tableName, error]);
 
   const add = async (payload: Partial<T>, successMsg: string = "Data berhasil ditambahkan") => {
     const result = await supabaseInsert(tableName, payload);
     if (result) {
-      toast.success(successMsg);
+      success(successMsg);
       return true;
     }
-    toast.error("Gagal menambahkan data");
+    error("Gagal menambahkan data");
     return false;
   };
 
   const update = async (id: number | string, payload: Partial<T>, successMsg: string = "Data berhasil diperbarui") => {
     const result = await supabaseUpdate(tableName, `id=eq.${id}`, payload);
     if (result) {
-      toast.success(successMsg);
+      success(successMsg);
       return true;
     }
-    toast.error("Gagal memperbarui data");
+    error("Gagal memperbarui data");
     return false;
   };
 
   const remove = async (id: number | string, fileUrl?: string, successMsg: string = "Data berhasil dihapus") => {
     try {
-      const success = await supabaseDelete(tableName, `id=eq.${id}`);
-      if (success) {
+      const successData = await supabaseDelete(tableName, `id=eq.${id}`);
+      if (successData) {
         if (fileUrl && bucketName) {
           await supabaseDeleteFile(bucketName, fileUrl);
         }
-        toast.success(successMsg);
+        if (successMsg) {
+          success(successMsg);
+        }
         await load();
         return true;
       }
-      toast.error("Gagal menghapus data");
+      error("Gagal menghapus data");
       return false;
     } catch (e) {
-      toast.error("Terjadi kesalahan saat menghapus data");
+      error("Terjadi kesalahan saat menghapus data");
       return false;
     }
   };
@@ -65,5 +77,5 @@ export function useCrud<T>(tableName: string, bucketName?: string) {
     return filePath;
   };
 
-  return { items, isLoading, load, add, update, remove, uploadFile };
+  return { items, isLoading, isError, load, add, update, remove, uploadFile };
 }
