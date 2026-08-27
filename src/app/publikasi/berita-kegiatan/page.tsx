@@ -1,37 +1,33 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { supabaseFetch } from "@/lib/supabase";
+import { Metadata } from "next";
 
-export default function BeritaKegiatanPage() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export const metadata: Metadata = {
+  title: "Berita & Kegiatan - BMKG Klimatologi Jawa Timur",
+  description: "Berita, kegiatan, dan informasi terkini dari Stasiun Klimatologi Jawa Timur.",
+};
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const result = await supabaseFetch("berita_kegiatan", "order=published_at.desc");
-        if (result && result.length > 0) {
-          setData(result);
-        }
-      } catch (e) {
-        console.error("Error fetching berita_kegiatan:", e);
-      } finally {
-        setLoading(false);
-      }
+export const revalidate = 60; // SSR with Revalidation every 60s
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return date.toLocaleDateString('id-ID', options) + " WIB";
+};
+
+export default async function BeritaKegiatanPage() {
+  let data: any[] = [];
+  try {
+    const result = await supabaseFetch("berita_kegiatan", "order=published_at.desc");
+    if (result && result.length > 0) {
+      data = result;
     }
-    loadData();
-  }, []);
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return date.toLocaleDateString('id-ID', options) + " WIB";
-  };
+  } catch (e) {
+    console.error("Error fetching berita_kegiatan:", e);
+  }
 
   return (
     <>
@@ -40,11 +36,7 @@ export default function BeritaKegiatanPage() {
         <div className="max-w-4xl mx-auto px-6">
           <h1 className="text-3xl font-extrabold text-slate-800 mb-8 border-b-2 border-primary pb-4 inline-block">Berita & Kegiatan</h1>
 
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin"></div>
-            </div>
-          ) : data.length > 0 ? (
+          {data.length > 0 ? (
             <div className="flex flex-col gap-6">
               {data.map((item) => (
                 <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col gap-3 hover:shadow-md transition-shadow">

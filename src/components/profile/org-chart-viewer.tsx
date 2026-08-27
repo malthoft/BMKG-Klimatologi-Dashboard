@@ -14,13 +14,11 @@ export interface OrgMember {
   sort_order?: number;
 }
 
-const OrgBox = ({ member, roleIdFallback }: { member?: OrgMember, roleIdFallback: string }) => {
+const OrgBox = ({ member, roleIdFallback, hasChildren = false }: { member?: OrgMember, roleIdFallback: string, hasChildren?: boolean }) => {
   if (!member) {
     return (
-      <div className={`w-full min-h-[140px] rounded-2xl border-[2px] border-slate-200 bg-white flex flex-col items-center justify-center p-4 md:p-6 gap-3 shadow-sm animate-pulse`}>
-        <div className="h-6 w-3/4 bg-slate-200 rounded" />
-        <div className="h-5 w-full bg-slate-200 rounded" />
-        <div className="h-4 w-1/2 bg-slate-200 rounded" />
+      <div className="flex flex-col items-center justify-center w-full min-h-[140px] relative">
+        {hasChildren && <div className="absolute top-0 bottom-0 left-1/2 w-[3px] bg-slate-300 -translate-x-1/2" />}
       </div>
     );
   }
@@ -64,8 +62,8 @@ const OrgBox = ({ member, roleIdFallback }: { member?: OrgMember, roleIdFallback
   );
 };
 
-// Komponen rekursif untuk me-render anak buah secara vertikal
-const VerticalStack = ({ parentId, members, width = "100%" }: { parentId: string, members: OrgMember[], width?: string }) => {
+// Komponen rekursif untuk me-render anak buah (side-spine tree layout)
+const VerticalStack = ({ parentId, members }: { parentId: string, members: OrgMember[] }) => {
   const children = members
     .filter(m => m.parent_role_id === parentId)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -73,16 +71,42 @@ const VerticalStack = ({ parentId, members, width = "100%" }: { parentId: string
   if (children.length === 0) return null;
 
   return (
-    <div className="w-full flex flex-col items-center relative z-10">
-      {children.map(child => (
-        <div key={child.id || child.role_id} className="w-full flex flex-col items-center">
-          <div className="w-[3px] h-[30px] bg-slate-300 shrink-0" />
-          <div style={{ width }} className="flex flex-col shrink-0 relative z-20">
-            <OrgBox member={child} roleIdFallback={child.role_id} />
-          </div>
-          <VerticalStack parentId={child.role_id} members={members} width={width} />
-        </div>
-      ))}
+    <div className="w-full relative z-10 pt-[20px]">
+      {/* Line dropping from parent center */}
+      <div className="absolute top-0 left-1/2 w-[3px] h-[20px] bg-slate-300 -translate-x-1/2" />
+      
+      {/* Horizontal connector from center to spine */}
+      <div className="absolute top-[20px] left-[24px] right-[calc(50%-1px)] h-[3px] bg-slate-300" />
+      
+      <div className="flex flex-col w-full relative">
+        {children.map((child, idx) => {
+          const isFirst = idx === 0;
+          const isLast = idx === children.length - 1;
+          const hasChildren = members.some(m => m.parent_role_id === child.role_id);
+          
+          return (
+            <div key={child.id || child.role_id} className="w-full flex relative py-3">
+              {/* Spine segment */}
+              <div 
+                 className="absolute left-[24px] w-[3px] bg-slate-300"
+                 style={{
+                    top: 0,
+                    bottom: isLast ? '50%' : 0,
+                    height: (isFirst && isLast) ? '50%' : undefined
+                 }} 
+              />
+              
+              {/* Horizontal connector to box */}
+              <div className="absolute left-[24px] top-1/2 w-[20px] h-[3px] bg-slate-300 -translate-y-1/2" />
+              
+              <div className="flex-1 ml-[44px] mr-[16px] relative z-20">
+                <OrgBox member={child} roleIdFallback={child.role_id} hasChildren={hasChildren} />
+                <VerticalStack parentId={child.role_id} members={members} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -198,7 +222,7 @@ export function OrgChartViewer() {
           >
             {/* Row 1: Kepala */}
             <div className="w-[480px] relative z-10 pt-4 flex flex-col items-center">
-              <OrgBox member={getMember("kepala")} roleIdFallback="kepala" />
+              <OrgBox member={getMember("kepala")} roleIdFallback="kepala" hasChildren={members.some(m => m.parent_role_id === "kepala")} />
               <VerticalStack parentId="kepala" members={members} />
             </div>
 
@@ -211,8 +235,8 @@ export function OrgChartViewer() {
               <div className="absolute top-0 left-1/2 w-[525px] h-[3px] bg-slate-300" />
               <div className="absolute top-0 left-[calc(50%+525px)] w-[3px] h-[50px] bg-slate-300" />
               <div className="absolute top-[50px] left-[calc(50%+325px)] w-[400px] z-10 flex flex-col items-center">
-                  <OrgBox member={getMember("kasubag")} roleIdFallback="kasubag" />
-                  <VerticalStack parentId="kasubag" members={members} width="90%" />
+                  <OrgBox member={getMember("kasubag")} roleIdFallback="kasubag" hasChildren={members.some(m => m.parent_role_id === "kasubag")} />
+                  <VerticalStack parentId="kasubag" members={members} />
               </div>
             </div>
 
@@ -221,45 +245,36 @@ export function OrgChartViewer() {
 
             {/* Row 3: 6 Teams */}
             <div className="w-[1750px] flex justify-between items-stretch mt-0 px-0">
-              {["tim_1", "tim_2", "tim_3", "tim_4", "tim_5", "tim_6"].map((roleId) => (
-                <div key={roleId} className="w-[270px] flex flex-col items-center relative z-10">
-                  <div className="w-[3px] h-[50px] bg-slate-300 shrink-0" />
-                  <div className="w-full flex flex-col shrink-0">
-                    <OrgBox member={getMember(roleId)} roleIdFallback={roleId} />
+              {["tim_1", "tim_2", "tim_3", "tim_4", "tim_5", "tim_6"].map((roleId) => {
+                const hasLeader = !!getMember(roleId);
+                const hasChildren = members.some(m => m.parent_role_id === roleId);
+                const showTeam = hasLeader || hasChildren;
+                return (
+                  <div key={roleId} className="w-[270px] flex flex-col items-center relative z-10">
+                    {showTeam && <div className="w-[3px] h-[50px] bg-slate-300 shrink-0" />}
+                    {!showTeam && <div className="w-[3px] h-[50px] shrink-0 opacity-0" />}
+                    
+                    <div className="w-full flex flex-col shrink-0">
+                      <OrgBox member={getMember(roleId)} roleIdFallback={roleId} hasChildren={hasChildren} />
+                    </div>
+                    <VerticalStack parentId={roleId} members={members} />
                   </div>
-                  <VerticalStack parentId={roleId} members={members} width="90%" />
-                  {/* Flexible line to stretch to bottom if column is shorter */}
-                  <div className="w-[3px] flex-1 min-h-[1px] bg-slate-300" />
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Row 3.5: Down connectors from Teams */}
-            <div className="w-[1750px] flex justify-between relative mt-0">
-              {/* Horizontal line for PMG under Teams 1-5 */}
-              <div className="absolute left-[135px] bottom-0 w-[1184px] h-[3px] bg-slate-300" />
-              {["tim_1", "tim_2", "tim_3", "tim_4", "tim_5", "tim_6"].map((roleId, idx) => (
-                <div key={roleId} className="w-[270px] flex flex-col items-center">
-                  <div className="w-[3px] h-[60px] bg-slate-300" style={{ height: idx < 5 ? 60 : 110 }} />
-                </div>
-              ))}
-            </div>
-
-            {/* Row 4: PMG & Non PMG */}
-            <div className="w-[1750px] flex relative mt-0 pb-[150px]">
-              {/* Vertical down to PMG (from Team 3 center: 727) */}
-              <div className="absolute left-[727px] top-0 w-[3px] h-[50px] bg-slate-300" />
-
+            {/* Row 4: PMG & Non PMG (Floating functional groups) */}
+            <div className="w-[1750px] flex relative mt-16 pb-[100px]">
               {/* Box PMG */}
-              <div className="absolute left-[487px] top-[50px] w-[480px] flex flex-col items-center">
-                  <OrgBox member={getMember("fungsional_pmg")} roleIdFallback="fungsional_pmg" />
-                  <VerticalStack parentId="fungsional_pmg" members={members} width="90%" />
+              <div className="absolute left-[487px] top-0 w-[480px] flex flex-col items-center">
+                  <OrgBox member={getMember("fungsional_pmg")} roleIdFallback="fungsional_pmg" hasChildren={members.some(m => m.parent_role_id === "fungsional_pmg")} />
+                  <VerticalStack parentId="fungsional_pmg" members={members} />
               </div>
 
               {/* Box Non PMG (under Team 6) */}
-              <div className="absolute left-[1455px] top-[50px] w-[320px] flex flex-col items-center">
-                  <OrgBox member={getMember("fungsional_non_pmg")} roleIdFallback="fungsional_non_pmg" />
-                  <VerticalStack parentId="fungsional_non_pmg" members={members} width="90%" />
+              <div className="absolute left-[1455px] top-0 w-[320px] flex flex-col items-center">
+                  <OrgBox member={getMember("fungsional_non_pmg")} roleIdFallback="fungsional_non_pmg" hasChildren={members.some(m => m.parent_role_id === "fungsional_non_pmg")} />
+                  <VerticalStack parentId="fungsional_non_pmg" members={members} />
               </div>
             </div>
           </div>
