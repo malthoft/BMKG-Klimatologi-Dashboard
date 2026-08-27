@@ -104,25 +104,18 @@ export function PengumumanTab() {
   };
 
   const handleDeletePengumuman = async (id: number, fileUrl: string) => {
-    confirm({
-      title: "Hapus Pengumuman",
-      message: "Apakah Anda yakin ingin menghapus pengumuman ini? Tindakan ini tidak dapat dibatalkan.",
-      confirmText: "Hapus",
-      cancelText: "Batal",
-      type: "danger",
-      onConfirm: async () => {
-        const res = await remove(id);
-        if (res) {
-          if (fileUrl) {
-            await supabaseDeleteFile("pengumuman-files", fileUrl);
-          }
-          success("Pengumuman berhasil dihapus!");
-          load("order=created_at.desc");
-        } else {
-          error("Gagal menghapus pengumuman");
+    if (await confirm("Apakah Anda yakin ingin menghapus pengumuman ini? Tindakan ini tidak dapat dibatalkan.", "Hapus Pengumuman")) {
+      const res = await remove(id);
+      if (res) {
+        if (fileUrl) {
+          await supabaseDeleteFile("pengumuman-files", fileUrl);
         }
+        success("Pengumuman berhasil dihapus!");
+        load("order=created_at.desc");
+      } else {
+        error("Gagal menghapus pengumuman");
       }
-    });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
