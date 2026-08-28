@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { Search } from "lucide-react";
 import { supabaseGetPublicUrl } from "@/lib/supabase";
 
 // Fix Leaflet icons in Next.js
@@ -38,19 +39,114 @@ function MapBoundsUpdater({ data }: { data: any[] }) {
         const bounds = L.latLngBounds(validPoints);
         // Tambahkan padding agar titik terluar tidak tertutup tepi peta
         map.fitBounds(bounds, { padding: [50, 50] });
+        
+        // Batasi geseran pengguna HANYA di area data, dengan padding luas agar titik pinggir terlihat
+        map.setMaxBounds(bounds.pad(1.0));
+        map.options.maxBoundsViscosity = 1.0;
       }
     }
-
-    // Batasi view ke wilayah Indonesia dan sekitarnya (seperti prakiraan curah hujan)
-    const maxBounds = L.latLngBounds(
-      L.latLng(-15.0, 90.0), // South West
-      L.latLng(10.0, 145.0)  // North East
-    );
-    map.setMaxBounds(maxBounds);
-    map.options.maxBoundsViscosity = 1.0;
   }, [map, data]);
 
   return null;
+}
+
+function ResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    const container = map.getContainer();
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [map]);
+  return null;
+}
+
+function SearchControl({ data }: { data: any[] }) {
+  const map = useMap();
+  const [query, setQuery] = useState("");
+  const [show, setShow] = useState(false);
+  const [selectedPos, setSelectedPos] = useState<any>(null);
+  
+  const results = data.filter(d => 
+    d.nama && d.kab && (
+      d.nama.toLowerCase().includes(query.toLowerCase()) || 
+      d.kab.toLowerCase().includes(query.toLowerCase())
+    )
+  ).slice(0, 5); // Maksimal 5 item
+
+  const handleSelect = (pos: any) => {
+    if (pos.lat && pos.lon) {
+      map.flyTo([pos.lat, pos.lon], 13, { duration: 1.5 });
+      setSelectedPos(pos);
+    }
+    setShow(false);
+    setQuery(pos.nama);
+  };
+
+  return (
+    <>
+      <div className="absolute top-4 right-4 z-[1000] w-64 md:w-80 shadow-lg rounded-xl bg-white border border-slate-200 flex flex-col overflow-hidden">
+      <div className="flex items-center px-3 py-2 bg-white">
+        <Search className="w-5 h-5 text-slate-400 mr-2" />
+        <input 
+          type="text" 
+          placeholder="Cari daerah..." 
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setShow(e.target.value.length > 0);
+          }}
+          onFocus={() => { if(query.length > 0) setShow(true); }}
+          className="w-full outline-none text-sm font-medium bg-transparent text-slate-800 placeholder:text-slate-400"
+        />
+      </div>
+      {show && results.length > 0 && (
+        <div className="max-h-48 overflow-y-auto border-t border-slate-100 bg-white">
+          {results.map((pos, idx) => (
+            <button 
+              key={idx}
+              onClick={() => handleSelect(pos)}
+              className="w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex flex-col"
+            >
+              <span className="text-sm font-bold text-slate-700">{pos.nama}</span>
+              <span className="text-xs text-slate-500">Kabupaten {pos.kab}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {show && query.length > 0 && results.length === 0 && (
+        <div className="px-4 py-3 text-sm text-slate-500 bg-white border-t border-slate-100 text-center">
+          Daerah tidak ditemukan
+        </div>
+      )}
+      </div>
+
+      {selectedPos && (
+        <Popup position={[selectedPos.lat, selectedPos.lon]} eventHandlers={{ remove: () => setSelectedPos(null) }} className="custom-bmkg-popup">
+          <div className="p-1" style={{ minWidth: '180px', fontFamily: 'sans-serif' }}>
+            <div className="flex justify-between items-center border-b pb-2 mb-2">
+              <h6 className="font-bold m-0 text-primary" style={{ fontSize: '14px' }}>{selectedPos.nama}</h6>
+              <span className="bg-slate-800 text-white px-2 py-0.5 rounded-full" style={{ fontSize: '10px' }}>{selectedPos.id}</span>
+            </div>
+            <div className="mb-2" style={{ fontSize: '12px' }}>
+              <span className="material-symbols-outlined text-[12px] text-red-500 align-middle mr-1">location_on</span>
+              Kab. {selectedPos.kab}
+            </div>
+            <div className="bg-slate-50 p-2 rounded border border-slate-100">
+              <div style={{ fontSize: '11px', color: '#555' }}>Hari Tanpa Hujan:</div>
+              <div className="font-bold text-lg text-slate-800">{selectedPos.hth || 0} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>Hari</span></div>
+              <div className="mt-1 px-2 py-1 rounded" style={{ background: getHTHColor(selectedPos.hth || 0), color: '#000', border: '1px solid #aaa', fontSize: '11px', fontWeight: 'bold' }}>
+                {selectedPos.ket || "Masih Ada Hujan"}
+              </div>
+            </div>
+          </div>
+        </Popup>
+      )}
+    </>
+  );
 }
 
 export function HTHMap() {
@@ -92,17 +188,26 @@ export function HTHMap() {
   return (
     <div className="w-full h-full relative z-0">
       <MapContainer 
+        preferCanvas={true}
         center={[-7.7, 112.5]} 
         zoom={8} 
-        zoomControl={true}
-        className="w-full h-full min-h-[500px] rounded-2xl shadow-sm z-0"
+        zoomControl={false}
+        className="w-full h-full absolute inset-0 rounded-2xl shadow-sm z-0"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.bmkg.go.id">BMKG</a> | Staklim Jatim'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.bmkg.go.id">BMKG</a> | <a href="https://www.esri.com">Esri</a>'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={16}
         />
         
+        <ResizeHandler />
+        <SearchControl data={data} />
         <MapBoundsUpdater data={data} />
+        
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full text-xs font-semibold text-slate-700 shadow-md pointer-events-none z-[1000] flex items-center gap-2 border border-slate-200 whitespace-nowrap">
+          <span className="hidden md:inline">Gunakan scroll mouse untuk zoom peta</span>
+          <span className="inline md:hidden">Gunakan dua jari untuk zoom peta</span>
+        </div>
 
         {data.map((pos, idx) => {
           if (!pos.lat || !pos.lon) return null;
