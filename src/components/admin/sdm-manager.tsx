@@ -219,7 +219,7 @@ export function SdmManager() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-slate-700">Pilih Foto Baru</p>
-                  <p className="text-xs text-slate-500 font-medium">Maks 2MB (Opsional)</p>
+                  <p className="text-xs text-slate-500 font-medium">Maks 5MB (Opsional)</p>
                 </div>
               </div>
               
@@ -238,8 +238,14 @@ export function SdmManager() {
                   if (e.target.files) {
                     const files = Array.from(e.target.files);
                     const validFiles = files.filter(f => {
-                      if (f.size > 2 * 1024 * 1024) {
-                        error(`Ukuran foto ${f.name} melebihi batas 2MB.`);
+                      const ext = f.name.split('.').pop()?.toLowerCase() || '';
+                      const isImage = f.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+                      if (!isImage) {
+                        error(`File ${f.name} bukan format gambar yang valid (.jpg, .png, .webp).`);
+                        return false;
+                      }
+                      if (f.size > 5 * 1024 * 1024) {
+                        error(`Ukuran foto ${f.name} melebihi batas 5MB.`);
                         return false;
                       }
                       return true;

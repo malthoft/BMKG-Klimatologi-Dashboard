@@ -39,13 +39,13 @@ export function TempMapsTab() {
         throw new Error("Gagal mengupload gambar");
       }
 
-      const success = await add({
+      const isOk = await add({
         year: newTempMap.year,
         category: newTempMap.category,
         image_url: imageUrl
       }, "Peta Suhu berhasil ditambahkan!");
 
-      if (success) {
+      if (isOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
         load("order=year.desc");
       }
@@ -82,8 +82,8 @@ export function TempMapsTab() {
       };
       if (finalImageUrl) updateData.image_url = finalImageUrl;
 
-      const success = await update(editTempMapId, updateData, "Peta Suhu berhasil diperbarui!");
-      if (success) {
+      const isUpdateOk = await update(editTempMapId, updateData, "Peta Suhu berhasil diperbarui!");
+      if (isUpdateOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
         setEditTempMapId(null);
         load("order=year.desc");

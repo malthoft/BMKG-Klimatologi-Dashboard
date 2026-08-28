@@ -4,6 +4,7 @@ import { useToast } from "@/components/ui/toast-provider";
 import Image from "next/image";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { InstagramIcon } from "@/components/ui/instagram-icon"; // Assuming this exists from previous fixes
+import { getDirectImageUrl } from "@/lib/utils";
 
 export function InstagramTab() {
   const confirm = useConfirm();
@@ -27,7 +28,7 @@ export function InstagramTab() {
     if (!newInstagram.image_url || !newInstagram.post_url) return;
 
     const successAdd = await add({
-      image_url: newInstagram.image_url,
+      image_url: getDirectImageUrl(newInstagram.image_url),
       post_url: newInstagram.post_url
     }, "Postingan Instagram berhasil ditambahkan!");
     if (successAdd) {
@@ -39,7 +40,7 @@ export function InstagramTab() {
   const handleEditInstagram = async (e: React.FormEvent) => {
     e.preventDefault();
     const successUpdate = await update(editIgData.id, {
-      image_url: editIgData.image_url,
+      image_url: getDirectImageUrl(editIgData.image_url),
       post_url: editIgData.post_url
     }, "Postingan Instagram berhasil diperbarui!");
     if (successUpdate) {
@@ -109,7 +110,8 @@ export function InstagramTab() {
             </div>
             {newInstagram.image_url && (
               <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 relative aspect-square w-full max-w-[150px] mx-auto bg-slate-100">
-                 <Image src={newInstagram.image_url} alt="Preview" fill className="object-cover" />
+                 {/* eslint-disable-next-line @next/next/no-img-element */}
+                 <img src={getDirectImageUrl(newInstagram.image_url)} alt="Preview" className="w-full h-full object-cover" />
               </div>
             )}
             <button 
@@ -151,6 +153,7 @@ export function InstagramTab() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {instagramPosts.map((post) => {
                 const isSelected = selectedIds.includes(post.id);
+                const directUrl = getDirectImageUrl(post.image_url);
                 return (
                   <div 
                     key={post.id} 
@@ -172,17 +175,21 @@ export function InstagramTab() {
 
                     {/* Blurred Background */}
                     <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         alt="Background Blur"
-                        src={post.image_url}
-                        fill
-                        className="object-cover opacity-50 blur-xl scale-125 saturate-150"
-                        sizes="(max-width: 768px) 50vw, 33vw"
+                        src={directUrl}
+                        className="w-full h-full object-cover opacity-50 blur-xl scale-125 saturate-150"
                       />
                     </div>
                     
                     {/* Foreground Image */}
-                    <Image src={post.image_url} alt="Instagram Post" className="object-contain relative z-10 transition-transform duration-500 group-hover:scale-105 pointer-events-none" fill sizes="(max-width: 768px) 50vw, 33vw" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={directUrl}
+                      alt="Instagram Post"
+                      className="w-full h-full object-contain absolute inset-0 z-10 transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+                    />
                     
                     {/* Hover Controls (Only visible when NOT in select mode) */}
                     {!isSelectMode && (
@@ -262,7 +269,8 @@ export function InstagramTab() {
               {/* Preview Image */}
               {editIgData.image_url && (
                 <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 mb-4">
-                  <Image src={editIgData.image_url} alt="Preview" fill className="object-contain" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={getDirectImageUrl(editIgData.image_url)} alt="Preview" className="w-full h-full object-contain" />
                 </div>
               )}
               

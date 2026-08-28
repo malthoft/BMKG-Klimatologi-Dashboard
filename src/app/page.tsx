@@ -11,7 +11,7 @@ import { StationSlider } from "@/components/ui/station-slider";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { supabaseFetch } from "@/lib/supabase";
-import { formatUTCtoWIB } from "@/lib/utils";
+import { formatUTCtoWIB, getDirectImageUrl } from "@/lib/utils";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 
 const formatIndonesianDate = (dateString: string) => {
@@ -634,8 +634,9 @@ export default function Home() {
                           <div className="absolute inset-0 w-full h-full">
                             <Image
                               alt="Background Blur"
-                              src={post.image_url}
+                              src={getDirectImageUrl(post.image_url)}
                               fill
+                              unoptimized
                               className="object-cover opacity-50 blur-xl scale-125 saturate-150"
                               sizes="(max-width: 768px) 100vw, 33vw"
                             />
@@ -644,9 +645,10 @@ export default function Home() {
                           {/* Foreground Image */}
                           <Image
                             alt={`Instagram Post ${idx + 1}`}
-                            className="object-contain relative z-10 transition-transform duration-700 group-hover:scale-105"
-                            src={post.image_url}
+                            className="object-contain transition-transform duration-700 group-hover:scale-105 z-10"
+                            src={getDirectImageUrl(post.image_url)}
                             fill
+                            unoptimized
                             sizes="(max-width: 768px) 100vw, 33vw"
                           />
                           

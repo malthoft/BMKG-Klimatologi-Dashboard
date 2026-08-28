@@ -38,6 +38,18 @@ export function PengumumanTab() {
     }
   }, [pengumumanFile, isEditing, newPengumuman.file_url]);
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedDetail(null);
+        setShowPreview(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handlePreviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowPreview(true);
@@ -65,22 +77,16 @@ export function PengumumanTab() {
     };
 
     if (isEditing) {
-      const res = await update(newPengumuman.id, payload);
+      const res = await update(newPengumuman.id, payload, "Pengumuman berhasil diperbarui!");
       if (res) {
-        success("Pengumuman berhasil diperbarui!");
         resetForm();
         load("order=created_at.desc");
-      } else {
-        error("Gagal memperbarui pengumuman");
       }
     } else {
-      const res = await add(payload);
+      const res = await add(payload, "Pengumuman berhasil dipublikasikan!");
       if (res) {
-        success("Pengumuman berhasil dipublikasikan!");
         resetForm();
         load("order=created_at.desc");
-      } else {
-        error("Gagal mempublikasikan pengumuman");
       }
     }
     setIsUploadingFiles(false);
@@ -95,7 +101,13 @@ export function PengumumanTab() {
   };
 
   const handleEditClick = (item: Pengumuman) => {
-    setNewPengumuman(item as any);
+    setNewPengumuman({
+      id: item.id || 0,
+      judul: item.judul || "",
+      deskripsi: item.deskripsi || "",
+      kategori: item.kategori || "Umum",
+      file_url: item.file_url || ""
+    });
     setPengumumanFile(null);
     setIsEditing(true);
     setShowPreview(false);
@@ -121,8 +133,21 @@ export function PengumumanTab() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      
+      // Validate file extension and MIME type
+      const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const isAllowedType = file.type.startsWith('image/') || file.type === 'application/pdf';
+
+      if (!allowedExtensions.includes(ext) || !isAllowedType) {
+        error("Format file tidak didukung! Hanya gambar (.jpg, .png, .webp) atau dokumen (.pdf) yang diperbolehkan.");
+        e.target.value = '';
+        return;
+      }
+
       if (file.size > 10 * 1024 * 1024) {
         error("Ukuran file maksimal 10MB.");
+        e.target.value = '';
         return;
       }
       setPengumumanFile(file);

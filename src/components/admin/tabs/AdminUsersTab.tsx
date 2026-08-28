@@ -108,16 +108,27 @@ export function AdminUsersTab() {
                 ) : users.length === 0 ? (
                   <tr><td colSpan={5} className="text-center py-6">Belum ada user.</td></tr>
                 ) : (
-                  users.map(u => (
-                    <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  [...users].sort((a, b) => {
+                    if (user?.username === a.username) return -1;
+                    if (user?.username === b.username) return 1;
+                    return 0;
+                  }).map(u => (
+                    <tr key={u.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${user?.username === u.username ? 'border-l-[3px] border-l-indigo-500 bg-indigo-50/30' : ''}`}>
                       <td className="py-3 px-4 font-semibold text-slate-700">{u.username}</td>
-                      <td className="py-3 px-4 text-slate-600">{u.display_name}</td>
+                      <td className="py-3 px-4 text-slate-600">
+                        <div className="flex items-center gap-1.5">
+                          {u.display_name}
+                          {user?.username === u.username && (
+                            <span className="text-[11px] text-slate-400 italic">(Sesi Anda)</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wider ${u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                           {u.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-500 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="py-3 px-4 text-slate-500 text-xs">{new Date(u.created_at).toLocaleDateString('id-ID')}</td>
                       <td className="py-3 px-4 text-right">
                         {user?.username !== u.username && (
                           <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 transition p-1" title="Hapus">

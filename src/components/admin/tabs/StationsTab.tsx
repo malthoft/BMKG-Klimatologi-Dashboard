@@ -4,10 +4,12 @@ import { Station } from "@/types/admin";
 import { supabaseUpdate } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useConfirm } from "@/components/ui/confirm-provider";
+import { useToast } from "@/components/ui/toast-provider";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 
 export function StationsTab() {
   const confirm = useConfirm();
+  const { success, error } = useToast();
   const { user } = useAuth();
   const { items: stations, isLoading, load, add, remove } = useCrud<Station>("stations");
   const [newStation, setNewStation] = useState({ id_sta: "", name: "", table: "", status: "Online", lat: "", lng: "" });
@@ -15,6 +17,20 @@ export function StationsTab() {
   useEffect(() => {
     load("order=created_at.desc");
   }, [load]);
+
+  const handleUpdateDisplayName = async (id: number, val: string, oldVal?: string) => {
+    if (val === oldVal) return;
+    try {
+      const res = await supabaseUpdate("stations", `id=eq.${id}`, { display_name: val });
+      if (res) {
+        success("Nama publik stasiun berhasil diperbarui!");
+      } else {
+        error("Gagal memperbarui nama stasiun.");
+      }
+    } catch (err) {
+      error("Terjadi kesalahan saat menyimpan nama stasiun.");
+    }
+  };
 
   const handleAddStation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +97,7 @@ export function StationsTab() {
                                 type="text"
                                 placeholder="Nama Publik..."
                                 defaultValue={st.display_name || ""}
-                                onBlur={(e) => supabaseUpdate("stations", `id=eq.${st.id}`, { display_name: e.target.value })}
+                                onBlur={(e) => handleUpdateDisplayName(st.id, e.target.value, st.display_name)}
                                 className="w-full max-w-[200px] border border-slate-200 rounded px-2 py-1 text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
                               />
                             </td>

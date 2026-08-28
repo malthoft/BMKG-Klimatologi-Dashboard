@@ -209,6 +209,16 @@ export function HTHMap() {
           <span className="inline md:hidden">Gunakan dua jari untuk zoom peta</span>
         </div>
 
+        {data.length === 0 && (
+          <div className="absolute inset-0 z-[1000] bg-slate-50/50 backdrop-blur-sm flex items-center justify-center">
+            <div className="bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center gap-2 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-400">location_off</span>
+              <p className="font-bold text-slate-700">Data Tidak Tersedia</p>
+              <p className="text-xs text-slate-500">Belum ada data stasiun pemantau HTH.</p>
+            </div>
+          </div>
+        )}
+
         {data.map((pos, idx) => {
           if (!pos.lat || !pos.lon) return null;
           const fillColor = getHTHColor(pos.hth || 0);

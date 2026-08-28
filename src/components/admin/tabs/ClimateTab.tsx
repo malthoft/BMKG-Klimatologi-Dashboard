@@ -81,6 +81,13 @@ export function ClimateTab() {
   const handleFileUpload = async (evt: React.ChangeEvent<HTMLInputElement>, type: 'stripes' | 'annual') => {
     const file = evt.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      error("Ukuran file CSV maksimal 10MB.");
+      evt.target.value = "";
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;

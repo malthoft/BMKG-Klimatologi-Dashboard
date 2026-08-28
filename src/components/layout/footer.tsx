@@ -32,8 +32,8 @@ export function Footer() {
           <h4 className="text-[1.125rem] text-background font-bold mb-[8px]">Tautan Cepat</h4>
           <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/data-pengamatan">Data Pengamatan</a>
           <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/perubahan-iklim">Perubahan Iklim</a>
-          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/profil">Profil Stasiun</a>
-          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/pengumuman">Pengumuman</a>
+          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/profil/visi-misi">Profil Stasiun</a>
+          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/publikasi/pengumuman">Pengumuman</a>
         </div>
         <div className="flex flex-col gap-[16px] md:w-1/3 relative">
           <h4 className="text-[1.125rem] text-background font-bold mb-[4px]">Kontak</h4>
