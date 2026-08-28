@@ -53,7 +53,7 @@ export function RainfallTab() {
       let fileToUpload: File;
 
       if (newRainfall.uploadMode === 'shp') {
-        const shapefile = require('shapefile');
+        const shapefile = await import('shapefile');
         const shpBytes = await newRainfall.fileShp!.arrayBuffer();
         const dbfBytes = await newRainfall.fileDbf!.arrayBuffer();
         

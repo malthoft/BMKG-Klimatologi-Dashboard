@@ -261,14 +261,20 @@ export function ObservationTab() {
                     <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-xl text-xs">
                       <span className="text-slate-500 font-medium block">Data Aktif di Website:</span>
                       <span className="font-bold text-primary text-sm">{activeObservationDate || "Belum Ada Data"}</span>
-                      {activeObservationSync && (
+                      {activeObservationSync && activeObservationSync !== "-" && (
                         <span className="text-[10px] text-slate-400 block mt-0.5">
                           Sinkron: {
                             (() => {
-                              let safeStr = activeObservationSync;
-                              if (safeStr.includes(" ") && !safeStr.includes("T")) safeStr = safeStr.replace(" ", "T");
-                              if (!safeStr.endsWith("Z") && !safeStr.includes("+") && safeStr.length === 19) safeStr += "+07:00";
-                              return new Date(safeStr).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
+                              try {
+                                let safeStr = activeObservationSync;
+                                if (safeStr.includes(" ") && !safeStr.includes("T")) safeStr = safeStr.replace(" ", "T");
+                                if (!safeStr.endsWith("Z") && !safeStr.includes("+")) {
+                                  safeStr += "Z";
+                                }
+                                return new Date(safeStr).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
+                              } catch (e) {
+                                return activeObservationSync;
+                              }
                             })()
                           } WIB
                         </span>

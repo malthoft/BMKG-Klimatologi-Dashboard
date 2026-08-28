@@ -35,8 +35,8 @@ export function OrgTab() {
     const payload = { ...newOrgMember };
     if (!payload.parent_role_id) delete payload.parent_role_id;
     
-    const success = await add(payload, "Anggota organisasi berhasil ditambahkan");
-    if (success) {
+    const isSuccess = await add(payload, "Anggota organisasi berhasil ditambahkan");
+    if (isSuccess) {
       setNewOrgMember({
         role_id: "",
         parent_role_id: "",

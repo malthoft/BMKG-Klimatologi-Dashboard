@@ -38,6 +38,18 @@ export function BeritaTab() {
     }
   }, [beritaFile, isEditing, newBerita.file_url]);
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedDetail(null);
+        setShowPreview(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const handlePreviewSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowPreview(true);
@@ -66,22 +78,16 @@ export function BeritaTab() {
     };
 
     if (isEditing) {
-      const res = await update(newBerita.id, payload);
+      const res = await update(newBerita.id, payload, "Berita berhasil diperbarui!");
       if (res) {
-        success("Berita berhasil diperbarui!");
         resetForm();
         load("order=published_at.desc");
-      } else {
-        error("Gagal memperbarui berita");
       }
     } else {
-      const res = await add(payload);
+      const res = await add(payload, "Berita berhasil dipublikasikan!");
       if (res) {
-        success("Berita berhasil dipublikasikan!");
         resetForm();
         load("order=published_at.desc");
-      } else {
-        error("Gagal mempublikasikan berita");
       }
     }
     setIsUploadingFiles(false);
@@ -96,7 +102,14 @@ export function BeritaTab() {
   };
 
   const handleEditClick = (item: BeritaKegiatan) => {
-    setNewBerita(item as any);
+    setNewBerita({
+      id: item.id || 0,
+      judul: item.judul || "",
+      deskripsi: item.deskripsi || "",
+      kategori: item.kategori || "Berita",
+      penulis: item.penulis || "Admin",
+      file_url: item.file_url || ""
+    });
     setBeritaFile(null);
     setIsEditing(true);
     setShowPreview(false);
