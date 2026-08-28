@@ -7,6 +7,10 @@ import { supabaseFetch } from "@/lib/supabase";
 import { FALLBACK_STATIONS } from "@/lib/constants";
 import { formatUTCtoWIB } from "@/lib/utils";
 
+let globalCardsCache: StationCardData[] | null = null;
+let lastFetchTime: number = 0;
+const CACHE_DURATION = 10 * 60 * 1000; // 10 menit
+
 interface StationData {
   id: string;
   station_id: string;
@@ -54,13 +58,30 @@ const getConditionTheme = (condition: string) => {
   }
 };
 
+const StationCardSkeleton = () => (
+  <div className="bg-white/50 rounded-2xl ring-1 ring-slate-100/80 relative overflow-hidden h-full flex flex-col justify-between px-4 pt-4 pb-4 min-h-[240px] animate-pulse">
+    <div className="flex flex-col items-center gap-2 w-full h-full">
+      <div className="w-24 h-4 bg-slate-200 rounded-md mx-auto mb-1"></div>
+      <div className="w-16 h-3 bg-slate-100 rounded-md mx-auto mb-3"></div>
+      <div className="w-14 h-14 bg-slate-200/60 rounded-full mx-auto my-1"></div>
+      <div className="w-20 h-10 bg-slate-200/80 rounded-md mx-auto mt-2"></div>
+      <div className="w-16 h-4 bg-slate-100 rounded-full mx-auto mt-2"></div>
+      <hr className="w-full border-t border-slate-50 my-2" />
+      <div className="grid grid-cols-2 gap-1.5 w-full mt-auto">
+        <div className="h-7 bg-slate-100 rounded-lg"></div>
+        <div className="h-7 bg-slate-100 rounded-lg"></div>
+      </div>
+    </div>
+  </div>
+);
+
 interface StationSliderProps {
   onStationSelect?: (tableName: string) => void;
 }
 
 export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
-  const [cards, setCards] = useState<StationCardData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<StationCardData[]>(globalCardsCache || []);
+  const [loading, setLoading] = useState(!globalCardsCache);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [cardsPerPage, setCardsPerPage] = useState(6);
@@ -78,72 +99,112 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
   const totalPages = Math.ceil(cards.length / cardsPerPage);
 
   useEffect(() => {
-    async function loadData() {
+    let isMounted = true;
+
+    const fetchBatch = async (batchStations: StationData[]) => {
+      const results = await Promise.all(
+        batchStations.map(st => supabaseFetch(st.table_name, "order=timestamp.desc&limit=1"))
+      );
+      
+      const batchCards: StationCardData[] = [];
+      batchStations.forEach((st, index) => {
+        const latest = results[index];
+        if (latest && latest.length > 0) {
+          const data = latest[0];
+          const w = getWeatherCondition(data.temp, data.rh, data.rr);
+          let minTemp = undefined;
+          if (data.temp_min !== undefined && data.temp_min !== null) {
+            minTemp = Math.round(data.temp_min);
+          }
+          batchCards.push({
+            station: st,
+            time: `${formatUTCtoWIB(data.time)} WIB`,
+            temp: Math.round(data.temp),
+            rh: Math.round(data.rh),
+            rr: data.rr,
+            condition: w.text,
+            icon: w.icon,
+            min_temp: minTemp,
+          });
+        } else {
+          batchCards.push({
+            station: st,
+            time: "--:-- WIB",
+            temp: 0,
+            rh: 0,
+            rr: 0,
+            condition: "Offline",
+            icon: "cloud_off",
+            min_temp: undefined,
+          });
+        }
+      });
+      return batchCards;
+    };
+
+    async function loadData(isIntervalUpdate = false) {
       try {
+        const now = Date.now();
+        
+        // Gunakan cache jika masih valid dan ini bukan update dari background
+        if (!isIntervalUpdate && globalCardsCache && (now - lastFetchTime) < CACHE_DURATION) {
+          if (isMounted) {
+            setCards(globalCardsCache);
+            setLoading(false);
+          }
+          return;
+        }
+
         let stations: StationData[] | null = await supabaseFetch("stations", "show_on_home=eq.true");
 
         if (!stations || stations.length === 0) {
           stations = FALLBACK_STATIONS;
         }
 
-        const cardsData: StationCardData[] = [];
+        if (stations && stations.length > 0) {
+          const firstBatch = stations.slice(0, 6);
+          const secondBatch = stations.slice(6);
 
-        if (stations) {
-          for (const st of stations) {
-            // 1. Fetch latest data
-            const latest = await supabaseFetch(st.table_name, "order=timestamp.desc&limit=1");
-          
-            // 2. Fetch min temp for today
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            let minTemp = undefined;
-            try {
-              const minResult = await supabaseFetch(st.table_name, `date=eq.${today}&order=temp_min.asc&limit=1`);
-              if (minResult && minResult.length > 0) {
-                minTemp = Math.round(minResult[0].temp_min);
-              }
-            } catch (e) {
-              console.warn(`Could not fetch min temp for ${st.table_name}`);
-            }
-
-            if (latest && latest.length > 0) {
-              const data = latest[0];
-              const w = getWeatherCondition(data.temp, data.rh, data.rr);
-              cardsData.push({
-                station: st,
-                time: `${formatUTCtoWIB(data.time)} WIB`,
-                temp: Math.round(data.temp),
-                rh: Math.round(data.rh),
-                rr: data.rr,
-                condition: w.text,
-                icon: w.icon,
-                min_temp: minTemp,
-              });
-            } else {
-              cardsData.push({
-                station: st,
-                time: "--:-- WIB",
-                temp: 0,
-                rh: 0,
-                rr: 0,
-                condition: "Offline",
-                icon: "cloud_off",
-                min_temp: undefined,
-              });
-            }
+          // Fase 1: Load 6 pertama
+          const firstCards = await fetchBatch(firstBatch);
+          if (isMounted && !isIntervalUpdate) {
+            setCards(firstCards);
+            setLoading(false);
           }
-        }
 
-        setCards(cardsData);
+          // Fase 2: Load sisanya
+          if (secondBatch.length > 0 && isMounted) {
+            const secondCards = await fetchBatch(secondBatch);
+            if (isMounted) {
+              const allCards = [...firstCards, ...secondCards];
+              setCards(allCards);
+              
+              // Simpan ke Cache Global
+              globalCardsCache = allCards;
+              lastFetchTime = Date.now();
+            }
+          } else if (isMounted) {
+            const allCards = firstCards;
+            if (isIntervalUpdate) setCards(allCards);
+            
+            globalCardsCache = allCards;
+            lastFetchTime = Date.now();
+          }
+        } else {
+          if (isMounted) setLoading(false);
+        }
       } catch (e) {
         console.error("Error loading stations for slider", e);
-      } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
 
-    loadData();
-    const interval = setInterval(loadData, 10 * 60 * 1000); // Refresh setiap 10 Menit
-    return () => clearInterval(interval);
+    loadData(false);
+    const interval = setInterval(() => loadData(true), CACHE_DURATION);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const goToPage = useCallback(
@@ -173,9 +234,28 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
 
   if (loading) {
     return (
-      <div className="w-full py-16 flex flex-col items-center justify-center gap-3 text-text-secondary">
-        <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
-        <span className="text-sm font-medium">Memuat data stasiun...</span>
+      <div className="w-full flex flex-col gap-5">
+        {/* Header Bar Skeleton */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary text-[22px]">thermostat</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <div>
+                <h3 className="font-bold text-text-primary text-[1.2rem] leading-tight">Suhu Realtime Per Wilayah</h3>
+                <div className="w-32 h-3 bg-slate-200 rounded animate-pulse mt-1.5"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Grid of Skeleton Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pt-4 pb-6 px-1">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <StationCardSkeleton key={idx} />
+          ))}
+        </div>
       </div>
     );
   }

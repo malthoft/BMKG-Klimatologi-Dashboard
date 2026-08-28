@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap, ZoomControl, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
+import { Search } from "lucide-react";
 import * as turf from "@turf/turf";
 import "leaflet/dist/leaflet.css";
 
@@ -53,19 +54,140 @@ const getLabel = (d: number) => {
 };
 
 // Komponen untuk update boundary dan maxBounds
-function MapUpdater() {
+function MapUpdater({ geoData }: { geoData: any }) {
   const map = useMap();
   useEffect(() => {
-    // Batasi view ke wilayah Indonesia dan sekitarnya
-    // Memungkinkan geser-geser secara bebas namun tidak sampai melihat benua lain
-    const bounds = L.latLngBounds(
-      L.latLng(-15.0, 90.0), // South West
-      L.latLng(10.0, 145.0)  // North East
-    );
-    map.setMaxBounds(bounds);
-    map.options.maxBoundsViscosity = 1.0;
+    if (geoData && geoData.features && geoData.features.length > 0) {
+      try {
+        const bounds = L.geoJSON(geoData).getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+          map.setMaxBounds(bounds.pad(1.0));
+          map.options.maxBoundsViscosity = 1.0;
+        }
+      } catch (e) {
+        console.error("Gagal mengatur bounds peta", e);
+      }
+    }
+  }, [map, geoData]);
+  return null;
+}
+
+function ResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    const container = map.getContainer();
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
   }, [map]);
   return null;
+}
+
+function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData: any }) {
+  const map = useMap();
+  const [query, setQuery] = useState("");
+  const [show, setShow] = useState(false);
+  const [selectedValue, setSelectedValue] = useState<any>(null);
+  
+  const results = useMemo(() => {
+    if (!kecamatanData?.features || !query) return [];
+    return kecamatanData.features.filter((f: any) => {
+      const p = f.properties || {};
+      const namakec = (p.KECAMATAN || p.NAMAKEC || "").toLowerCase();
+      const kab = (p.KABUPATEN || "").toLowerCase();
+      const q = query.toLowerCase();
+      return namakec.includes(q) || kab.includes(q);
+    }).slice(0, 5);
+  }, [kecamatanData, query]);
+
+  const handleSelect = (feature: any) => {
+    try {
+      const bounds = L.geoJSON(feature).getBounds();
+      if (bounds.isValid()) {
+        map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
+        
+        if (geoData && geoData.features) {
+          const center = bounds.getCenter();
+          const pt = turf.point([center.lng, center.lat]);
+          
+          let foundValue = 0;
+          for (const poly of geoData.features) {
+            if (turf.booleanPointInPolygon(pt, poly)) {
+              foundValue = poly.properties.gridcode || poly.properties.value || poly.properties.CH || 0;
+              break;
+            }
+          }
+          
+          if (foundValue > 0) {
+            setSelectedValue({ latlng: center, value: foundValue });
+          } else {
+            setSelectedValue(null);
+          }
+        }
+      }
+    } catch(e) {}
+    setShow(false);
+    setQuery(feature.properties.KECAMATAN || feature.properties.NAMAKEC || "");
+  };
+
+  return (
+    <>
+      <div className="absolute top-4 right-4 z-[1000] w-64 md:w-80 shadow-lg rounded-xl bg-white border border-slate-200 flex flex-col overflow-hidden">
+      <div className="flex items-center px-3 py-2 bg-white">
+        <Search className="w-5 h-5 text-slate-400 mr-2" />
+        <input 
+          type="text" 
+          placeholder="Cari daerah..." 
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setShow(e.target.value.length > 0);
+          }}
+          onFocus={() => { if(query.length > 0) setShow(true); }}
+          className="w-full outline-none text-sm font-medium bg-transparent text-slate-800 placeholder:text-slate-400"
+        />
+      </div>
+      {show && results.length > 0 && (
+        <div className="max-h-48 overflow-y-auto border-t border-slate-100 bg-white">
+          {results.map((f: any, idx: number) => {
+            const p = f.properties || {};
+            const namakec = p.KECAMATAN || p.NAMAKEC || "Kecamatan";
+            return (
+              <button 
+                key={idx}
+                onClick={() => handleSelect(f)}
+                className="w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex flex-col"
+              >
+                <span className="text-sm font-bold text-slate-700">{namakec}</span>
+                <span className="text-xs text-slate-500">Kabupaten {p.KABUPATEN || "-"}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {show && query.length > 0 && results.length === 0 && (
+        <div className="px-4 py-3 text-sm text-slate-500 bg-white border-t border-slate-100 text-center">
+          Daerah tidak ditemukan
+        </div>
+      )}
+      </div>
+      
+      {selectedValue && (
+        <Popup position={selectedValue.latlng} eventHandlers={{ remove: () => setSelectedValue(null) }}>
+          <div className="p-2">
+            <h4 className="font-bold text-slate-800">Prakiraan Curah Hujan</h4>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: getColor(selectedValue.value) }}></span>
+              <span className="text-sm">Curah Hujan: <b>{selectedValue.value} mm</b></span>
+            </div>
+          </div>
+        </Popup>
+      )}
+    </>
+  );
 }
 
 export function RainfallMap({ forecast }: RainfallMapProps) {
@@ -285,21 +407,28 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
         )}
         
         <MapContainer 
-          center={[-7.6, 112.5]} 
-          zoom={8}
-          minZoom={5} // Mengizinkan zoom out sedikit lebih luas, tapi tidak seluruh dunia
-          maxZoom={12}
-          style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
+          preferCanvas={true}
+          center={[-7.7, 112.5]} 
+          zoom={8} 
           zoomControl={false}
+          className="w-full h-full absolute inset-0 rounded-2xl shadow-sm z-0"
           ref={setMap as any}
         >
-          <MapUpdater />
-          <ZoomControl position="topleft" />
           
           <TileLayer
-            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.bmkg.go.id">BMKG</a> | <a href="https://www.esri.com">Esri</a>'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={16}
           />
+          <MapUpdater geoData={geoData} />
+          <ResizeHandler />
+          
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-4 py-2 rounded-full text-xs font-semibold text-slate-700 shadow-md pointer-events-none z-[1000] flex items-center gap-2 border border-slate-200 whitespace-nowrap">
+            <span className="hidden md:inline">Gunakan scroll mouse untuk zoom peta</span>
+            <span className="inline md:hidden">Gunakan dua jari untuk zoom peta</span>
+          </div>
+
+          <SearchControl kecamatanData={kecamatanData} geoData={geoData} />
 
           {showForecast && geoData && (
             <GeoJSON 
