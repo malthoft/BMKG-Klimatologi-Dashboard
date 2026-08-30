@@ -15,7 +15,7 @@ interface OrgMemberData {
 
 export function OrgTab() {
   const confirm = useConfirm();
-  const { items: orgMembers, load, add, remove } = useCrud<OrgMemberData>("org_members");
+  const { items: orgMembers, load, add, remove } = useCrud<OrgMemberData>("organization_structure");
   
   const [newOrgMember, setNewOrgMember] = useState<OrgMemberData>({
     role_id: "",
@@ -174,8 +174,29 @@ export function OrgTab() {
                     <h3 className="text-lg font-bold text-slate-800">Daftar Anggota Saat Ini</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {orgMembers.map((m: any) => (
-                      <div id={`item-org-${m.id || m.role_id}`} key={m.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
+                    {(() => {
+                      const hierarchyRank: Record<string, number> = {
+                        "kepala": 1,
+                        "kasubag": 2,
+                        "tim_1": 3,
+                        "tim_2": 3,
+                        "tim_3": 3,
+                        "tim_4": 3,
+                        "tim_5": 3,
+                        "tim_6": 3,
+                        "fungsional_pmg": 4,
+                        "fungsional_non_pmg": 4,
+                        "anggota": 5
+                      };
+                      
+                      const sortedMembers = [...orgMembers].sort((a, b) => {
+                        const rankA = hierarchyRank[a.role_id] || (a.role_id.startsWith("anggota") ? 5 : 99);
+                        const rankB = hierarchyRank[b.role_id] || (b.role_id.startsWith("anggota") ? 5 : 99);
+                        return rankA - rankB;
+                      });
+                      
+                      return sortedMembers.map((m: any) => (
+                        <div id={`item-org-${m.id || m.role_id}`} key={m.id} className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-md transition-all flex justify-between items-start gap-4 group">
                         <div className="flex-1">
                           <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
                             {m.role_id.startsWith('anggota') ? 'ANGGOTA' : m.role_id}
@@ -196,7 +217,8 @@ export function OrgTab() {
                           <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
-                    ))}
+                    ));
+                    })()}
                     {orgMembers.length === 0 && (
                       <div className="col-span-full py-12 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
                         <span className="material-symbols-outlined text-4xl mb-2">group_off</span>

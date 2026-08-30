@@ -174,9 +174,8 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <Link 
-          href={item.href || "#"} 
-          className={`flex items-center justify-between transition-all duration-300 cursor-pointer ${
+        <div 
+          className={`flex items-center justify-between transition-all duration-300 cursor-default ${
             level === 1 
               ? `px-4 py-1.5 text-[13px] font-bold rounded-full border ${active ? "text-blue-700 bg-blue-50/80 border-blue-200/60 shadow-xs" : "text-slate-600 border-transparent hover:bg-slate-100/80 hover:text-slate-900"}`
               : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
@@ -186,7 +185,7 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
           <span className={`material-symbols-outlined transition-transform duration-300 ${level === 1 ? 'text-[16px] ml-1.5' : 'text-[16px]'} ${active ? 'text-blue-600' : 'text-slate-400 group-hover/item:text-slate-600'} ${isOpen && level === 1 ? 'rotate-180' : ''}`}>
             {level === 1 ? 'expand_more' : 'chevron_right'}
           </span>
-        </Link>
+        </div>
         
         <AnimatePresence>
           {isOpen && (
@@ -249,20 +248,18 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
     return (
       <div className="flex flex-col border-b border-slate-100 last:border-0">
         <div 
-          className={`flex items-center justify-between w-full py-2 px-4 text-left transition-colors ${
+          className={`flex items-center justify-between w-full py-2 px-4 text-left transition-colors cursor-pointer ${
             active ? "bg-slate-50" : "hover:bg-slate-50"
           }`}
           style={{ paddingLeft: `${1 + level * 1}rem` }}
+          onClick={() => setIsOpen(!isOpen)}
         >
-          <Link 
-            href={item.href || "#"} 
-            onClick={closeMenu} 
+          <span 
             className={`flex-1 py-1 font-bold text-[14px] transition-colors ${active ? "text-primary" : "text-slate-700 hover:text-primary"}`}
           >
             {item.label}
-          </Link>
+          </span>
           <button 
-            onClick={() => setIsOpen(!isOpen)}
             className="p-2 ml-2 hover:bg-slate-200 rounded-full transition-colors flex-shrink-0"
           >
             <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-slate-400'}`}>

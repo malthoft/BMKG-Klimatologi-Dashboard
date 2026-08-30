@@ -49,5 +49,46 @@ body, html {
   scrollbar-width: none;
 }
 
+/* Memastikan spasi kosong (enter) dari text editor dirender dengan benar tanpa ter-collapse di Tailwind Prose */
+.prose p:has(br:only-child) {
+  min-height: 1.5rem;
+  padding-top: 0.1px;
+  padding-bottom: 0.1px;
+}
 
+/* Memastikan semua konten editor (teks, gambar, iframe, dll.) responsif dan tidak keluar dari card */
+.prose {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
 
+.prose p, 
+.prose span, 
+.prose h1, 
+.prose h2, 
+.prose h3, 
+.prose h4, 
+.prose h5, 
+.prose h6, 
+.prose li, 
+.prose blockquote, 
+.prose a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose img,
+.prose iframe,
+.prose video,
+.prose table {
+  max-width: 100%;
+  height: auto;
+}
+
+.prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

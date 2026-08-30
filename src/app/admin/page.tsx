@@ -18,6 +18,7 @@ import { ObservationTab } from "@/components/admin/tabs/ObservationTab";
 import { RainfallTab } from "@/components/admin/tabs/RainfallTab";
 import { TempMapsTab } from "@/components/admin/tabs/TempMapsTab";
 import { HthTab } from "@/components/admin/tabs/HthTab";
+import { IklimPublikasiTab } from "@/components/admin/tabs/IklimPublikasiTab";
 import { AdminUsersTab } from "@/components/admin/tabs/AdminUsersTab";
 import { ProfileDropdown } from "@/components/admin/ProfileDropdown";
 import { AccountSettingsModal } from "@/components/admin/AccountSettingsModal";
@@ -35,20 +36,16 @@ function AdminDashboardContent() {
   // Default all nav groups to open
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({
     beranda: true,
-    profil: true,
-    iklim: true,
-    publikasi: true,
-    admin_control: true
+    profil: false,
+    iklim: false,
+    publikasi: false,
+    admin_control: false
   });
   
   // --- Profile State ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // --- Search State ---
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<{id: string|number, type: string, label: string, title: string, tab: string}[]>([]);
   const [offlineCount, setOfflineCount] = useState(0);
 
   // Fetch offline stations count for badge
@@ -72,52 +69,7 @@ function AdminDashboardContent() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Search logic aggregation
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    const delay = setTimeout(async () => {
-      try {
-        const [berita, pengumuman, stations, org] = await Promise.all([
-          supabaseFetch("berita", "order=created_at.desc"),
-          supabaseFetch("pengumuman", "order=created_at.desc"),
-          supabaseFetch("stations", "order=station_name.asc"),
-          supabaseFetch("org_members", "order=name.asc")
-        ]);
-        
-        const term = searchTerm.toLowerCase();
-        const results: any[] = [];
-        
-        berita?.forEach((b: any) => {
-          if (b.judul?.toLowerCase().includes(term) || b.deskripsi?.toLowerCase().includes(term)) {
-            results.push({ id: b.id, type: 'berita', label: 'Berita & Kegiatan', title: b.judul, tab: 'berita' });
-          }
-        });
-        pengumuman?.forEach((p: any) => {
-          if (p.judul?.toLowerCase().includes(term) || p.deskripsi?.toLowerCase().includes(term)) {
-            results.push({ id: p.id, type: 'pengumuman', label: 'Pengumuman', title: p.judul, tab: 'pengumuman' });
-          }
-        });
-        stations?.forEach((s: any) => {
-          if (s.station_id?.toLowerCase().includes(term) || s.station_name?.toLowerCase().includes(term)) {
-            results.push({ id: s.id, type: 'station', label: 'Stasiun AWS', title: `${s.station_name} (${s.station_id})`, tab: 'stations' });
-          }
-        });
-        org?.forEach((o: any) => {
-          if (o.name?.toLowerCase().includes(term) || o.role_title?.toLowerCase().includes(term)) {
-            results.push({ id: o.id || o.role_id, type: 'org', label: 'Pegawai / Org', title: `${o.name || '-'} - ${o.role_title || '-'}`, tab: 'org' });
-          }
-        });
-        
-        setSearchResults(results.slice(0, 15));
-      } catch (err) {
-        console.error(err);
-      }
-    }, 500);
-    return () => clearTimeout(delay);
-  }, [searchTerm]);
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -132,6 +84,7 @@ function AdminDashboardContent() {
       case 'rainfall': return <RainfallTab />;
       case 'tempmaps': return <TempMapsTab />;
       case 'hth': return <HthTab />;
+      case 'iklim_publikasi': return <IklimPublikasiTab />;
       case 'admin_users': return <AdminUsersTab />;
       default: return <StationsTab />;
     }
@@ -268,6 +221,7 @@ function AdminDashboardContent() {
                 { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan' },
                 { id: 'tempmaps', icon: 'map', label: 'Peta Suhu' },
                 { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
+                { id: 'iklim_publikasi', icon: 'menu_book', label: 'Publikasi Iklim' },
               ].map(tab => (
                 <a 
                   key={tab.id}
@@ -342,6 +296,7 @@ function AdminDashboardContent() {
                 { activeTab === 'tempmaps' && 'Peta Perubahan Suhu' }
                 { activeTab === 'rainfall' && 'Prakiraan Curah Hujan' }
                 { activeTab === 'hth' && 'Update Data HTH' }
+                { activeTab === 'iklim_publikasi' && 'Publikasi & Prediksi Iklim' }
                 { activeTab === 'sdm' && 'SDM / Profil Pegawai' }
                 { activeTab === 'admin_users' && 'Kelola Admin Sistem' }
               </h1>
@@ -371,59 +326,6 @@ function AdminDashboardContent() {
 
           {/* Search and Profile Info */}
           <div className="flex items-center justify-end w-full md:w-auto gap-4">
-            
-            {/* Global Search Feature */}
-            <div className="relative z-50 flex items-center justify-end">
-              <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-[260px] md:w-[320px] opacity-100' : 'w-0 opacity-0'} overflow-hidden bg-slate-50 border border-slate-200 rounded-full h-10`}>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Cari data, berita, stasiun..."
-                  className="w-full bg-transparent border-none outline-none px-4 text-sm text-slate-800 placeholder:text-slate-400"
-                />
-                {searchTerm && (
-                  <button onClick={() => setSearchTerm("")} className="mr-3 text-slate-400 hover:text-slate-600 material-symbols-outlined text-[16px]">close</button>
-                )}
-              </div>
-              
-              <button 
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className={`w-10 h-10 ml-2 rounded-full flex items-center justify-center transition-all duration-300 ${isSearchOpen ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} shrink-0`}
-              >
-                <span className="material-symbols-outlined text-[20px]">search</span>
-              </button>
-
-              {/* Search Results Dropdown */}
-              {isSearchOpen && searchTerm.trim() && (
-                <div className="absolute top-full mt-2 right-0 w-[300px] md:w-[350px] bg-white border border-slate-200 shadow-xl rounded-xl py-2 max-h-[400px] overflow-y-auto">
-                  {searchResults.length > 0 ? (
-                    <div>
-                      <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-2">Hasil Pencarian</div>
-                      {searchResults.map((res, i) => (
-                        <div 
-                          key={`${res.type}-${res.id}-${i}`}
-                          onClick={() => {
-                            setActiveTab(res.tab);
-                            setIsSearchOpen(false);
-                            setSearchTerm("");
-                          }}
-                          className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex flex-col gap-0.5 border-l-2 border-transparent hover:border-blue-500 transition-all"
-                        >
-                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{res.label}</span>
-                          <span className="text-sm font-semibold text-slate-800 line-clamp-1">{res.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-4 py-8 text-center text-slate-500">
-                      <span className="material-symbols-outlined text-3xl mb-2 text-slate-300">search_off</span>
-                      <p className="text-sm font-medium">Tidak ada hasil yang ditemukan.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
             <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200">
               <div className="relative">
