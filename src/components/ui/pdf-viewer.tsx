@@ -26,7 +26,8 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
   const [zoomScale, setZoomScale] = useState<number>(1.0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"single" | "continuous">("continuous");
+  const [viewMode, setViewMode] = useState<"single" | "continuous">("single");
+  const [pageSizes, setPageSizes] = useState<{ [key: number]: { width: number; height: number } }>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
@@ -48,7 +49,7 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
           const script = document.createElement("script");
           script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
           script.async = true;
-          
+
           await new Promise((resolve, reject) => {
             script.onload = resolve;
             script.onerror = reject;
@@ -60,10 +61,9 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
           window.pdfjsLib.GlobalWorkerOptions.workerSrc =
             "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-          // Load PDF Document
           setIsLoading(true);
           setErrorMsg(null);
-          
+
           const loadingTask = window.pdfjsLib.getDocument({
             url: trimmed,
             cMapUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/",
@@ -81,7 +81,7 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
       } catch (err: any) {
         console.error("Error loading PDF via PDF.js:", err);
         if (isMounted) {
-          setErrorMsg("Gagal memuat PDF interaktif. Anda dapat membuka atau mengunduhnya secara langsung.");
+          setErrorMsg("Gagal memuat PDF secara langsung. Silakan buka tab baru atau unduh dokumen.");
           setIsLoading(false);
         }
       }
@@ -91,7 +91,6 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
 
     return () => {
       isMounted = false;
-      // Cancel any ongoing render tasks
       Object.values(renderTaskRefs.current).forEach((task) => {
         if (task && task.cancel) {
           try { task.cancel(); } catch (_) {}
@@ -100,13 +99,12 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
     };
   }, [trimmed, isGoogleDrive]);
 
-  // 2. Render Page on Canvas with High-DPI support for mobile & desktop
+  // 2. Render Page onto Canvas with true aspect ratio & High-DPI support
   const renderPage = useCallback(
     async (pageNumber: number, canvas: HTMLCanvasElement | null) => {
       if (!canvas || !pdfDocRef.current) return;
 
       try {
-        // Cancel existing render on this canvas if active
         if (renderTaskRefs.current[pageNumber]) {
           try {
             renderTaskRefs.current[pageNumber].cancel();
@@ -114,27 +112,47 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
         }
 
         const page = await pdfDocRef.current.getPage(pageNumber);
-        const containerWidth = containerRef.current
-          ? Math.min(containerRef.current.clientWidth - 24, 1000)
-          : 600;
 
-        const unscaledViewport = page.getViewport({ scale: 1 });
-        const autoScale = (containerWidth / unscaledViewport.width) * zoomScale;
-        const viewport = page.getViewport({ scale: autoScale });
+        // Determine container width accurately
+        let containerWidth = 600;
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          containerWidth = rect.width > 50 ? rect.width - 32 : window.innerWidth - 48;
+        } else if (typeof window !== "undefined") {
+          containerWidth = window.innerWidth - 48;
+        }
 
-        const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2.5) : 1;
+        const availableWidth = Math.max(Math.min(containerWidth, 900), 280);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
 
+        const scale = (availableWidth / unscaledViewport.width) * zoomScale;
+        const viewport = page.getViewport({ scale });
+
+        // Save calculated page sizes in state
+        setPageSizes((prev) => ({
+          ...prev,
+          [pageNumber]: { width: Math.floor(viewport.width), height: Math.floor(viewport.height) },
+        }));
+
+        const dpr = typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2;
+
+        // Set canvas internal resolution for crisp retina rendering
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
+
+        // Set explicit CSS dimensions with important styling to prevent any stylesheet compression
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        canvas.style.minHeight = `${Math.floor(viewport.height)}px`;
+        canvas.style.maxHeight = "none";
+        canvas.style.display = "block";
 
         const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) return;
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         const renderContext = {
           canvasContext: ctx,
@@ -154,7 +172,7 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
     [zoomScale]
   );
 
-  // 3. Trigger re-rendering when page / zoom / viewMode changes
+  // 3. Trigger render when state changes
   useEffect(() => {
     if (!pdfDocRef.current || isLoading) return;
 
@@ -162,7 +180,6 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
       const canvas = canvasRefs.current[currentPage];
       renderPage(currentPage, canvas);
     } else {
-      // Continuous mode: render all pages
       for (let i = 1; i <= numPages; i++) {
         const canvas = canvasRefs.current[i];
         renderPage(i, canvas);
@@ -170,12 +187,12 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
     }
   }, [currentPage, zoomScale, viewMode, numPages, isLoading, renderPage]);
 
-  // Handle window resize for responsiveness
+  // Window resize handler
   useEffect(() => {
-    let resizeTimer: any;
+    let timer: any;
     const handleResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
         if (!pdfDocRef.current || isLoading) return;
         if (viewMode === "single") {
           renderPage(currentPage, canvasRefs.current[currentPage]);
@@ -184,19 +201,19 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
             renderPage(i, canvasRefs.current[i]);
           }
         }
-      }, 250);
+      }, 300);
     };
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [currentPage, viewMode, numPages, isLoading, renderPage]);
 
-  // Zoom handlers
-  const handleZoomIn = () => setZoomScale((prev) => Math.min(prev + 0.25, 2.5));
-  const handleZoomOut = () => setZoomScale((prev) => Math.max(prev - 0.25, 0.6));
+  // Controls
+  const handleZoomIn = () => setZoomScale((prev) => Math.min(prev + 0.2, 2.4));
+  const handleZoomOut = () => setZoomScale((prev) => Math.max(prev - 0.2, 0.6));
   const handleResetZoom = () => setZoomScale(1.0);
 
-  // Google Drive fallback
+  // Google Drive URL handling
   if (isGoogleDrive) {
     const drivePreviewUrl = trimmed.replace(/\/view.*$/, "/preview").replace(/\/edit.*$/, "/preview");
     return (
@@ -231,80 +248,82 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
   }
 
   return (
-    <div className={`w-full rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-white flex flex-col ${className}`}>
+    <div className={`w-full rounded-2xl overflow-hidden shadow-lg border border-slate-800 bg-slate-950 flex flex-col ${className}`}>
       {/* Top Toolbar */}
-      <div className="bg-slate-900 text-white px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 sticky top-0 z-20">
-        {/* Title & Badge */}
+      <div className="bg-slate-900 text-white px-3 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 sticky top-0 z-20">
+        {/* Title & Info */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 border border-red-500/30">
             <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
           </div>
           <div className="min-w-0">
-            <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate block max-w-[150px] sm:max-w-xs md:max-w-md">
+            <h4 className="font-bold text-xs sm:text-sm text-slate-100 truncate block max-w-[140px] sm:max-w-xs md:max-w-md">
               {title}
             </h4>
           </div>
         </div>
 
-        {/* Controls: Zoom & View Mode & Page Navigation */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          {/* Zoom In / Out */}
-          <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+        {/* Toolbar Action Buttons */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Zoom Controls */}
+          <div className="flex items-center bg-slate-800 rounded-xl p-0.5 border border-slate-700">
             <button
               onClick={handleZoomOut}
               disabled={zoomScale <= 0.6}
-              title="Perkecil"
+              title="Perkecil (-)"
               className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">zoom_out</span>
             </button>
             <button
               onClick={handleResetZoom}
-              title="Reset Ukuran"
-              className="px-1.5 text-[11px] font-mono font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Reset Ukuran (100%)"
+              className="px-1.5 text-[11px] font-mono font-bold text-slate-200 hover:text-white transition-colors cursor-pointer"
             >
               {Math.round(zoomScale * 100)}%
             </button>
             <button
               onClick={handleZoomIn}
-              disabled={zoomScale >= 2.5}
-              title="Perbesar"
+              disabled={zoomScale >= 2.4}
+              title="Perbesar (+)"
               className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">zoom_in</span>
             </button>
           </div>
 
-          {/* Page Counter & Controls in Single View */}
+          {/* Toggle View Mode: 1 Halaman vs Semua Halaman */}
           {numPages > 1 && (
-            <div className="hidden sm:flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-              <button
-                onClick={() => setViewMode(viewMode === "single" ? "continuous" : "single")}
-                className="px-2 py-1 text-[11px] font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[14px]">
-                  {viewMode === "single" ? "auto_stories" : "splitscreen"}
-                </span>
-                <span>{viewMode === "single" ? "1 Hal" : "Semua"}</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setViewMode(viewMode === "single" ? "continuous" : "single")}
+              className="bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              title={viewMode === "single" ? "Tampilkan Semua Halaman (Scroll)" : "Tampilkan 1 Halaman"}
+            >
+              <span className="material-symbols-outlined text-[15px]">
+                {viewMode === "single" ? "splitscreen" : "auto_stories"}
+              </span>
+              <span className="text-[11px]">{viewMode === "single" ? "Semua" : "1 Hal"}</span>
+            </button>
           )}
 
+          {/* Page Navigation in Single View Mode */}
           {viewMode === "single" && numPages > 1 && (
-            <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+            <div className="flex items-center bg-slate-800 rounded-xl p-0.5 border border-slate-700">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
                 disabled={currentPage <= 1}
+                title="Halaman Sebelumnya"
                 className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">chevron_left</span>
               </button>
-              <span className="text-[11px] font-mono font-bold text-slate-300 px-1.5">
+              <span className="text-[11px] font-mono font-bold text-slate-200 px-2">
                 {currentPage} / {numPages}
               </span>
               <button
                 onClick={() => setCurrentPage((p) => Math.min(p + 1, numPages))}
                 disabled={currentPage >= numPages}
+                title="Halaman Selanjutnya"
                 className="w-7 h-7 flex items-center justify-center text-slate-300 hover:text-white disabled:opacity-30 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">chevron_right</span>
@@ -312,13 +331,13 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
             </div>
           )}
 
-          {/* Action: Open in New Tab & Download */}
+          {/* External Tab & Download */}
           <a
             href={trimmed}
             target="_blank"
             rel="noopener noreferrer"
-            title="Buka Tab Baru"
-            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 cursor-pointer"
+            title="Buka Dokumen di Tab Baru"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">open_in_new</span>
           </a>
@@ -328,7 +347,7 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
             target="_blank"
             rel="noopener noreferrer"
             title="Unduh Berkas PDF"
-            className="inline-flex items-center gap-1 bg-primary hover:bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1 bg-primary hover:bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[15px]">download</span>
             <span className="hidden sm:inline">Unduh</span>
@@ -336,16 +355,16 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
         </div>
       </div>
 
-      {/* Main Canvas Scroll Area (Mobile & Desktop Native Canvas Rendering) */}
+      {/* Main Viewport Container */}
       <div
         ref={containerRef}
-        className="w-full h-[70vh] sm:h-[78vh] md:h-[800px] overflow-y-auto overflow-x-auto bg-slate-800/95 flex flex-col items-center p-3 sm:p-6 space-y-4 touch-pan-y"
+        className="w-full h-[70vh] sm:h-[78vh] md:h-[820px] overflow-y-auto overflow-x-auto bg-slate-900 flex flex-col items-center p-2 sm:p-6 space-y-6 touch-pan-y"
       >
         {isLoading ? (
-          <div className="m-auto flex flex-col items-center justify-center py-16 gap-3 text-white">
-            <div className="w-10 h-10 border-4 border-white/20 border-t-sky-400 rounded-full animate-spin"></div>
+          <div className="m-auto flex flex-col items-center justify-center py-20 gap-3 text-white">
+            <div className="w-10 h-10 border-4 border-slate-700 border-t-sky-400 rounded-full animate-spin"></div>
             <span className="text-xs sm:text-sm font-semibold tracking-wide text-slate-300 animate-pulse">
-              Memuat halaman PDF langsung...
+              Memuat dokumen PDF...
             </span>
           </div>
         ) : errorMsg ? (
@@ -371,29 +390,39 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
             </div>
           </div>
         ) : viewMode === "single" ? (
-          /* Single Page View */
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col items-center transition-transform">
+          /* Single Page View - Full Height Complete Document Page */
+          <div
+            className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-700/60 flex flex-col items-center relative shrink-0 transition-all"
+            style={{
+              width: pageSizes[currentPage] ? `${pageSizes[currentPage].width}px` : "auto",
+              minHeight: pageSizes[currentPage] ? `${pageSizes[currentPage].height}px` : "auto",
+            }}
+          >
             <canvas
               ref={(el) => {
                 canvasRefs.current[currentPage] = el;
               }}
-              className="block max-w-full h-auto"
+              className="block shrink-0"
             />
           </div>
         ) : (
-          /* Continuous Scroll View (All Pages) */
+          /* Continuous Scroll View - All Full Height Document Pages */
           Array.from({ length: numPages }, (_, idx) => idx + 1).map((pageNum) => (
             <div
               key={pageNum}
-              className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-700/50 flex flex-col items-center relative group"
+              className="bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-700/60 flex flex-col items-center relative shrink-0 group transition-all"
+              style={{
+                width: pageSizes[pageNum] ? `${pageSizes[pageNum].width}px` : "auto",
+                minHeight: pageSizes[pageNum] ? `${pageSizes[pageNum].height}px` : "auto",
+              }}
             >
               <canvas
                 ref={(el) => {
                   canvasRefs.current[pageNum] = el;
                 }}
-                className="block max-w-full h-auto"
+                className="block shrink-0"
               />
-              <div className="absolute bottom-2 right-2 bg-slate-900/70 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-md opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <div className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2.5 py-1 rounded-md opacity-75 group-hover:opacity-100 transition-opacity pointer-events-none">
                 Hal {pageNum} / {numPages}
               </div>
             </div>
@@ -401,12 +430,17 @@ export function PdfViewer({ url, title = "Dokumen PDF", className = "" }: PdfVie
         )}
       </div>
 
-      {/* Bottom Bar: Total Pages Indicator on Mobile */}
-      {!isLoading && !errorMsg && numPages > 1 && (
-        <div className="bg-slate-900/90 text-slate-400 px-4 py-2 text-[11px] font-medium flex items-center justify-between border-t border-slate-800">
-          <span>Total: <strong>{numPages} Halaman</strong></span>
-          <span className="text-sky-400 font-bold">
-            {viewMode === "continuous" ? "Gulir ke bawah untuk melihat semua halaman" : `Halaman aktif: ${currentPage}`}
+      {/* Bottom Bar: Page Status & Navigation Helper */}
+      {!isLoading && !errorMsg && numPages > 0 && (
+        <div className="bg-slate-900 text-slate-400 px-4 py-2.5 text-xs font-medium flex items-center justify-between border-t border-slate-800">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[15px] text-sky-400">description</span>
+            <span>Total: <strong className="text-slate-200">{numPages} Halaman</strong></span>
+          </span>
+          <span className="text-sky-300 font-semibold text-[11px] sm:text-xs">
+            {viewMode === "single"
+              ? `Halaman ${currentPage} dari ${numPages} (Gunakan tombol < > untuk ganti halaman)`
+              : "Mode Gulir Penuh (Scroll ke bawah untuk melihat semua halaman)"}
           </span>
         </div>
       )}
