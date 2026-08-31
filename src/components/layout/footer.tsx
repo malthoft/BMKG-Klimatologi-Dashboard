@@ -17,8 +17,12 @@ export function Footer() {
               className="object-contain drop-shadow-[0_0_1.5px_rgba(255,255,255,0.8)]" 
             />
             <div className="flex flex-col justify-center">
-              <span className="text-white font-bold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">Stasiun Klimatologi</span>
-              <span className="text-sky-400 font-bold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">Kelas I Jawa Timur</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-sky-400 font-extrabold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">
+                Stasiun Klimatologi
+              </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-sky-400 font-extrabold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">
+                Kelas I Jawa Timur
+              </span>
             </div>
           </div>
           <p className="text-border opacity-80 mt-[16px] text-[1rem] leading-[1.6]">

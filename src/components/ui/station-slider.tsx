@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { supabaseFetch } from "@/lib/supabase";
@@ -59,17 +59,16 @@ const getConditionTheme = (condition: string) => {
 };
 
 const StationCardSkeleton = () => (
-  <div className="bg-white/50 rounded-2xl ring-1 ring-slate-100/80 relative overflow-hidden h-full flex flex-col justify-between px-4 pt-4 pb-4 min-h-[240px] animate-pulse">
+  <div className="bg-white/50 rounded-2xl ring-1 ring-slate-100/80 relative overflow-hidden h-full flex flex-col justify-between px-3 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4 min-h-[220px] animate-pulse">
     <div className="flex flex-col items-center gap-2 w-full h-full">
-      <div className="w-24 h-4 bg-slate-200 rounded-md mx-auto mb-1"></div>
-      <div className="w-16 h-3 bg-slate-100 rounded-md mx-auto mb-3"></div>
-      <div className="w-14 h-14 bg-slate-200/60 rounded-full mx-auto my-1"></div>
-      <div className="w-20 h-10 bg-slate-200/80 rounded-md mx-auto mt-2"></div>
-      <div className="w-16 h-4 bg-slate-100 rounded-full mx-auto mt-2"></div>
+      <div className="w-20 sm:w-24 h-4 bg-slate-200 rounded-md mx-auto mb-1"></div>
+      <div className="w-14 sm:w-16 h-3 bg-slate-100 rounded-md mx-auto mb-2"></div>
+      <div className="w-12 sm:w-14 h-12 sm:h-14 bg-slate-200/60 rounded-full mx-auto my-1"></div>
+      <div className="w-16 sm:w-20 h-8 sm:h-10 bg-slate-200/80 rounded-md mx-auto mt-1"></div>
       <hr className="w-full border-t border-slate-50 my-2" />
       <div className="grid grid-cols-2 gap-1.5 w-full mt-auto">
-        <div className="h-7 bg-slate-100 rounded-lg"></div>
-        <div className="h-7 bg-slate-100 rounded-lg"></div>
+        <div className="h-6 sm:h-7 bg-slate-100 rounded-lg"></div>
+        <div className="h-6 sm:h-7 bg-slate-100 rounded-lg"></div>
       </div>
     </div>
   </div>
@@ -84,19 +83,26 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
   const [loading, setLoading] = useState(!globalCardsCache);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [cardsPerPage, setCardsPerPage] = useState(6);
+  const [activeMobileIndex, setActiveMobileIndex] = useState(0);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
 
-  // Responsive cards per page
-  useEffect(() => {
-    const handleResize = () => {
-      setCardsPerPage(window.innerWidth < 640 ? 4 : 6);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
+  const cardsPerPage = 6;
   const totalPages = Math.ceil(cards.length / cardsPerPage);
+
+  // Group cards in pairs of 2 for mobile horizontal slide
+  const cardPairs: StationCardData[][] = [];
+  for (let i = 0; i < cards.length; i += 2) {
+    cardPairs.push(cards.slice(i, i + 2));
+  }
+
+  const handleMobileScroll = () => {
+    if (mobileScrollRef.current) {
+      const { scrollLeft, offsetWidth } = mobileScrollRef.current;
+      const slideWidth = offsetWidth * 0.92;
+      const index = Math.round(scrollLeft / slideWidth);
+      setActiveMobileIndex(Math.min(Math.max(0, index), Math.max(0, cardPairs.length - 1)));
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -146,7 +152,6 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
       try {
         const now = Date.now();
         
-        // Gunakan cache jika masih valid dan ini bukan update dari background
         if (!isIntervalUpdate && globalCardsCache && (now - lastFetchTime) < CACHE_DURATION) {
           if (isMounted) {
             setCards(globalCardsCache);
@@ -165,21 +170,18 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
           const firstBatch = stations.slice(0, 6);
           const secondBatch = stations.slice(6);
 
-          // Fase 1: Load 6 pertama
           const firstCards = await fetchBatch(firstBatch);
           if (isMounted && !isIntervalUpdate) {
             setCards(firstCards);
             setLoading(false);
           }
 
-          // Fase 2: Load sisanya
           if (secondBatch.length > 0 && isMounted) {
             const secondCards = await fetchBatch(secondBatch);
             if (isMounted) {
               const allCards = [...firstCards, ...secondCards];
               setCards(allCards);
               
-              // Simpan ke Cache Global
               globalCardsCache = allCards;
               lastFetchTime = Date.now();
             }
@@ -232,6 +234,110 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
     (currentPage + 1) * cardsPerPage
   );
 
+  const renderCard = (card: StationCardData, idx: number) => {
+    const theme = getConditionTheme(card.condition);
+    
+    const inner = (
+      <div className={`bg-white rounded-2xl cursor-pointer transition-all duration-500 hover:-translate-y-1.5 hover:shadow-xl ${theme.shadow} ring-1 ring-slate-100/80 ${theme.ring} group relative overflow-hidden h-full z-0 flex flex-col`}>
+
+        {/* Status Dot (Top Right) */}
+        <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center justify-center">
+          {card.condition !== "Offline" ? (
+            <span className="relative flex h-2 sm:h-2.5 w-2 sm:w-2.5">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${theme.accent}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 sm:h-2.5 w-2 sm:w-2.5 ${theme.accent}`}></span>
+            </span>
+          ) : (
+            <span className={`w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full ${theme.accent}`}></span>
+          )}
+        </div>
+
+        {/* Ambient Glow behind icon on hover */}
+        <div className={`absolute top-10 sm:top-12 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-20 sm:h-28 rounded-full bg-gradient-to-b ${theme.glow} opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-700 pointer-events-none`}></div>
+
+        {/* Watermark */}
+        <span 
+          className={`material-symbols-outlined absolute -bottom-4 -right-3 text-[90px] sm:text-[120px] ${theme.icon} opacity-[0.02] group-hover:opacity-[0.05] rotate-[-15deg] group-hover:scale-110 transition-all duration-700 pointer-events-none`}
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          {card.icon}
+        </span>
+
+        {/* Card Body */}
+        <div className="flex flex-col items-center px-2.5 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4 relative z-10 flex-1 justify-between gap-1.5 sm:gap-2">
+
+          {/* Station Name */}
+          <h4 className="font-bold text-slate-800 text-[0.8rem] sm:text-[0.9rem] leading-snug text-center w-full px-1 truncate">
+            {(card.station.display_name || card.station.station_name).replace("AWS ", "")}
+          </h4>
+
+          {/* Time Badge */}
+          <div className="flex items-center gap-1 text-slate-400 shrink-0">
+            <span className="material-symbols-outlined text-[10px] sm:text-[11px]">schedule</span>
+            <span className="text-[9px] sm:text-[10px] font-semibold tracking-wide">{card.time}</span>
+          </div>
+
+          {/* Weather Icon */}
+          <div className="relative my-1 sm:my-2 group-hover:scale-105 transition-transform duration-500">
+            <span
+              className={`material-symbols-outlined text-[40px] sm:text-[52px] ${theme.icon} drop-shadow-sm`}
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              {card.icon}
+            </span>
+          </div>
+
+          {/* Temperature */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-start">
+              <span className="text-[2.2rem] sm:text-[2.8rem] font-black text-slate-800 tracking-tighter leading-none tabular-nums">
+                {card.temp !== 0 ? card.temp : "--"}
+              </span>
+              <span className="text-sm sm:text-lg font-bold text-slate-300 ml-0.5 mt-0.5 sm:mt-1">°C</span>
+            </div>
+            {/* Minimum Temperature Indicator */}
+            {card.min_temp !== undefined && (
+              <div className="flex items-center gap-1 mt-0.5 sm:mt-1 bg-white px-1.5 sm:px-2 py-0.5 rounded-full border border-slate-100 shadow-sm shadow-slate-200/20 group-hover:border-blue-100 group-hover:shadow-blue-100/50 transition-all">
+                <div className="flex items-center justify-center w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-blue-50 text-blue-600 shrink-0">
+                  <span className="material-symbols-outlined font-bold leading-none" style={{ fontSize: '9px' }}>ac_unit</span>
+                </div>
+                <div className="flex items-center gap-0.5 sm:gap-1">
+                  <span className="text-[7.5px] sm:text-[8.5px] font-bold text-slate-400 uppercase tracking-widest mt-px">Min</span>
+                  <span className="text-[9px] sm:text-[10px] font-black text-slate-700">{card.min_temp}°C</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Divider Line */}
+          <hr className="w-full border-t border-slate-100 my-1" />
+
+          {/* Condition + Humidity Pills in Fixed Grid for Consistency */}
+          <div className="grid grid-cols-2 gap-1 sm:gap-1.5 w-full mt-0.5">
+            <div className={`flex items-center justify-center px-1 sm:px-1.5 py-1 rounded-md sm:rounded-lg border text-[8.5px] sm:text-[9.5px] font-bold text-center leading-[1.1] min-h-[26px] sm:min-h-[30px] ${theme.pill}`}>
+              <span className="truncate">{card.condition}</span>
+            </div>
+            <div className="flex items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-1 rounded-md sm:rounded-lg border bg-blue-50 text-blue-700 border-blue-100 text-[8.5px] sm:text-[10px] font-bold min-h-[26px] sm:min-h-[30px]">
+              <span className="material-symbols-outlined text-[10px] sm:text-[11px]">water_drop</span>
+              <span>{card.rh !== 0 ? `${card.rh}%` : "--"}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+
+    return onStationSelect ? (
+      <div key={idx} onClick={() => onStationSelect(card.station.table_name)} className="h-full">
+        {inner}
+      </div>
+    ) : (
+      <Link key={idx} href={`/data-pengamatan?station=${card.station.table_name}`} className="h-full block">
+        {inner}
+      </Link>
+    );
+  };
+
   if (loading) {
     return (
       <div className="w-full flex flex-col gap-5">
@@ -251,7 +357,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
         </div>
 
         {/* Grid of Skeleton Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pt-4 pb-6 px-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 overflow-x-auto pt-4 pb-6 px-1">
           {Array.from({ length: 6 }).map((_, idx) => (
             <StationCardSkeleton key={idx} />
           ))}
@@ -303,8 +409,8 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
           </div>
         </div>
 
-        {/* Navigation Arrows & Page Counter */}
-        <div className="flex items-center gap-3">
+        {/* Navigation Arrows & Page Counter (Desktop Only) */}
+        <div className="hidden lg:flex items-center gap-3">
           <div className="flex items-center gap-1">
             <button
               onClick={() => goToPage(currentPage - 1)}
@@ -327,134 +433,74 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
         </div>
       </div>
 
-      {/* Grid of Station Cards with Smooth Transition & Side Scroll */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentPage}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 overflow-x-auto pt-4 pb-6 px-1"
+      {/* 1. Mobile & Tablet Swipeable Carousel (block lg:hidden) - 2 Cards per slide */}
+      <div className="block lg:hidden w-full">
+        <div
+          ref={mobileScrollRef}
+          onScroll={handleMobileScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory gap-3.5 pb-4 pt-2 scrollbar-hide -mx-6 px-6"
         >
-          {pageCards.map((card, idx) => {
-            const theme = getConditionTheme(card.condition);
-            
-            const inner = (
-              <div className={`bg-white rounded-2xl cursor-pointer transition-all duration-500 hover:-translate-y-2 hover:shadow-xl ${theme.shadow} ring-1 ring-slate-100/80 ${theme.ring} group relative overflow-hidden h-full z-0 flex flex-col`}>
-
-                {/* Status Dot (Top Right) */}
-                <div className="absolute top-4 right-4 z-20 flex items-center justify-center">
-                  {card.condition !== "Offline" ? (
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${theme.accent}`}></span>
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${theme.accent}`}></span>
-                    </span>
-                  ) : (
-                    <span className={`w-2.5 h-2.5 rounded-full ${theme.accent}`}></span>
-                  )}
+          {cardPairs.map((pair, slideIdx) => (
+            <div key={slideIdx} className="w-[92vw] sm:w-[88vw] shrink-0 snap-center grid grid-cols-2 gap-2.5 sm:gap-4">
+              {pair.map((card, idx) => (
+                <div key={idx} className="w-full h-full">
+                  {renderCard(card, slideIdx * 2 + idx)}
                 </div>
+              ))}
+            </div>
+          ))}
+        </div>
 
-                {/* Ambient Glow behind icon on hover */}
-                <div className={`absolute top-12 left-1/2 -translate-x-1/2 w-28 h-28 rounded-full bg-gradient-to-b ${theme.glow} opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-700 pointer-events-none`}></div>
+        {/* Mobile Dot Indicators */}
+        {cardPairs.length > 1 && (
+          <div className="flex justify-center items-center gap-1.5 mt-2 overflow-x-auto py-1 max-w-full">
+            {cardPairs.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (mobileScrollRef.current) {
+                    const slideWidth = mobileScrollRef.current.offsetWidth * 0.92;
+                    mobileScrollRef.current.scrollTo({ left: idx * slideWidth, behavior: "smooth" });
+                  }
+                }}
+                className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                  activeMobileIndex === idx ? "w-6 bg-primary" : "w-2 bg-slate-300"
+                }`}
+                aria-label={`Ke slide ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-                {/* Watermark */}
-                <span 
-                  className={`material-symbols-outlined absolute -bottom-4 -right-3 text-[120px] ${theme.icon} opacity-[0.02] group-hover:opacity-[0.05] rotate-[-15deg] group-hover:scale-110 transition-all duration-700 pointer-events-none`}
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  {card.icon}
-                </span>
+      {/* 2. Desktop Grid with Smooth Page Transitions (hidden lg:block) */}
+      <div className="hidden lg:block w-full">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="grid grid-cols-6 gap-4 pt-2 pb-4"
+          >
+            {pageCards.map((card, idx) => renderCard(card, idx))}
+          </motion.div>
+        </AnimatePresence>
 
-                {/* Card Body */}
-                <div className="flex flex-col items-center px-4 pt-4 pb-4 relative z-10 flex-1 justify-between gap-2">
-
-                  {/* Station Name */}
-                  <h4 className="font-bold text-slate-800 text-[0.9rem] leading-snug text-center w-full px-4 break-words">
-                    {(card.station.display_name || card.station.station_name).replace("AWS ", "")}
-                  </h4>
-
-                  {/* Time Badge */}
-                  <div className="flex items-center gap-1 text-slate-400 shrink-0">
-                    <span className="material-symbols-outlined text-[11px]">schedule</span>
-                    <span className="text-[10px] font-semibold tracking-wide">{card.time}</span>
-                  </div>
-
-                  {/* Weather Icon */}
-                  <div className="relative my-2 group-hover:scale-105 transition-transform duration-500">
-                    <span
-                      className={`material-symbols-outlined text-[52px] ${theme.icon} drop-shadow-sm`}
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      {card.icon}
-                    </span>
-                  </div>
-
-                  {/* Temperature */}
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-start">
-                      <span className="text-[2.8rem] font-black text-slate-800 tracking-tighter leading-none tabular-nums">
-                        {card.temp !== 0 ? card.temp : "--"}
-                      </span>
-                      <span className="text-lg font-bold text-slate-300 ml-0.5 mt-1">°C</span>
-                    </div>
-                    {/* Minimum Temperature Indicator */}
-                    {card.min_temp !== undefined && (
-                      <div className="flex items-center gap-1 mt-1 bg-white px-2 py-0.5 rounded-full border border-slate-100 shadow-sm shadow-slate-200/20 group-hover:border-blue-100 group-hover:shadow-blue-100/50 transition-all">
-                        <div className="flex items-center justify-center w-3 h-3 rounded-full bg-blue-50/80 text-blue-600">
-                          <span className="material-symbols-outlined font-bold" style={{ fontSize: '10px' }}>ac_unit</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-px">Min</span>
-                          <span className="text-[10px] font-black text-slate-700">{card.min_temp}°C</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Divider Line */}
-                  <hr className="w-full border-t border-slate-100 mt-2 mb-1" />
-
-                  {/* Condition + Humidity Pills in Fixed Grid for Consistency */}
-                  <div className="grid grid-cols-2 gap-1.5 w-full mt-1">
-                    <div className={`flex items-center justify-center px-1.5 py-1 rounded-lg border text-[9.5px] font-bold text-center leading-[1.1] min-h-[30px] ${theme.pill}`}>
-                      <span>{card.condition}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1 px-1.5 py-1 rounded-lg border bg-blue-50 text-blue-700 border-blue-100 text-[10px] font-bold min-h-[30px]">
-                      <span className="material-symbols-outlined text-[11px]">water_drop</span>
-                      <span>{card.rh !== 0 ? `${card.rh}%` : "--"}</span>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            );
-
-            return onStationSelect ? (
-              <div key={idx} onClick={() => onStationSelect(card.station.table_name)} className="h-full">
-                {inner}
-              </div>
-            ) : (
-              <Link key={idx} href={`/data-pengamatan?station=${card.station.table_name}`} className="h-full block">
-                {inner}
-              </Link>
-            );
-          })}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Page Dots Navigation */}
-      <div className="flex justify-center items-center gap-2">
-        {Array.from({ length: totalPages }).map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => goToPage(idx)}
-            aria-label={`Go to page ${idx + 1}`}
-            className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-              idx === currentPage ? "w-7 bg-primary" : "w-2 bg-gray-300 hover:bg-gray-400"
-            }`}
-          />
-        ))}
+        {/* Desktop Page Dots Navigation */}
+        <div className="flex justify-center items-center gap-2 mt-2">
+          {Array.from({ length: totalPages }).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => goToPage(idx)}
+              aria-label={`Go to page ${idx + 1}`}
+              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                idx === currentPage ? "w-7 bg-primary" : "w-2 bg-gray-300 hover:bg-gray-400"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

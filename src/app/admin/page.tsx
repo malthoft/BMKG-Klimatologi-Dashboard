@@ -19,6 +19,8 @@ import { RainfallTab } from "@/components/admin/tabs/RainfallTab";
 import { TempMapsTab } from "@/components/admin/tabs/TempMapsTab";
 import { HthTab } from "@/components/admin/tabs/HthTab";
 import { IklimPublikasiTab } from "@/components/admin/tabs/IklimPublikasiTab";
+import { PelayananPublikTab } from "@/components/admin/tabs/PelayananPublikTab";
+import { EBuletinTab } from "@/components/admin/tabs/EBuletinTab";
 import { AdminUsersTab } from "@/components/admin/tabs/AdminUsersTab";
 import { ProfileDropdown } from "@/components/admin/ProfileDropdown";
 import { AccountSettingsModal } from "@/components/admin/AccountSettingsModal";
@@ -36,6 +38,7 @@ function AdminDashboardContent() {
   // Default all nav groups to open
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({
     beranda: true,
+    layanan: true,
     profil: false,
     iklim: false,
     publikasi: false,
@@ -85,6 +88,8 @@ function AdminDashboardContent() {
       case 'tempmaps': return <TempMapsTab />;
       case 'hth': return <HthTab />;
       case 'iklim_publikasi': return <IklimPublikasiTab />;
+      case 'pelayanan': return <PelayananPublikTab />;
+      case 'ebuletin': return <EBuletinTab />;
       case 'admin_users': return <AdminUsersTab />;
       default: return <StationsTab />;
     }
@@ -100,7 +105,7 @@ function AdminDashboardContent() {
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-background text-on-surface font-sans flex">
+    <div className="h-screen bg-background text-on-surface font-sans flex overflow-hidden">
       {/* Sidebar */}
       <aside className="w-[280px] bg-white border-r border-slate-200 flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-sm z-20">
         <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-center">
@@ -149,6 +154,48 @@ function AdminDashboardContent() {
                   )}
                 </a>
               ))}
+            </div>
+          </div>
+
+          {/* Pelayanan Publik / Sipadu Group */}
+          <div>
+            <button onClick={() => setOpenNavGroups({...openNavGroups, layanan: !openNavGroups.layanan})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors">
+              <span>Pelayanan Publik</span>
+              <span className="material-symbols-outlined text-[16px]">{openNavGroups.layanan ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            <div className={`space-y-1 pl-2 border-l-2 border-slate-100 ml-3 transition-all overflow-hidden ${openNavGroups.layanan ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <a 
+                onClick={() => setActiveTab('pelayanan')}
+                className={`flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group relative ${
+                  activeTab === 'pelayanan' 
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-100/50' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent'
+                }`}
+              >
+                {activeTab === 'pelayanan' && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-1 bg-blue-600 rounded-r-full" />
+                )}
+                <div className="flex items-center gap-3">
+                  <span className={`material-symbols-outlined transition-transform duration-200 text-[18px] ${activeTab === 'pelayanan' ? 'scale-110' : 'group-hover:scale-110'}`}>folder_open</span>
+                  <span className="text-[13px]">Kelola Konten Pelayanan</span>
+                </div>
+              </a>
+              <a 
+                href="https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=admin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent group"
+                title="Buka SIPADU - Daftar Berkas Masuk"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined transition-transform duration-200 text-[18px] text-blue-600 group-hover:scale-110">folder_shared</span>
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-bold text-slate-800 leading-tight">Sipadu Admin</span>
+                    <span className="text-[10px] text-slate-400">Daftar Berkas Masuk</span>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors">open_in_new</span>
+              </a>
             </div>
           </div>
 
@@ -254,6 +301,7 @@ function AdminDashboardContent() {
               {[
                 { id: 'berita', icon: 'newspaper', label: 'Berita & Kegiatan' },
                 { id: 'pengumuman', icon: 'campaign', label: 'Pengumuman' },
+                { id: 'ebuletin', icon: 'menu_book', label: 'E-Buletin' },
                 { id: 'instagram', icon: 'photo_library', label: 'Galeri Instagram' },
               ].map(tab => (
                 <a 
@@ -297,6 +345,8 @@ function AdminDashboardContent() {
                 { activeTab === 'rainfall' && 'Prakiraan Curah Hujan' }
                 { activeTab === 'hth' && 'Update Data HTH' }
                 { activeTab === 'iklim_publikasi' && 'Publikasi & Prediksi Iklim' }
+                { activeTab === 'pelayanan' && 'Kelola Konten Pelayanan Publik' }
+                { activeTab === 'ebuletin' && 'Kelola E-Buletin Kota & Kabupaten' }
                 { activeTab === 'sdm' && 'SDM / Profil Pegawai' }
                 { activeTab === 'admin_users' && 'Kelola Admin Sistem' }
               </h1>
@@ -364,11 +414,21 @@ function AdminDashboardContent() {
             <div className="relative">
               <select 
                 value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === "sipadu") {
+                    window.open("https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=admin", "_blank");
+                  } else {
+                    setActiveTab(e.target.value);
+                  }
+                }}
                 className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <optgroup label="Beranda & Umum">
                   <option value="stations">Daftar AWS</option>
+                </optgroup>
+                <optgroup label="Pelayanan Publik">
+                  <option value="pelayanan">Kelola Konten Pelayanan</option>
+                  <option value="sipadu">Sipadu Admin (Daftar Berkas Masuk) ↗</option>
                 </optgroup>
                 <optgroup label="Iklim">
                   <option value="observations">Data Pengamatan</option>
@@ -380,6 +440,7 @@ function AdminDashboardContent() {
                 <optgroup label="Publikasi">
                   <option value="berita">Berita & Kegiatan</option>
                   <option value="pengumuman">Pengumuman</option>
+                  <option value="ebuletin">E-Buletin</option>
                   <option value="instagram">Galeri Instagram</option>
                 </optgroup>
                 {user?.role === "super_admin" && (

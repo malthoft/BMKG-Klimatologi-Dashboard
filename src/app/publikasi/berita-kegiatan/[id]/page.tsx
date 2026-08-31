@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { BackButton } from "@/components/ui/back-button";
 import { supabaseFetch, supabaseGetPublicUrl } from "@/lib/supabase";
+import { formatDescriptionHtml } from "@/lib/utils";
 
 export default function BeritaKegiatanDetailPage() {
   const { id } = useParams();
@@ -42,11 +44,11 @@ export default function BeritaKegiatanDetailPage() {
     <>
       <Header activeRoute="/publikasi/berita-kegiatan" />
       <main className="min-h-screen bg-slate-50 pt-24 pb-12 w-full">
-        <div className="max-w-4xl mx-auto px-6">
-          <Link href="/publikasi/berita-kegiatan" className="inline-flex items-center gap-1 text-primary hover:text-secondary font-medium mb-6 transition-colors">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <BackButton fallbackHref="/publikasi/berita-kegiatan" className="inline-flex items-center gap-1 text-primary hover:text-secondary font-medium mb-6 transition-colors cursor-pointer bg-transparent border-0 p-0">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-            Kembali ke Berita & Kegiatan
-          </Link>
+            Kembali
+          </BackButton>
 
           {loading ? (
             <div className="flex justify-center py-20">
@@ -55,14 +57,14 @@ export default function BeritaKegiatanDetailPage() {
           ) : data ? (
             <div className="flex flex-col gap-6 w-full max-w-full">
               {/* Header Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 w-full max-w-full overflow-hidden break-words">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 md:p-8 w-full max-w-full overflow-hidden">
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                     {data.kategori || "Berita"}
                   </span>
                 </div>
                 
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 mb-6 leading-tight break-words">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 mb-6 leading-tight">
                   {data.judul}
                 </h1>
                 
@@ -88,10 +90,10 @@ export default function BeritaKegiatanDetailPage() {
               )}
               
               {/* Description Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8 w-full max-w-full overflow-hidden break-words">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 md:p-8 w-full max-w-full overflow-hidden">
                 <div 
-                  className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-base w-full max-w-full break-words overflow-hidden"
-                  dangerouslySetInnerHTML={{ __html: data.deskripsi || "" }}
+                  className="prose prose-slate max-w-none text-slate-700 text-sm sm:text-base leading-relaxed sm:leading-loose w-full max-w-full overflow-hidden"
+                  dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(data.deskripsi || "") }}
                 />
                 
                 <div className="mt-12 pt-6 border-t border-slate-100 text-xs text-slate-400 font-medium">

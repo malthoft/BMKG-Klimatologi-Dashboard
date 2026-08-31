@@ -101,6 +101,7 @@ export default function GaleriInstagram() {
                         src={getDirectImageUrl(post.image_url)}
                         fill
                         unoptimized
+                        referrerPolicy="no-referrer"
                         className="object-cover opacity-50 blur-xl scale-125 saturate-150"
                         sizes="(max-width: 768px) 100vw, 33vw"
                       />
@@ -113,6 +114,7 @@ export default function GaleriInstagram() {
                       src={getDirectImageUrl(post.image_url)}
                       fill
                       unoptimized
+                      referrerPolicy="no-referrer"
                       sizes="(max-width: 768px) 100vw, 33vw"
                     />
                     

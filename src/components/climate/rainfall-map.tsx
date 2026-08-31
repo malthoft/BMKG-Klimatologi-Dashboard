@@ -90,98 +90,143 @@ function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData
   const map = useMap();
   const [query, setQuery] = useState("");
   const [show, setShow] = useState(false);
-  const [selectedValue, setSelectedValue] = useState<any>(null);
+  const [selectedResult, setSelectedResult] = useState<{
+    latlng: [number, number];
+    name: string;
+    kabupaten: string;
+    value: number;
+  } | null>(null);
   
   const results = useMemo(() => {
-    if (!kecamatanData?.features || !query) return [];
+    if (!kecamatanData?.features || !query.trim()) return [];
+    const q = query.toLowerCase().trim();
     return kecamatanData.features.filter((f: any) => {
       const p = f.properties || {};
-      const namakec = (p.KECAMATAN || p.NAMAKEC || "").toLowerCase();
-      const kab = (p.KABUPATEN || "").toLowerCase();
-      const q = query.toLowerCase();
+      const namakec = (p.KECAMATAN || p.NAMAKEC || p.NAMOBJ || "").toLowerCase();
+      const kab = (p.KABUPATEN || p.WADMKK || "").toLowerCase();
       return namakec.includes(q) || kab.includes(q);
-    }).slice(0, 5);
+    }).slice(0, 8);
   }, [kecamatanData, query]);
 
   const handleSelect = (feature: any) => {
     try {
       const bounds = L.geoJSON(feature).getBounds();
       if (bounds.isValid()) {
-        map.flyToBounds(bounds, { padding: [50, 50], duration: 1.5 });
-        
-        if (geoData && geoData.features) {
-          const center = bounds.getCenter();
-          const pt = turf.point([center.lng, center.lat]);
-          
-          let foundValue = 0;
-          for (const poly of geoData.features) {
-            if (turf.booleanPointInPolygon(pt, poly)) {
-              foundValue = poly.properties.gridcode || poly.properties.value || poly.properties.CH || 0;
-              break;
+        const center = bounds.getCenter();
+        const p = feature.properties || {};
+        const name = p.KECAMATAN || p.NAMAKEC || p.NAMOBJ || "Wilayah";
+        const kab = p.KABUPATEN || p.WADMKK || "-";
+
+        let val = p._ch_value || 0;
+
+        // Jika belum ada nilai, interpolasi menggunakan point atau polygon
+        if (!val && geoData && geoData.features && geoData.features.length > 0) {
+          try {
+            if (geoData.features[0].geometry.type === 'Point') {
+              const centroid = turf.centroid(feature as any);
+              const nearest = turf.nearestPoint(centroid, geoData as any);
+              val = nearest ? (nearest.properties.gridcode || nearest.properties.value || nearest.properties.CH || 0) : 0;
+            } else {
+              const pt = turf.point([center.lng, center.lat]);
+              for (const poly of geoData.features) {
+                if (turf.booleanPointInPolygon(pt, poly)) {
+                  val = poly.properties.gridcode || poly.properties.value || poly.properties.CH || 0;
+                  break;
+                }
+              }
             }
-          }
-          
-          if (foundValue > 0) {
-            setSelectedValue({ latlng: center, value: foundValue });
-          } else {
-            setSelectedValue(null);
+          } catch (err) {
+            console.error("Gagal menghitung nilai curah hujan search:", err);
           }
         }
+
+        setSelectedResult({
+          latlng: [center.lat, center.lng],
+          name: name,
+          kabupaten: kab,
+          value: val
+        });
+
+        map.flyToBounds(bounds, { padding: [50, 50], duration: 1.2 });
       }
-    } catch(e) {}
+    } catch(e) {
+      console.error("Error on select search item:", e);
+    }
     setShow(false);
-    setQuery(feature.properties.KECAMATAN || feature.properties.NAMAKEC || "");
+    setQuery(feature.properties?.KECAMATAN || feature.properties?.NAMAKEC || feature.properties?.NAMOBJ || "");
   };
 
   return (
     <>
       <div className="absolute top-4 right-4 z-[1000] w-64 md:w-80 shadow-lg rounded-xl bg-white border border-slate-200 flex flex-col overflow-hidden">
-      <div className="flex items-center px-3 py-2 bg-white">
-        <Search className="w-5 h-5 text-slate-400 mr-2" />
-        <input 
-          type="text" 
-          placeholder="Cari daerah..." 
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setShow(e.target.value.length > 0);
-          }}
-          onFocus={() => { if(query.length > 0) setShow(true); }}
-          className="w-full outline-none text-sm font-medium bg-transparent text-slate-800 placeholder:text-slate-400"
-        />
-      </div>
-      {show && results.length > 0 && (
-        <div className="max-h-48 overflow-y-auto border-t border-slate-100 bg-white">
-          {results.map((f: any, idx: number) => {
-            const p = f.properties || {};
-            const namakec = p.KECAMATAN || p.NAMAKEC || "Kecamatan";
-            return (
-              <button 
-                key={idx}
-                onClick={() => handleSelect(f)}
-                className="w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-50 last:border-0 flex flex-col"
-              >
-                <span className="text-sm font-bold text-slate-700">{namakec}</span>
-                <span className="text-xs text-slate-500">Kabupaten {p.KABUPATEN || "-"}</span>
-              </button>
-            )
-          })}
+        <div className="flex items-center px-3 py-2 bg-white">
+          <Search className="w-5 h-5 text-slate-400 mr-2" />
+          <input 
+            type="text" 
+            placeholder="Cari kecamatan atau kabupaten..." 
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setShow(e.target.value.length > 0);
+            }}
+            onFocus={() => { if(query.length > 0) setShow(true); }}
+            className="w-full outline-none text-sm font-medium bg-transparent text-slate-800 placeholder:text-slate-400"
+          />
         </div>
-      )}
-      {show && query.length > 0 && results.length === 0 && (
-        <div className="px-4 py-3 text-sm text-slate-500 bg-white border-t border-slate-100 text-center">
-          Daerah tidak ditemukan
-        </div>
-      )}
+        {show && results.length > 0 && (
+          <div className="max-h-56 overflow-y-auto border-t border-slate-100 bg-white divide-y divide-slate-50">
+            {results.map((f: any, idx: number) => {
+              const p = f.properties || {};
+              const namakec = p.KECAMATAN || p.NAMAKEC || p.NAMOBJ || "Kecamatan";
+              const kab = p.KABUPATEN || p.WADMKK || "-";
+              return (
+                <button 
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelect(f)}
+                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50/60 transition-colors flex flex-col cursor-pointer group"
+                >
+                  <span className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">{namakec}</span>
+                  <span className="text-xs text-slate-500">Kabupaten {kab}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {show && query.length > 0 && results.length === 0 && (
+          <div className="px-4 py-3 text-sm text-slate-500 bg-white border-t border-slate-100 text-center">
+            Daerah tidak ditemukan
+          </div>
+        )}
       </div>
       
-      {selectedValue && (
-        <Popup position={selectedValue.latlng} eventHandlers={{ remove: () => setSelectedValue(null) }}>
-          <div className="p-2">
-            <h4 className="font-bold text-slate-800">Prakiraan Curah Hujan</h4>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: getColor(selectedValue.value) }}></span>
-              <span className="text-sm">Curah Hujan: <b>{selectedValue.value} mm</b></span>
+      {selectedResult && (
+        <Popup 
+          position={selectedResult.latlng} 
+          eventHandlers={{ remove: () => setSelectedResult(null) }}
+          className="custom-bmkg-popup"
+        >
+          <div style={{ minWidth: "220px", padding: 0, fontFamily: "sans-serif" }}>
+            <div style={{ backgroundColor: "#0d6efd", color: "white", padding: "10px 15px", fontWeight: "bold", textAlign: "center", fontSize: "14px" }}>
+              DETAIL INFO
+            </div>
+            <div style={{ padding: "15px", background: "white" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px dashed #e2e8f0", paddingBottom: "8px", marginBottom: "10px", fontSize: "13px" }}>
+                <span style={{ color: "#475569" }}>Kecamatan:</span>
+                <span style={{ color: "#0d6efd", fontWeight: "bold" }}>{selectedResult.name}</span>
+              </div>
+              {selectedResult.kabupaten && selectedResult.kabupaten !== "-" && (
+                <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px dashed #e2e8f0", paddingBottom: "8px", marginBottom: "12px", fontSize: "12px" }}>
+                  <span style={{ color: "#475569" }}>Kabupaten:</span>
+                  <span style={{ color: "#1e293b", fontWeight: "600" }}>{selectedResult.kabupaten}</span>
+                </div>
+              )}
+              <div style={{ textAlign: "center", marginTop: "10px" }}>
+                <span style={{ color: "#64748b", fontSize: "11px", display: "block", marginBottom: "6px" }}>Prakiraan Hujan</span>
+                <div style={{ backgroundColor: getColor(selectedResult.value), color: selectedResult.value > 150 || selectedResult.value <= 20 ? "white" : "black", padding: "6px 12px", borderRadius: "8px", fontWeight: "bold", display: "inline-block", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", fontSize: "12px" }}>
+                  {getLabel(selectedResult.value)}
+                </div>
+              </div>
             </div>
           </div>
         </Popup>
@@ -428,7 +473,7 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
             <span className="inline md:hidden">Gunakan dua jari untuk zoom peta</span>
           </div>
 
-          <SearchControl kecamatanData={kecamatanData} geoData={geoData} />
+          <SearchControl kecamatanData={coloredKecamatanData || kecamatanData} geoData={geoData} />
 
           {showForecast && geoData && (
             <GeoJSON 

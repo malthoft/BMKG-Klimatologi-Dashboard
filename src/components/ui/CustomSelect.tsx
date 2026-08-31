@@ -66,7 +66,7 @@ export function CustomSelect({ value, onChange, options, placeholder = "Pilih...
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-[99] top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto"
+            className="absolute z-[99] top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden max-h-[210px] overflow-y-auto"
           >
             {options.map((option) => (
               <button

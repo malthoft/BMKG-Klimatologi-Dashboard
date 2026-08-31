@@ -74,3 +74,25 @@ export interface RainfallForecast {
   created_at?: string;
 }
 
+export interface PelayananPublik {
+  id: number;
+  kategori: "pk" | "lakip" | "rkt" | "maklumat" | "standar" | "jenis" | "pnbp" | "tarif-nol" | string;
+  judul: string;
+  file_url: string;
+  deskripsi?: string;
+  penulis?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EBuletin {
+  id: number;
+  wilayah: string;
+  judul: string;
+  edisi?: string;
+  pdf_url: string;
+  penulis?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+

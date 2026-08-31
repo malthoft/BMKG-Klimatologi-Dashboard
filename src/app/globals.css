@@ -33,11 +33,18 @@
   animation: float 4s ease-in-out infinite;
 }
 
-body, html {
+html {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-feature-settings: "tnum" on;
-  width: 100%;
+  overflow-x: clip;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
 }
 
 /* Utilitas untuk menyembunyikan scrollbar secara visual namun tetap bisa di-scroll */
@@ -56,15 +63,16 @@ body, html {
   padding-bottom: 0.1px;
 }
 
-/* Memastikan semua konten editor (teks, gambar, iframe, dll.) responsif dan tidak keluar dari card */
+/* Memastikan semua konten editor (teks, gambar, iframe, dll.) responsif, rapi, dan tidak memotong kata di tengah huruf */
 .prose {
-  overflow-wrap: anywhere;
-  word-break: break-word;
   max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .prose p, 
 .prose span, 
+.prose div,
 .prose h1, 
 .prose h2, 
 .prose h3, 
@@ -72,10 +80,79 @@ body, html {
 .prose h5, 
 .prose h6, 
 .prose li, 
-.prose blockquote, 
+.prose blockquote {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+.prose p {
+  margin-top: 0.85em;
+  margin-bottom: 0.85em;
+  line-height: 1.75;
+}
+
+.prose ol,
+.prose ul {
+  margin-top: 0.6em;
+  margin-bottom: 0.6em;
+  padding-left: 1.5em;
+}
+
+.prose ol {
+  list-style-type: decimal;
+}
+
+.prose ul {
+  list-style-type: disc;
+}
+
+.prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+  line-height: 1.7;
+}
+
+.prose strong,
+.prose b {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.prose blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #475569;
+  margin: 1rem 0;
+  background-color: #f8fafc;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+/* Dukungan class format Quill Editor */
+.prose .ql-align-center { text-align: center; }
+.prose .ql-align-right { text-align: right; }
+.prose .ql-align-justify { text-align: justify; }
+.prose .ql-size-small { font-size: 0.85em; }
+.prose .ql-size-large { font-size: 1.25em; font-weight: 700; }
+.prose .ql-size-huge { font-size: 1.5em; font-weight: 800; }
+.prose .ql-indent-1 { padding-left: 1.5em; }
+.prose .ql-indent-2 { padding-left: 3em; }
+.prose .ql-indent-3 { padding-left: 4.5em; }
+
+/* Hanya URL panjang atau inline code yang boleh di-break di tengah string jika melebihi lebar layar */
+.prose a,
+.prose code {
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
 .prose a {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .prose img,
@@ -84,11 +161,13 @@ body, html {
 .prose table {
   max-width: 100%;
   height: auto;
+  border-radius: 0.75rem;
 }
 
 .prose pre {
   max-width: 100%;
   overflow-x: auto;
   white-space: pre-wrap;
-  word-break: break-word;
+  word-break: normal;
+  border-radius: 0.75rem;
 }

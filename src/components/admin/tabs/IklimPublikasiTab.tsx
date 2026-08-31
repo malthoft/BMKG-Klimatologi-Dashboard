@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCrud } from "@/hooks/useCrud";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { useToast } from "@/components/ui/toast-provider";
-import { supabaseUploadFile, supabaseDeleteFile } from "@/lib/supabase";
+import { supabaseUploadFile, supabaseDeleteFile, supabaseFetch } from "@/lib/supabase";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { Pagination } from "@/components/ui/pagination";
@@ -61,6 +61,45 @@ export function IklimPublikasiTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  // Fetch counts for all iklim categories
+  const loadCategoryCounts = useCallback(async () => {
+    try {
+      const promises = CATEGORIES.map(async (cat) => {
+        const data = await supabaseFetch(cat.value, "select=id");
+        return { key: cat.value, count: data && Array.isArray(data) ? data.length : 0 };
+      });
+      const results = await Promise.all(promises);
+      const countMap: Record<string, number> = {};
+      results.forEach((r) => { countMap[r.key] = r.count; });
+      setCategoryCounts(countMap);
+    } catch (e) {
+      // fail silently
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategoryCounts();
+  }, [loadCategoryCounts]);
+
+  useEffect(() => {
+    // Update local count when current active items change
+    setCategoryCounts((prev) => ({
+      ...prev,
+      [selectedCategory]: items.length,
+    }));
+  }, [selectedCategory, items.length]);
+
+  const categoryOptions = useMemo(() => {
+    return CATEGORIES.map((cat) => {
+      const count = categoryCounts[cat.value] !== undefined ? categoryCounts[cat.value] : 0;
+      return {
+        value: cat.value,
+        label: `${cat.label} (${count} data)`,
+      };
+    });
+  }, [categoryCounts]);
 
   useEffect(() => {
     // Muat data saat kategori berubah
@@ -425,7 +464,7 @@ export function IklimPublikasiTab() {
               <CustomSelect
                 value={selectedCategory}
                 onChange={(val) => setSelectedCategory(val)}
-                options={CATEGORIES}
+                options={categoryOptions}
               />
             </div>
           </div>

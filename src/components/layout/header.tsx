@@ -99,8 +99,8 @@ export const navLinks: NavItem[] = [
         href: "/pelayanan-publik/panduan-layanan",
         subLinks: [
           { href: "/pelayanan-publik/panduan-layanan/alur", label: "Alur Pelayanan" },
-          { href: "/pelayanan-publik/panduan-layanan/formulir", label: "Formulir Permohonan Informasi" },
-          { href: "/pelayanan-publik/panduan-layanan/lacak", label: "Lacak Status Dokumen Anda" },
+          { href: "https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=daftar", label: "Formulir Permohonan Informasi", isExternal: true },
+          { href: "https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec", label: "Lacak Status Dokumen Anda", isExternal: true },
           { href: "/pelayanan-publik/panduan-layanan/pnbp", label: "Jenis dan Tarif Layanan PNBP" },
           { href: "/pelayanan-publik/panduan-layanan/tarif-nol", label: "Tarif Nol rupiah" },
           { href: "https://ptsp.bmkg.go.id/", label: "PTSP BMKG Pusat", isExternal: true },
@@ -113,7 +113,7 @@ export const navLinks: NavItem[] = [
         href: "/pelayanan-publik/pengaduan",
         subLinks: [
           { href: "https://www.lapor.go.id/", label: "SP4N LAPOR!", isExternal: true },
-          { href: "/pelayanan-publik/pengaduan/skm", label: "Survei Kepuasan Masyarakat" },
+          { href: "https://docs.google.com/forms/d/e/1FAIpQLScHygPWIQEjdlxp8Yv1hAdyQSvKzDzYiRP5vGDZGP2W6RxYAQ/viewform", label: "Survei Kepuasan Masyarakat", isExternal: true },
           { href: "https://bit.ly/surveypresepsikorupsiKPO", label: "Survei Persepsi Anti Korupsi", isExternal: true },
           { href: "https://wbs.bmkg.go.id/", label: "Whistleblowing System", isExternal: true },
           { href: "https://docs.google.com/forms/d/e/1FAIpQLSfzolWmVwsvkYTjesQORdidf0dPiGTuuV_zXnF2E0ARdfdIuw/viewform", label: "Pengaduan Internal", isExternal: true },
@@ -225,7 +225,7 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
       }`}
     >
       {item.label}
-      {item.isExternal && (
+      {item.isExternal && item.label !== "Edukasi Iklim" && (
         <span className={`material-symbols-outlined text-[13px] ml-1.5 opacity-60 ${active ? 'text-blue-500' : 'text-slate-400'}`}>language</span>
       )}
     </Link>
@@ -298,7 +298,7 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
       style={{ paddingLeft: `${1 + level * 1}rem` }}
     >
       {item.label}
-      {item.isExternal && (
+      {item.isExternal && item.label !== "Edukasi Iklim" && (
         <span className="material-symbols-outlined text-[13px] text-slate-400 ml-auto opacity-60">language</span>
       )}
     </Link>
@@ -395,9 +395,13 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                 </span>
               </div>
               {/* Mobile Text */}
-              <div className="flex lg:hidden flex-col gap-0.5">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Stasiun Klimatologi</span>
-                <span className="text-blue-700 font-extrabold text-[13px] uppercase tracking-wide leading-tight drop-shadow-2xs">Kelas I Jawa Timur</span>
+              <div className="flex lg:hidden flex-col">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight drop-shadow-2xs">
+                  Stasiun Klimatologi
+                </span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight drop-shadow-2xs">
+                  Kelas I Jawa Timur
+                </span>
               </div>
             </Link>
 
@@ -437,9 +441,9 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   aria-label="Toggle Menu"
-                  className="text-primary p-2 rounded-md hover:bg-slate-50 border border-slate-100 transition-colors shadow-xs bg-white"
+                  className="text-slate-700 hover:text-primary p-2 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined">{mobileMenuOpen ? "close" : "menu"}</span>
+                  <span className="material-symbols-outlined text-[28px]">{mobileMenuOpen ? "close" : "menu"}</span>
                 </button>
               </div>
             </div>
@@ -471,8 +475,12 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                 {/* Sidebar Header */}
                 <div className="flex items-center justify-between p-4 border-b border-border bg-slate-50">
                   <div className="flex flex-col">
-                    <span className="text-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight">Stasiun Klimatologi</span>
-                    <span className="text-primary font-extrabold text-[14px] uppercase tracking-wide leading-tight">Kelas I Jawa Timur</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-800 font-extrabold text-[13px] uppercase tracking-wide leading-tight drop-shadow-2xs">
+                      Stasiun Klimatologi
+                    </span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-blue-900 to-slate-800 font-extrabold text-[14px] uppercase tracking-wide leading-tight drop-shadow-2xs">
+                      Kelas I Jawa Timur
+                    </span>
                   </div>
                   <button
                     onClick={() => setMobileMenuOpen(false)}
@@ -507,7 +515,19 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                 </div>
                 
                 {/* Sidebar Footer */}
-                <div className="p-4 border-t border-border bg-slate-50">
+                <div className="p-4 border-t border-border bg-slate-50 flex flex-col gap-2.5">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("trigger-pwa-install"));
+                      }
+                    }}
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-primary border border-blue-200/80 rounded-xl py-2.5 px-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">install_mobile</span>
+                    Pasang Aplikasi BMKG
+                  </button>
                   <p className="text-[11px] text-slate-400 font-medium text-center">
                     &copy; {new Date().getFullYear()} BMKG Jawa Timur.
                   </p>
