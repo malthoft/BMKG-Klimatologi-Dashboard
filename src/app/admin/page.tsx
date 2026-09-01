@@ -416,7 +416,7 @@ function AdminDashboardContent() {
                 value={activeTab}
                 onChange={(e) => {
                   if (e.target.value === "sipadu") {
-                    window.open("https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=admin", "_blank");
+                    window.open("https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin", "_blank");
                   } else {
                     setActiveTab(e.target.value);
                   }

@@ -99,8 +99,8 @@ export const navLinks: NavItem[] = [
         href: "/pelayanan-publik/panduan-layanan",
         subLinks: [
           { href: "/pelayanan-publik/panduan-layanan/alur", label: "Alur Pelayanan" },
-          { href: "https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=daftar", label: "Formulir Permohonan Informasi", isExternal: true },
-          { href: "https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec", label: "Lacak Status Dokumen Anda", isExternal: true },
+          { href: "https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=daftar", label: "Formulir Permohonan Informasi", isExternal: true },
+          { href: "https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=client", label: "Lacak Status Dokumen Anda", isExternal: true },
           { href: "/pelayanan-publik/panduan-layanan/pnbp", label: "Jenis dan Tarif Layanan PNBP" },
           { href: "/pelayanan-publik/panduan-layanan/tarif-nol", label: "Tarif Nol rupiah" },
           { href: "https://ptsp.bmkg.go.id/", label: "PTSP BMKG Pusat", isExternal: true },
