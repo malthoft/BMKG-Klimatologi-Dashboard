@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { InstagramIcon as Instagram } from "@/components/ui/instagram-icon";
@@ -21,6 +21,20 @@ const formatIndonesianDate = (dateString: string) => {
     month: 'long',
     year: 'numeric'
   });
+};
+
+const stripHtml = (html?: string) => {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>?/gm, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 };
 
 const getWeatherCondition = (temp: number, rh: number, rr: number) => {
@@ -127,7 +141,18 @@ const HeatIndexCard = ({ temp, rh }: { temp: number, rh: number }) => {
 export default function Home() {
   const [beritaKegiatan, setBeritaKegiatan] = useState<any[]>([]);
   const [loadingBerita, setLoadingBerita] = useState(true);
+  const [activeBeritaIndex, setActiveBeritaIndex] = useState(0);
+  const beritaScrollRef = useRef<HTMLDivElement>(null);
   const [instagramPosts, setInstagramPosts] = useState<any[]>([]);
+
+  const handleBeritaScroll = () => {
+    if (beritaScrollRef.current) {
+      const { scrollLeft, offsetWidth } = beritaScrollRef.current;
+      const cardWidth = offsetWidth * 0.85;
+      const index = Math.round(scrollLeft / cardWidth);
+      setActiveBeritaIndex(Math.min(Math.max(0, index), beritaKegiatan.length - 1));
+    }
+  };
 
   // --- Realtime Data States ---
   const [stations, setStations] = useState<any[]>([]);
@@ -233,64 +258,71 @@ export default function Home() {
     ? getWeatherCondition(latestData.temp, latestData.rh, latestData.rr)
     : { text: "Offline", icon: "cloud_off" };
 
-  const getBadgeVariant = (cat: string): "error" | "success" | "neutral" | "warning" => {
-    switch (cat) {
+  const getBadgeVariant = (cat?: string): "error" | "success" | "neutral" | "warning" => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "error";
       case "kegiatan": return "success";
+      case "berita": return "neutral";
       case "info": return "neutral";
       default: return "neutral";
     }
   };
 
-  const getCategoryLabel = (cat: string) => {
-    switch (cat) {
+  const getCategoryLabel = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "Peringatan Dini";
       case "kegiatan": return "Kegiatan";
+      case "berita": return "Berita";
       case "info": return "Informasi Iklim";
-      default: return "Pengumuman";
+      default: return cat ? cat.charAt(0).toUpperCase() + cat.slice(1) : "Berita";
     }
   };
 
-  const getCategoryIcon = (cat: string) => {
-    switch (cat) {
+  const getCategoryIcon = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "warning";
       case "kegiatan": return "groups";
+      case "berita": return "newspaper";
       case "info": return "info";
-      default: return "article";
+      default: return "newspaper";
     }
   };
 
-  const getCategoryAccent = (cat: string) => {
-    switch (cat) {
+  const getCategoryAccent = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "border-l-error";
       case "kegiatan": return "border-l-success";
+      case "berita": return "border-l-primary";
       case "info": return "border-l-primary";
       default: return "border-l-primary";
     }
   };
 
-  const getCategoryGradient = (cat: string) => {
-    switch (cat) {
+  const getCategoryGradient = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "from-red-500 to-orange-500";
       case "kegiatan": return "from-emerald-500 to-teal-500";
+      case "berita": return "from-blue-500 to-indigo-500";
       case "info": return "from-blue-500 to-cyan-500";
       default: return "from-blue-500 to-cyan-500";
     }
   };
 
-  const getCategoryIconBg = (cat: string) => {
-    switch (cat) {
+  const getCategoryIconBg = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "bg-red-50 border border-red-100";
       case "kegiatan": return "bg-emerald-50 border border-emerald-100";
+      case "berita": return "bg-blue-50 border border-blue-100";
       case "info": return "bg-blue-50 border border-blue-100";
       default: return "bg-blue-50 border border-blue-100";
     }
   };
 
-  const getCategoryIconColor = (cat: string) => {
-    switch (cat) {
+  const getCategoryIconColor = (cat?: string) => {
+    switch (cat?.toLowerCase()) {
       case "peringatan_dini": return "text-red-600";
       case "kegiatan": return "text-emerald-600";
+      case "berita": return "text-blue-600";
       case "info": return "text-blue-600";
       default: return "text-blue-600";
     }
@@ -308,7 +340,7 @@ export default function Home() {
     <>
       <Header activeRoute="/" />
 
-      <main className="flex-grow w-full">
+      <main className="flex-grow w-full overflow-x-hidden">
         {/* ═══════════════════════════════════════════════════ */}
         {/* 1. CUACA TERKINI — Clean Modern Blue Gradient Card */}
         {/* ═══════════════════════════════════════════════════ */}
@@ -469,29 +501,29 @@ export default function Home() {
                 Layanan digital terpadu Stasiun Klimatologi Jawa Timur. Menyajikan data observasi cuaca realtime, analisis iklim, dan informasi peringatan dini secara akurat untuk seluruh wilayah Jawa Timur.
               </p>
               
-              <div className="flex flex-wrap gap-3 sm:gap-4 mt-6 mb-2">
-                <Link href="/data-pengamatan" className="group">
-                  <div className="flex items-center gap-2.5 text-slate-700 hover:text-blue-600 transition-colors bg-white/60 hover:bg-white px-4 py-2 rounded-full border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-transform">
-                      <span className="material-symbols-outlined text-[18px]">analytics</span>
+              <div className="flex flex-row overflow-x-auto snap-x snap-mandatory gap-2.5 sm:gap-3.5 mt-6 mb-2 pb-2 sm:pb-0 sm:flex-wrap scrollbar-hide -mx-6 px-6 sm:mx-0 sm:px-0">
+                <Link href="/data-pengamatan" className="group shrink-0 snap-start">
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-slate-700 hover:text-blue-600 transition-colors bg-white/80 hover:bg-white px-3.5 sm:px-4 py-2 rounded-full border border-slate-200/80 shadow-xs hover:shadow-md cursor-pointer whitespace-nowrap">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-[16px] sm:text-[18px]">analytics</span>
                     </div>
-                    <span className="text-sm font-bold">Data Pengamatan</span>
+                    <span className="text-xs sm:text-sm font-bold">Data Pengamatan</span>
                   </div>
                 </Link>
-                <Link href="/hari-tanpa-hujan" className="group">
-                  <div className="flex items-center gap-2.5 text-slate-700 hover:text-amber-600 transition-colors bg-white/60 hover:bg-white px-4 py-2 rounded-full border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer">
-                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-110 transition-transform">
-                      <span className="material-symbols-outlined text-[18px]">wb_sunny</span>
+                <Link href="/hari-tanpa-hujan" className="group shrink-0 snap-start">
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-slate-700 hover:text-amber-600 transition-colors bg-white/80 hover:bg-white px-3.5 sm:px-4 py-2 rounded-full border border-slate-200/80 shadow-xs hover:shadow-md cursor-pointer whitespace-nowrap">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-[16px] sm:text-[18px]">wb_sunny</span>
                     </div>
-                    <span className="text-sm font-bold">Hari Tanpa Hujan</span>
+                    <span className="text-xs sm:text-sm font-bold">Hari Tanpa Hujan</span>
                   </div>
                 </Link>
-                <Link href="/prakiraan-curah-hujan" className="group">
-                  <div className="flex items-center gap-2.5 text-slate-700 hover:text-teal-600 transition-colors bg-white/60 hover:bg-white px-4 py-2 rounded-full border border-slate-200/80 shadow-sm hover:shadow-md cursor-pointer">
-                    <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 shrink-0 group-hover:scale-110 transition-transform">
-                      <span className="material-symbols-outlined text-[18px]">rainy</span>
+                <Link href="/prakiraan-curah-hujan" className="group shrink-0 snap-start">
+                  <div className="flex items-center gap-2 sm:gap-2.5 text-slate-700 hover:text-teal-600 transition-colors bg-white/80 hover:bg-white px-3.5 sm:px-4 py-2 rounded-full border border-slate-200/80 shadow-xs hover:shadow-md cursor-pointer whitespace-nowrap">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-teal-50 flex items-center justify-center text-teal-600 shrink-0 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-[16px] sm:text-[18px]">rainy</span>
                     </div>
-                    <span className="text-sm font-bold">Prakiraan Hujan</span>
+                    <span className="text-xs sm:text-sm font-bold">Prakiraan Hujan</span>
                   </div>
                 </Link>
               </div>
@@ -536,43 +568,70 @@ export default function Home() {
                 <span className="text-slate-500 font-medium">Memuat berita & kegiatan...</span>
               </div>
             ) : beritaKegiatan && beritaKegiatan.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 xl:gap-6 w-full">
-                {beritaKegiatan.map((ann, idx) => (
-                  <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-full h-full">
-                    <Link href={`/publikasi/berita-kegiatan/${ann.id}`} className="block w-full h-full">
-                      <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] p-6 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col group relative overflow-hidden">
-                        {/* Decorative Background Glow */}
-                        <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.kategori)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
+              <>
+                <div
+                  ref={beritaScrollRef}
+                  onScroll={handleBeritaScroll}
+                  className="flex md:grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 xl:gap-6 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-4 md:pb-0 scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0 w-auto md:w-full"
+                >
+                  {beritaKegiatan.map((ann, idx) => (
+                    <AnimatedContainer key={ann.id || idx} animation="fadeInUp" delay={0.08 * idx} once={true} className="w-[85vw] sm:w-[45vw] md:w-full shrink-0 md:shrink snap-center md:snap-align-none h-full">
+                      <Link href={`/publikasi/berita-kegiatan/${ann.id}`} className="block w-full h-full">
+                        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] p-6 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.08)] hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 h-full flex flex-col group relative overflow-hidden">
+                          {/* Decorative Background Glow */}
+                          <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${getCategoryGradient(ann.kategori)} rounded-bl-full opacity-10 -mr-8 -mt-8 group-hover:scale-110 transition-transform duration-500`}></div>
 
-                        {/* Header: Icon & Date */}
-                        <div className="flex justify-between items-start mb-5 relative z-10">
-                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.kategori)}`}>
-                            <span className={`material-symbols-outlined text-[22px] ${getCategoryIconColor(ann.kategori)}`}>{getCategoryIcon(ann.kategori)}</span>
+                          {/* Header: Icon & Date */}
+                          <div className="flex justify-between items-start mb-5 relative z-10">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${getCategoryIconBg(ann.kategori)}`}>
+                              <span className={`material-symbols-outlined text-[22px] ${getCategoryIconColor(ann.kategori)}`}>{getCategoryIcon(ann.kategori)}</span>
+                            </div>
+                            <div className="text-slate-500 font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
+                              <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
+                              {(ann.published_at || ann.created_at) ? new Date(ann.published_at || ann.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Terbaru"}
+                            </div>
                           </div>
-                          <div className="text-slate-500 font-bold text-[10px] tracking-widest uppercase flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm">
-                            <span className="material-symbols-outlined text-[13px] text-slate-400">calendar_month</span>
-                            {(ann.published_at || ann.created_at) ? new Date(ann.published_at || ann.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "Terbaru"}
+
+                          {/* Content */}
+                          <div className="mb-3 relative z-10 flex-grow">
+                            <Badge variant={getBadgeVariant(ann.kategori)} className="mb-3">
+                              {getCategoryLabel(ann.kategori)}
+                            </Badge>
+                            <h4 className="text-[1.15rem] text-slate-800 font-extrabold leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                              {ann.judul}
+                            </h4>
                           </div>
-                        </div>
 
-                        {/* Content */}
-                        <div className="mb-3 relative z-10 flex-grow">
-                          <Badge variant={getBadgeVariant(ann.kategori)} className="mb-3">
-                            {getCategoryLabel(ann.kategori)}
-                          </Badge>
-                          <h4 className="text-[1.15rem] text-slate-800 font-extrabold leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                            {ann.judul}
-                          </h4>
+                          <p className="text-[0.9rem] text-slate-500 line-clamp-2 mt-auto relative z-10 leading-relaxed font-medium">
+                            {stripHtml(ann.deskripsi)}
+                          </p>
                         </div>
+                      </Link>
+                    </AnimatedContainer>
+                  ))}
+                </div>
 
-                        <p className="text-[0.9rem] text-slate-500 line-clamp-2 mt-auto relative z-10 leading-relaxed font-medium">
-                          {ann.deskripsi}
-                        </p>
-                      </div>
-                    </Link>
-                  </AnimatedContainer>
-                ))}
-              </div>
+                {/* Mobile Dot Indicators */}
+                {beritaKegiatan.length > 1 && (
+                  <div className="flex md:hidden justify-center items-center gap-1.5 mt-3">
+                    {beritaKegiatan.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          if (beritaScrollRef.current) {
+                            const cardWidth = beritaScrollRef.current.offsetWidth * 0.85;
+                            beritaScrollRef.current.scrollTo({ left: idx * cardWidth, behavior: "smooth" });
+                          }
+                        }}
+                        className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                          activeBeritaIndex === idx ? "w-6 bg-primary" : "w-2 bg-slate-300"
+                        }`}
+                        aria-label={`Ke berita ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="w-full text-center py-12 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-[1.5rem] flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-[48px] text-slate-300">campaign</span>
@@ -587,7 +646,7 @@ export default function Home() {
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">
-            <AnimatedContainer animation="fadeInUp" once={true} className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 w-full">
+            <AnimatedContainer animation="fadeInUp" once={true} className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8 w-full">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] flex items-center justify-center text-white shadow-lg shadow-pink-500/20 shrink-0">
                   <Instagram size={20} />
@@ -597,9 +656,9 @@ export default function Home() {
                   <p className="text-sm text-slate-500 mt-0.5">Informasi terbaru melalui media sosial kami.</p>
                 </div>
               </div>
-              <Link href="/galeri" className="self-end sm:self-auto shrink-0 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-full text-sm font-bold transition-all shadow-sm flex items-center gap-2 group">
-                Lihat Lebih Banyak
-                <span className="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+              <Link href="/galeri" className="text-primary font-bold hover:text-secondary flex items-center gap-1.5 text-sm group whitespace-nowrap bg-blue-50/50 hover:bg-blue-50 px-4 py-2 rounded-full border border-blue-100 transition-colors">
+                Lihat Semua
+                <span className="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </Link>
             </AnimatedContainer>
 
@@ -637,6 +696,7 @@ export default function Home() {
                               src={getDirectImageUrl(post.image_url)}
                               fill
                               unoptimized
+                              referrerPolicy="no-referrer"
                               className="object-cover opacity-50 blur-xl scale-125 saturate-150"
                               sizes="(max-width: 768px) 100vw, 33vw"
                             />
@@ -649,6 +709,7 @@ export default function Home() {
                             src={getDirectImageUrl(post.image_url)}
                             fill
                             unoptimized
+                            referrerPolicy="no-referrer"
                             sizes="(max-width: 768px) 100vw, 33vw"
                           />
                           

@@ -18,6 +18,9 @@ import { ObservationTab } from "@/components/admin/tabs/ObservationTab";
 import { RainfallTab } from "@/components/admin/tabs/RainfallTab";
 import { TempMapsTab } from "@/components/admin/tabs/TempMapsTab";
 import { HthTab } from "@/components/admin/tabs/HthTab";
+import { IklimPublikasiTab } from "@/components/admin/tabs/IklimPublikasiTab";
+import { PelayananPublikTab } from "@/components/admin/tabs/PelayananPublikTab";
+import { EBuletinTab } from "@/components/admin/tabs/EBuletinTab";
 import { AdminUsersTab } from "@/components/admin/tabs/AdminUsersTab";
 import { ProfileDropdown } from "@/components/admin/ProfileDropdown";
 import { AccountSettingsModal } from "@/components/admin/AccountSettingsModal";
@@ -35,20 +38,17 @@ function AdminDashboardContent() {
   // Default all nav groups to open
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({
     beranda: true,
-    profil: true,
-    iklim: true,
-    publikasi: true,
-    admin_control: true
+    layanan: true,
+    profil: false,
+    iklim: false,
+    publikasi: false,
+    admin_control: false
   });
   
   // --- Profile State ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // --- Search State ---
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<{id: string|number, type: string, label: string, title: string, tab: string}[]>([]);
   const [offlineCount, setOfflineCount] = useState(0);
 
   // Fetch offline stations count for badge
@@ -72,52 +72,7 @@ function AdminDashboardContent() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // Search logic aggregation
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    const delay = setTimeout(async () => {
-      try {
-        const [berita, pengumuman, stations, org] = await Promise.all([
-          supabaseFetch("berita", "order=created_at.desc"),
-          supabaseFetch("pengumuman", "order=created_at.desc"),
-          supabaseFetch("stations", "order=station_name.asc"),
-          supabaseFetch("org_members", "order=name.asc")
-        ]);
-        
-        const term = searchTerm.toLowerCase();
-        const results: any[] = [];
-        
-        berita?.forEach((b: any) => {
-          if (b.judul?.toLowerCase().includes(term) || b.deskripsi?.toLowerCase().includes(term)) {
-            results.push({ id: b.id, type: 'berita', label: 'Berita & Kegiatan', title: b.judul, tab: 'berita' });
-          }
-        });
-        pengumuman?.forEach((p: any) => {
-          if (p.judul?.toLowerCase().includes(term) || p.deskripsi?.toLowerCase().includes(term)) {
-            results.push({ id: p.id, type: 'pengumuman', label: 'Pengumuman', title: p.judul, tab: 'pengumuman' });
-          }
-        });
-        stations?.forEach((s: any) => {
-          if (s.station_id?.toLowerCase().includes(term) || s.station_name?.toLowerCase().includes(term)) {
-            results.push({ id: s.id, type: 'station', label: 'Stasiun AWS', title: `${s.station_name} (${s.station_id})`, tab: 'stations' });
-          }
-        });
-        org?.forEach((o: any) => {
-          if (o.name?.toLowerCase().includes(term) || o.role_title?.toLowerCase().includes(term)) {
-            results.push({ id: o.id || o.role_id, type: 'org', label: 'Pegawai / Org', title: `${o.name || '-'} - ${o.role_title || '-'}`, tab: 'org' });
-          }
-        });
-        
-        setSearchResults(results.slice(0, 15));
-      } catch (err) {
-        console.error(err);
-      }
-    }, 500);
-    return () => clearTimeout(delay);
-  }, [searchTerm]);
+
 
   const renderContent = () => {
     switch (activeTab) {
@@ -132,6 +87,9 @@ function AdminDashboardContent() {
       case 'rainfall': return <RainfallTab />;
       case 'tempmaps': return <TempMapsTab />;
       case 'hth': return <HthTab />;
+      case 'iklim_publikasi': return <IklimPublikasiTab />;
+      case 'pelayanan': return <PelayananPublikTab />;
+      case 'ebuletin': return <EBuletinTab />;
       case 'admin_users': return <AdminUsersTab />;
       default: return <StationsTab />;
     }
@@ -147,7 +105,7 @@ function AdminDashboardContent() {
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-background text-on-surface font-sans flex">
+    <div className="h-screen bg-background text-on-surface font-sans flex overflow-hidden">
       {/* Sidebar */}
       <aside className="w-[280px] bg-white border-r border-slate-200 flex-shrink-0 hidden md:flex flex-col h-full sticky top-0 shadow-sm z-20">
         <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-center">
@@ -196,6 +154,48 @@ function AdminDashboardContent() {
                   )}
                 </a>
               ))}
+            </div>
+          </div>
+
+          {/* Pelayanan Publik / Sipadu Group */}
+          <div>
+            <button onClick={() => setOpenNavGroups({...openNavGroups, layanan: !openNavGroups.layanan})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors">
+              <span>Pelayanan Publik</span>
+              <span className="material-symbols-outlined text-[16px]">{openNavGroups.layanan ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            <div className={`space-y-1 pl-2 border-l-2 border-slate-100 ml-3 transition-all overflow-hidden ${openNavGroups.layanan ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <a 
+                onClick={() => setActiveTab('pelayanan')}
+                className={`flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 group relative ${
+                  activeTab === 'pelayanan' 
+                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-100/50' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent'
+                }`}
+              >
+                {activeTab === 'pelayanan' && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-1 bg-blue-600 rounded-r-full" />
+                )}
+                <div className="flex items-center gap-3">
+                  <span className={`material-symbols-outlined transition-transform duration-200 text-[18px] ${activeTab === 'pelayanan' ? 'scale-110' : 'group-hover:scale-110'}`}>folder_open</span>
+                  <span className="text-[13px]">Kelola Konten Pelayanan</span>
+                </div>
+              </a>
+              <a 
+                href="https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent group"
+                title="Buka SIPADU - Daftar Berkas Masuk"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined transition-transform duration-200 text-[18px] text-blue-600 group-hover:scale-110">folder_shared</span>
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-bold text-slate-800 leading-tight">Sipadu Admin</span>
+                    <span className="text-[10px] text-slate-400">Daftar Berkas Masuk</span>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-[14px] text-slate-400 group-hover:text-primary transition-colors">open_in_new</span>
+              </a>
             </div>
           </div>
 
@@ -268,6 +268,7 @@ function AdminDashboardContent() {
                 { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan' },
                 { id: 'tempmaps', icon: 'map', label: 'Peta Suhu' },
                 { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
+                { id: 'iklim_publikasi', icon: 'menu_book', label: 'Publikasi Iklim' },
               ].map(tab => (
                 <a 
                   key={tab.id}
@@ -300,6 +301,7 @@ function AdminDashboardContent() {
               {[
                 { id: 'berita', icon: 'newspaper', label: 'Berita & Kegiatan' },
                 { id: 'pengumuman', icon: 'campaign', label: 'Pengumuman' },
+                { id: 'ebuletin', icon: 'menu_book', label: 'E-Buletin' },
                 { id: 'instagram', icon: 'photo_library', label: 'Galeri Instagram' },
               ].map(tab => (
                 <a 
@@ -342,6 +344,9 @@ function AdminDashboardContent() {
                 { activeTab === 'tempmaps' && 'Peta Perubahan Suhu' }
                 { activeTab === 'rainfall' && 'Prakiraan Curah Hujan' }
                 { activeTab === 'hth' && 'Update Data HTH' }
+                { activeTab === 'iklim_publikasi' && 'Publikasi & Prediksi Iklim' }
+                { activeTab === 'pelayanan' && 'Kelola Konten Pelayanan Publik' }
+                { activeTab === 'ebuletin' && 'Kelola E-Buletin Kota & Kabupaten' }
                 { activeTab === 'sdm' && 'SDM / Profil Pegawai' }
                 { activeTab === 'admin_users' && 'Kelola Admin Sistem' }
               </h1>
@@ -371,59 +376,6 @@ function AdminDashboardContent() {
 
           {/* Search and Profile Info */}
           <div className="flex items-center justify-end w-full md:w-auto gap-4">
-            
-            {/* Global Search Feature */}
-            <div className="relative z-50 flex items-center justify-end">
-              <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'w-[260px] md:w-[320px] opacity-100' : 'w-0 opacity-0'} overflow-hidden bg-slate-50 border border-slate-200 rounded-full h-10`}>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Cari data, berita, stasiun..."
-                  className="w-full bg-transparent border-none outline-none px-4 text-sm text-slate-800 placeholder:text-slate-400"
-                />
-                {searchTerm && (
-                  <button onClick={() => setSearchTerm("")} className="mr-3 text-slate-400 hover:text-slate-600 material-symbols-outlined text-[16px]">close</button>
-                )}
-              </div>
-              
-              <button 
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className={`w-10 h-10 ml-2 rounded-full flex items-center justify-center transition-all duration-300 ${isSearchOpen ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} shrink-0`}
-              >
-                <span className="material-symbols-outlined text-[20px]">search</span>
-              </button>
-
-              {/* Search Results Dropdown */}
-              {isSearchOpen && searchTerm.trim() && (
-                <div className="absolute top-full mt-2 right-0 w-[300px] md:w-[350px] bg-white border border-slate-200 shadow-xl rounded-xl py-2 max-h-[400px] overflow-y-auto">
-                  {searchResults.length > 0 ? (
-                    <div>
-                      <div className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-2">Hasil Pencarian</div>
-                      {searchResults.map((res, i) => (
-                        <div 
-                          key={`${res.type}-${res.id}-${i}`}
-                          onClick={() => {
-                            setActiveTab(res.tab);
-                            setIsSearchOpen(false);
-                            setSearchTerm("");
-                          }}
-                          className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex flex-col gap-0.5 border-l-2 border-transparent hover:border-blue-500 transition-all"
-                        >
-                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">{res.label}</span>
-                          <span className="text-sm font-semibold text-slate-800 line-clamp-1">{res.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-4 py-8 text-center text-slate-500">
-                      <span className="material-symbols-outlined text-3xl mb-2 text-slate-300">search_off</span>
-                      <p className="text-sm font-medium">Tidak ada hasil yang ditemukan.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
 
             <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200">
               <div className="relative">
@@ -462,11 +414,21 @@ function AdminDashboardContent() {
             <div className="relative">
               <select 
                 value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === "sipadu") {
+                    window.open("https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin", "_blank");
+                  } else {
+                    setActiveTab(e.target.value);
+                  }
+                }}
                 className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <optgroup label="Beranda & Umum">
                   <option value="stations">Daftar AWS</option>
+                </optgroup>
+                <optgroup label="Pelayanan Publik">
+                  <option value="pelayanan">Kelola Konten Pelayanan</option>
+                  <option value="sipadu">Sipadu Admin (Daftar Berkas Masuk) ↗</option>
                 </optgroup>
                 <optgroup label="Iklim">
                   <option value="observations">Data Pengamatan</option>
@@ -478,6 +440,7 @@ function AdminDashboardContent() {
                 <optgroup label="Publikasi">
                   <option value="berita">Berita & Kegiatan</option>
                   <option value="pengumuman">Pengumuman</option>
+                  <option value="ebuletin">E-Buletin</option>
                   <option value="instagram">Galeri Instagram</option>
                 </optgroup>
                 {user?.role === "super_admin" && (

@@ -155,6 +155,22 @@ export function HthTab() {
                         <span className="material-symbols-outlined text-[14px]">info</span>
                         Pastikan Google Sheets telah dipublikasikan ke web (File {'>'} Share {'>'} Publish to web) dengan format <strong>Comma-separated values (.csv)</strong>.
                       </p>
+
+                      {/* Format Kolom Wajib Notice */}
+                      <div className="bg-white/50 border border-amber-200/80 rounded-xl p-4 mt-4 shadow-sm">
+                        <h4 className="flex items-center gap-1.5 text-sm font-bold text-amber-600 mb-3">
+                          <span className="material-symbols-outlined text-[18px]">warning</span>
+                          Format Kolom Wajib:
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-2 text-[13px] font-mono text-slate-700">
+                          <div>1. ID</div>
+                          <div>2. Nama</div>
+                          <div>3. Lat</div>
+                          <div>4. Lon</div>
+                          <div>5. Kab</div>
+                          <div>6. HTH (Angka)</div>
+                        </div>
+                      </div>
                     </div>
                     
                     <button 

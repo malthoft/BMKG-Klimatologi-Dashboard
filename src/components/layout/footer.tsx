@@ -17,8 +17,12 @@ export function Footer() {
               className="object-contain drop-shadow-[0_0_1.5px_rgba(255,255,255,0.8)]" 
             />
             <div className="flex flex-col justify-center">
-              <span className="text-white font-bold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">Stasiun Klimatologi</span>
-              <span className="text-sky-400 font-bold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">Kelas I Jawa Timur</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-sky-400 font-extrabold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">
+                Stasiun Klimatologi
+              </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-sky-200 to-sky-400 font-extrabold text-[16px] md:text-[20px] leading-tight uppercase tracking-wide">
+                Kelas I Jawa Timur
+              </span>
             </div>
           </div>
           <p className="text-border opacity-80 mt-[16px] text-[1rem] leading-[1.6]">
@@ -32,7 +36,7 @@ export function Footer() {
           <h4 className="text-[1.125rem] text-background font-bold mb-[8px]">Tautan Cepat</h4>
           <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/data-pengamatan">Data Pengamatan</a>
           <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/perubahan-iklim">Perubahan Iklim</a>
-          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/profil/visi-misi">Profil Stasiun</a>
+          <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/peringatan-dini">Peringatan Dini</a>
           <a className="text-[1rem] text-border opacity-80 hover:opacity-100 transition-opacity hover:text-primary" href="/publikasi/pengumuman">Pengumuman</a>
         </div>
         <div className="flex flex-col gap-[16px] md:w-1/3 relative">

@@ -111,7 +111,7 @@ export function InstagramTab() {
             {newInstagram.image_url && (
               <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 relative aspect-square w-full max-w-[150px] mx-auto bg-slate-100">
                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                 <img src={getDirectImageUrl(newInstagram.image_url)} alt="Preview" className="w-full h-full object-cover" />
+                 <img src={getDirectImageUrl(newInstagram.image_url)} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
               </div>
             )}
             <button 
@@ -179,6 +179,7 @@ export function InstagramTab() {
                       <img
                         alt="Background Blur"
                         src={directUrl}
+                        referrerPolicy="no-referrer"
                         className="w-full h-full object-cover opacity-50 blur-xl scale-125 saturate-150"
                       />
                     </div>
@@ -188,6 +189,7 @@ export function InstagramTab() {
                     <img
                       src={directUrl}
                       alt="Instagram Post"
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-contain absolute inset-0 z-10 transition-transform duration-500 group-hover:scale-105 pointer-events-none"
                     />
                     
@@ -270,7 +272,7 @@ export function InstagramTab() {
               {editIgData.image_url && (
                 <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 mb-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={getDirectImageUrl(editIgData.image_url)} alt="Preview" className="w-full h-full object-contain" />
+                  <img src={getDirectImageUrl(editIgData.image_url)} alt="Preview" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                 </div>
               )}
               
