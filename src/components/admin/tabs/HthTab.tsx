@@ -155,6 +155,9 @@ export function HthTab() {
                         <span className="material-symbols-outlined text-[14px]">info</span>
                         Pastikan Google Sheets telah dipublikasikan ke web (File {'>'} Share {'>'} Publish to web) dengan format <strong>Comma-separated values (.csv)</strong>.
                       </p>
+                      <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <img src="/images/format-hth.png" alt="Format Kolom Wajib" className="w-full h-auto" />
+                      </div>
                     </div>
                     
                     <button 

@@ -181,7 +181,7 @@ function AdminDashboardContent() {
                 </div>
               </a>
               <a 
-                href="https://script.google.com/macros/s/AKfycbxQYubnmeubrrgbmmGeEBl9Dx5ULSn0LRH-0zwLAVEOt2dWv4QUYU0XBJZUsLwoX3B7/exec?p=admin"
+                href="https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent group"
