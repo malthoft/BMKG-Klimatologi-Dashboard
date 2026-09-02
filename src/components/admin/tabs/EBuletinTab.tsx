@@ -8,6 +8,7 @@ import { EBuletin } from "@/types/admin";
 import { supabaseUploadFile, supabaseGetPublicUrl } from "@/lib/supabase";
 import { Pagination } from "@/components/ui/pagination";
 import { PdfViewer } from "@/components/ui/pdf-viewer";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 export const KOTA_KABUPATEN_JATIM = [
   "Kabupaten Bangkalan",
@@ -58,7 +59,7 @@ export function EBuletinTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -241,7 +242,7 @@ export function EBuletinTab() {
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredItems.slice(start, start + itemsPerPage);
-  }, [filteredItems, currentPage]);
+  }, [filteredItems, currentPage, itemsPerPage]);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
@@ -513,8 +514,30 @@ export function EBuletinTab() {
             />
           </div>
 
-          <div className="text-xs font-bold text-slate-500">
-            Total E-Buletin: <span className="text-primary font-extrabold">{filteredItems.length} wilayah</span>
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <div className="text-xs font-bold text-slate-500">
+              Total E-Buletin: <span className="text-primary font-extrabold">{filteredItems.length} wilayah</span>
+            </div>
+
+            <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <label htmlFor="perPage" className="text-xs font-bold text-slate-500 hidden md:block">Tampilkan:</label>
+              <select
+                id="perPage"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-2 py-1.5 outline-none focus:border-primary cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <option value={5}>5 Baris</option>
+                <option value={10}>10 Baris</option>
+                <option value={20}>20 Baris</option>
+                <option value={50}>50 Baris</option>
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -634,6 +657,7 @@ export function EBuletinTab() {
 
       {/* DETAIL PDF MODAL */}
       {selectedDetail && (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 flex flex-col border border-slate-100">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-md z-10">
@@ -673,6 +697,7 @@ export function EBuletinTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );

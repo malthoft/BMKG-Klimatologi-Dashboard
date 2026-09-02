@@ -6,6 +6,7 @@ import { supabaseUploadFile, supabaseDeleteFile, supabaseFetch } from "@/lib/sup
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { Pagination } from "@/components/ui/pagination";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 interface IklimPublikasi {
   id?: number;
@@ -60,7 +61,7 @@ export function IklimPublikasiTab() {
   const [selectedDetail, setSelectedDetail] = useState<IklimPublikasi | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 
   // Fetch counts for all iklim categories
@@ -304,6 +305,7 @@ export function IklimPublikasiTab() {
     <div className="space-y-6">
       {/* Detail Modal */}
       {selectedDetail && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedDetail(null)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 animate-in fade-in zoom-in-95 duration-200">
@@ -382,10 +384,12 @@ export function IklimPublikasiTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Preview Modal */}
       {showPreview && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowPreview(false)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto relative z-10 flex flex-col animate-in fade-in zoom-in-95 duration-200">
@@ -450,6 +454,7 @@ export function IklimPublikasiTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Category Selector Banner */}
@@ -747,13 +752,35 @@ export function IklimPublikasiTab() {
                 type="text" 
                 placeholder={`Cari di ${currentCategoryLabel}...`} 
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
               />
             </div>
 
-            <div className="text-xs font-bold text-slate-500">
-              Total Publikasi: <span className="text-blue-600 font-extrabold">{items.length} data</span>
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+              <div className="text-xs font-bold text-slate-500">
+                Total Publikasi: <span className="text-blue-600 font-extrabold">{items.length} data</span>
+              </div>
+
+              <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <label htmlFor="perPage" className="text-xs font-bold text-slate-500 hidden md:block">Tampilkan:</label>
+                <select
+                  id="perPage"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-2 py-1.5 outline-none focus:border-blue-500 cursor-pointer hover:bg-slate-100 transition-colors"
+                >
+                  <option value={5}>5 Baris</option>
+                  <option value={10}>10 Baris</option>
+                  <option value={20}>20 Baris</option>
+                  <option value={50}>50 Baris</option>
+                </select>
+              </div>
             </div>
           </div>
 

@@ -53,6 +53,50 @@ const getLabel = (d: number) => {
                    "0 - 10 mm (Sangat Rendah)";
 };
 
+const getFeatureValue = (feature: any) => {
+  if (!feature || !feature.properties) return 0;
+  const p = feature.properties;
+  
+  // Possible column names used by BMKG
+  const possibleKeys = ['gridcode', 'value', 'ch', 'curahhujan', 'curah_hujan', 'ch_bulanan', 'klas_ch', 'kelas', 'kategori', 'kriteria', 'range'];
+  const keys = Object.keys(p);
+  const valKey = keys.find(k => possibleKeys.includes(k.toLowerCase()));
+  
+  if (!valKey) {
+    // Fallback: Just find the first column that has a number or looks like a range (e.g. "50 - 100")
+    for (const k of keys) {
+      if (typeof p[k] === 'number') return p[k];
+      if (typeof p[k] === 'string') {
+        const match = p[k].match(/\d+/);
+        if (match) {
+          const num = parseInt(match[0], 10);
+          if (!isNaN(num)) return num;
+        }
+      }
+    }
+    return 0;
+  }
+
+  const rawVal = p[valKey];
+  
+  // If it's a string like "101 - 150", extract the first number
+  if (typeof rawVal === 'string') {
+    const match = rawVal.match(/\d+/);
+    if (match) {
+      let num = parseInt(match[0], 10);
+      if (rawVal.includes('>')) num = num + 1; // e.g. "> 300" -> 301
+      return num;
+    }
+    return 0;
+  }
+  
+  // If it's a number, it could be a raw mm value, or a class index 1-9
+  let num = Number(rawVal) || 0;
+  
+  return num;
+};
+
+
 // Komponen untuk update boundary dan maxBounds
 function MapUpdater({ geoData }: { geoData: any }) {
   const map = useMap();
@@ -95,6 +139,8 @@ function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData
     name: string;
     kabupaten: string;
     value: number;
+    customColor?: string;
+    info?: string;
   } | null>(null);
   
   const results = useMemo(() => {
@@ -118,23 +164,31 @@ function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData
         const kab = p.KABUPATEN || p.WADMKK || "-";
 
         let val = p._ch_value || 0;
+        let customColor = p._ch_color || null;
+        let info = p._ch_info || null;
 
         // Jika belum ada nilai, interpolasi menggunakan point atau polygon
         if (!val && geoData && geoData.features && geoData.features.length > 0) {
           try {
-            if (geoData.features[0].geometry.type === 'Point') {
-              const centroid = turf.centroid(feature as any);
-              const nearest = turf.nearestPoint(centroid, geoData as any);
-              val = nearest ? (nearest.properties.gridcode || nearest.properties.value || nearest.properties.CH || 0) : 0;
-            } else {
-              const pt = turf.point([center.lng, center.lat]);
-              for (const poly of geoData.features) {
-                if (turf.booleanPointInPolygon(pt, poly)) {
-                  val = poly.properties.gridcode || poly.properties.value || poly.properties.CH || 0;
-                  break;
+              if (geoData.features[0].geometry.type === 'Point') {
+                const centroid = turf.centroid(feature as any);
+                const nearest = turf.nearestPoint(centroid, geoData as any);
+                val = nearest ? getFeatureValue(nearest) : 0;
+                customColor = nearest?.properties?.fill_color || nearest?.properties?.FILL_COLOR;
+                info = nearest?.properties?.info || nearest?.properties?.INFO;
+              } else {
+                const pt = turf.point([center.lng, center.lat]);
+                for (const poly of geoData.features) {
+                  try {
+                    if (turf.booleanIntersects(pt, poly)) {
+                      val = getFeatureValue(poly);
+                      customColor = poly?.properties?.fill_color || poly?.properties?.FILL_COLOR;
+                      info = poly?.properties?.info || poly?.properties?.INFO;
+                      break;
+                    }
+                  } catch (err) {}
                 }
               }
-            }
           } catch (err) {
             console.error("Gagal menghitung nilai curah hujan search:", err);
           }
@@ -144,7 +198,9 @@ function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData
           latlng: [center.lat, center.lng],
           name: name,
           kabupaten: kab,
-          value: val
+          value: val,
+          customColor: customColor,
+          info: info
         });
 
         map.flyToBounds(bounds, { padding: [50, 50], duration: 1.2 });
@@ -223,8 +279,8 @@ function SearchControl({ kecamatanData, geoData }: { kecamatanData: any, geoData
               )}
               <div style={{ textAlign: "center", marginTop: "10px" }}>
                 <span style={{ color: "#64748b", fontSize: "11px", display: "block", marginBottom: "6px" }}>Prakiraan Hujan</span>
-                <div style={{ backgroundColor: getColor(selectedResult.value), color: selectedResult.value > 150 || selectedResult.value <= 20 ? "white" : "black", padding: "6px 12px", borderRadius: "8px", fontWeight: "bold", display: "inline-block", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", fontSize: "12px" }}>
-                  {getLabel(selectedResult.value)}
+                <div style={{ backgroundColor: selectedResult.customColor || getColor(selectedResult.value), color: (selectedResult.value > 150 || selectedResult.value <= 20 || selectedResult.customColor) ? "white" : "black", textShadow: "0 1px 2px rgba(0,0,0,0.4)", padding: "6px 12px", borderRadius: "8px", fontWeight: "bold", display: "inline-block", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", fontSize: "12px" }}>
+                  {selectedResult.info || getLabel(selectedResult.value)}
                 </div>
               </div>
             </div>
@@ -327,19 +383,35 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
     );
   };
 
-  // Interpolasi data titik ke poligon kecamatan
+  // Interpolasi data titik/poligon ke kecamatan
   const coloredKecamatanData = useMemo(() => {
     if (!kecamatanData || !geoData || !geoData.features || geoData.features.length === 0) return kecamatanData;
-    if (geoData.features[0].geometry.type !== 'Point') return kecamatanData;
 
     try {
+      const isPoint = geoData.features[0].geometry.type === 'Point';
       const newData = {
         ...kecamatanData,
         features: kecamatanData.features.map((f: any) => {
           const centroid = turf.centroid(f as any);
-          const nearest = turf.nearestPoint(centroid, geoData as any);
-          const val = nearest ? (nearest.properties.gridcode || nearest.properties.value || nearest.properties.CH || 0) : 0;
-          return { ...f, properties: { ...f.properties, _ch_value: val } };
+          let nearest = null;
+          
+          if (isPoint) {
+            nearest = turf.nearestPoint(centroid, geoData as any);
+          } else {
+            for (const poly of geoData.features) {
+              try {
+                if (turf.booleanIntersects(centroid, poly)) {
+                  nearest = poly;
+                  break;
+                }
+              } catch (err) {}
+            }
+          }
+
+          const val = nearest ? getFeatureValue(nearest) : 0;
+          const info = nearest?.properties?.info || nearest?.properties?.INFO || nearest?.properties?.ket || nearest?.properties?.KET;
+          const color = nearest?.properties?.fill_color || nearest?.properties?.FILL_COLOR || nearest?.properties?.color || nearest?.properties?.COLOR;
+          return { ...f, properties: { ...f.properties, _ch_value: val, _ch_info: info, _ch_color: color } };
         })
       };
       return newData;
@@ -349,19 +421,35 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
     }
   }, [kecamatanData, geoData]);
 
-  // Interpolasi data titik ke poligon kabupaten
+  // Interpolasi data titik/poligon ke kabupaten
   const coloredKabupatenData = useMemo(() => {
     if (!kabupatenData || !geoData || !geoData.features || geoData.features.length === 0) return kabupatenData;
-    if (geoData.features[0].geometry.type !== 'Point') return kabupatenData;
 
     try {
+      const isPoint = geoData.features[0].geometry.type === 'Point';
       const newData = {
         ...kabupatenData,
         features: kabupatenData.features.map((f: any) => {
           const centroid = turf.centroid(f as any);
-          const nearest = turf.nearestPoint(centroid, geoData as any);
-          const val = nearest ? (nearest.properties.gridcode || nearest.properties.value || nearest.properties.CH || 0) : 0;
-          return { ...f, properties: { ...f.properties, _ch_value: val } };
+          let nearest = null;
+          
+          if (isPoint) {
+            nearest = turf.nearestPoint(centroid, geoData as any);
+          } else {
+            for (const poly of geoData.features) {
+              try {
+                if (turf.booleanIntersects(centroid, poly)) {
+                  nearest = poly;
+                  break;
+                }
+              } catch (err) {}
+            }
+          }
+
+          const val = nearest ? getFeatureValue(nearest) : 0;
+          const info = nearest?.properties?.info || nearest?.properties?.INFO || nearest?.properties?.ket || nearest?.properties?.KET;
+          const color = nearest?.properties?.fill_color || nearest?.properties?.FILL_COLOR || nearest?.properties?.color || nearest?.properties?.COLOR;
+          return { ...f, properties: { ...f.properties, _ch_value: val, _ch_info: info, _ch_color: color } };
         })
       };
       return newData;
@@ -371,26 +459,30 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
     }
   }, [kabupatenData, geoData]);
 
+
   const style = (feature: any) => {
-    const value = feature.properties.gridcode || feature.properties.value || feature.properties.CH || 0;
+    const value = getFeatureValue(feature);
+    const color = feature.properties?.fill_color || feature.properties?.FILL_COLOR || feature.properties?.color || feature.properties?.COLOR;
     return {
-      fillColor: getColor(value),
-      weight: 0.5,
-      opacity: 0.8,
-      color: "white",
-      dashArray: "3",
+      fillColor: color || getColor(value),
+      weight: 0,
+      opacity: 0,
+      color: "transparent",
       fillOpacity: 0.8
     };
   };
 
   const onEachFeature = (feature: any, layer: L.Layer) => {
-    const value = feature.properties.gridcode || feature.properties.value || feature.properties.CH || 0;
+    const value = getFeatureValue(feature);
+    const color = feature.properties?.fill_color || feature.properties?.FILL_COLOR || feature.properties?.color || feature.properties?.COLOR;
+    const info = feature.properties?.info || feature.properties?.INFO || feature.properties?.ket || feature.properties?.KET;
+    
     layer.bindPopup(`
       <div class="p-2">
         <h4 class="font-bold text-slate-800">Prakiraan Curah Hujan</h4>
         <div class="mt-1 flex items-center gap-2">
-          <span class="w-3 h-3 rounded-sm" style="background-color: ${getColor(value)}"></span>
-          <span class="text-sm">Curah Hujan: <b>${value} mm</b></span>
+          <span class="w-3 h-3 rounded-sm" style="background-color: ${color || getColor(value)}"></span>
+          <span class="text-sm">Curah Hujan: <b>${info || getLabel(value)}</b></span>
         </div>
       </div>
     `);
@@ -479,17 +571,8 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
             <GeoJSON 
               key={forecast?.id + "-data-points"}
               data={geoData} 
-              pointToLayer={(feature, latlng) => {
-                const value = feature.properties?.gridcode || feature.properties?.value || feature.properties?.CH || 0;
-                return L.circleMarker(latlng, { 
-                  radius: 5, 
-                  fillColor: getColor(value),
-                  color: getColor(value),
-                  weight: 1,
-                  opacity: 0.8,
-                  fillOpacity: 0.6
-                }); 
-              }}
+              style={style}
+              interactive={false}
               ref={geoJsonRef}
             />
           )}
@@ -500,12 +583,14 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
               data={coloredKecamatanData}
               style={(feature) => {
                 const value = feature?.properties?._ch_value || 0;
+                const customColor = feature?.properties?._ch_color;
+                const finalColor = customColor || (value ? getColor(value) : "transparent");
                 return { 
-                  color: value ? getColor(value) : "#9ca3af", 
+                  color: (value || customColor) ? "rgba(0,0,0,0.3)" : "#9ca3af", 
                   weight: 0.5, 
-                  fillOpacity: value ? 0.7 : 0, 
+                  fillOpacity: (value || customColor) ? 0.7 : 0, 
                   opacity: 0.8,
-                  fillColor: value ? getColor(value) : "transparent"
+                  fillColor: finalColor
                 };
               }}
               interactive={true}
@@ -513,6 +598,11 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
               onEachFeature={(feature, layer) => {
                  const name = feature.properties?.KECAMATAN || feature.properties?.NAMAKEC || feature.properties?.NAMOBJ || "Tidak Diketahui";
                  const value = feature.properties?._ch_value || 0;
+                 const customColor = feature.properties?._ch_color;
+                 const info = feature.properties?._ch_info;
+                 
+                 const finalColor = customColor || getColor(value);
+                 const finalLabel = info || getLabel(value);
 
                  const popupHtml = `
                    <div style="min-width: 200px; padding: 0; font-family: sans-serif;">
@@ -526,8 +616,8 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
                        </div>
                        <div style="text-align: center;">
                          <span style="color: #64748b; font-size: 12px; display: block; margin-bottom: 8px;">Prakiraan Hujan</span>
-                         <div style="background-color: ${getColor(value)}; color: ${value > 150 || value <= 20 ? 'white' : 'black'}; padding: 6px 12px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 13px;">
-                           ${getLabel(value)}
+                         <div style="background-color: ${finalColor}; color: ${(value > 150 || value <= 20 || customColor) ? 'white' : 'black'}; text-shadow: 0 1px 2px rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 13px;">
+                           ${finalLabel}
                          </div>
                        </div>
                      </div>
@@ -556,12 +646,15 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
               ref={kabupatenGeoJsonRef}
               style={(feature) => {
                 const value = feature?.properties?._ch_value || 0;
+                const customColor = feature?.properties?._ch_color;
+                const finalColor = customColor || (value ? getColor(value) : "transparent");
+                
                 return { 
                   color: "#1f2937", 
                   weight: 2, 
-                  fillOpacity: (!showKecamatan && value) ? 0.7 : 0, 
+                  fillOpacity: (!showKecamatan && (value || customColor)) ? 0.7 : 0, 
                   opacity: 0.9,
-                  fillColor: (!showKecamatan && value) ? getColor(value) : "transparent"
+                  fillColor: (!showKecamatan && (value || customColor)) ? finalColor : "transparent"
                 };
               }}
               interactive={!showKecamatan}
@@ -577,6 +670,11 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
                 // Tambahkan click interaction hanya jika kecamatan disembunyikan
                 if (!showKecamatan) {
                    const value = feature.properties?._ch_value || 0;
+                   const customColor = feature.properties?._ch_color;
+                   const info = feature.properties?._ch_info;
+                   
+                   const finalColor = customColor || getColor(value);
+                   const finalLabel = info || getLabel(value);
 
                    const popupHtml = `
                      <div style="min-width: 200px; padding: 0; font-family: sans-serif;">
@@ -590,8 +688,8 @@ export function RainfallMap({ forecast }: RainfallMapProps) {
                          </div>
                          <div style="text-align: center;">
                            <span style="color: #64748b; font-size: 12px; display: block; margin-bottom: 8px;">Prakiraan Hujan</span>
-                           <div style="background-color: ${getColor(value)}; color: ${value > 150 || value <= 20 ? 'white' : 'black'}; padding: 6px 12px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 13px;">
-                             ${getLabel(value)}
+                           <div style="background-color: ${finalColor}; color: ${(value > 150 || value <= 20 || customColor) ? 'white' : 'black'}; text-shadow: 0 1px 2px rgba(0,0,0,0.4); padding: 6px 12px; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 13px;">
+                             ${finalLabel}
                            </div>
                          </div>
                        </div>

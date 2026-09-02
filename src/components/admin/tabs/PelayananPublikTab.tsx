@@ -9,6 +9,7 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { Pagination } from "@/components/ui/pagination";
 import { PdfViewer } from "@/components/ui/pdf-viewer";
 import { formatDescriptionHtml } from "@/lib/utils";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 export const PELAYANAN_CATEGORIES = [
   { id: "pk", label: "Perjanjian Kinerja", type: "pdf", icon: "description", group: "Dokumen Kinerja" },
@@ -30,7 +31,7 @@ export function PelayananPublikTab() {
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -44,7 +45,7 @@ export function PelayananPublikTab() {
     judul: "",
     file_url: "",
     deskripsi: "",
-    penulis: "Admin Pelayanan",
+    penulis: "",
   });
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -112,7 +113,7 @@ export function PelayananPublikTab() {
       judul: "",
       file_url: "",
       deskripsi: "",
-      penulis: "Admin Pelayanan",
+      penulis: "",
     });
     setUploadedFile(null);
     setPreviewFileUrl(null);
@@ -128,7 +129,7 @@ export function PelayananPublikTab() {
       judul: item.judul,
       file_url: item.file_url,
       deskripsi: item.deskripsi || "",
-      penulis: item.penulis || "Admin Pelayanan",
+      penulis: item.penulis || "",
     });
     setUploadedFile(null);
     setIsEditing(true);
@@ -148,6 +149,10 @@ export function PelayananPublikTab() {
     e.preventDefault();
     if (!formData.judul?.trim()) {
       error("Judul tidak boleh kosong.");
+      return;
+    }
+    if (!formData.penulis?.trim()) {
+      error("Penulis / Tim Pengelola wajib diisi.");
       return;
     }
 
@@ -178,7 +183,7 @@ export function PelayananPublikTab() {
         judul: formData.judul.trim(),
         file_url: finalFileUrl,
         deskripsi: formData.deskripsi || "",
-        penulis: formData.penulis || "Admin Pelayanan",
+        penulis: formData.penulis?.trim() || "",
         updated_at: new Date().toISOString(),
       };
 
@@ -231,7 +236,7 @@ export function PelayananPublikTab() {
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredItems.slice(start, start + itemsPerPage);
-  }, [filteredItems, currentPage]);
+  }, [filteredItems, currentPage, itemsPerPage]);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
@@ -317,26 +322,22 @@ export function PelayananPublikTab() {
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Kategori Pelayanan <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.kategori}
-                  onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <optgroup label="Dokumen Kinerja (Format PDF)">
-                    <option value="pk">Perjanjian Kinerja (PK)</option>
-                    <option value="lakip">Laporan Kinerja (LAKIP)</option>
-                    <option value="rkt">Rencana Kinerja Tahunan (RKT)</option>
-                  </optgroup>
-                  <optgroup label="Informasi Layanan (Format Gambar / Teks)">
-                    <option value="maklumat">Maklumat Pelayanan</option>
-                    <option value="standar">Standar Pelayanan</option>
-                    <option value="jenis">Jenis Layanan</option>
-                  </optgroup>
-                  <optgroup label="Panduan Layanan">
-                    <option value="pnbp">Jenis & Tarif Layanan PNBP</option>
-                    <option value="tarif-nol">Tarif Nol Rupiah</option>
-                  </optgroup>
-                </select>
+                <div className="relative z-50">
+                  <CustomSelect
+                    value={formData.kategori || "pk"}
+                    onChange={(val) => setFormData({ ...formData, kategori: val })}
+                    options={[
+                      { value: "pk", label: "📁 Dokumen Kinerja - Perjanjian Kinerja (PK)" },
+                      { value: "lakip", label: "📁 Dokumen Kinerja - Laporan Kinerja (LAKIP)" },
+                      { value: "rkt", label: "📁 Dokumen Kinerja - Rencana Kinerja Tahunan (RKT)" },
+                      { value: "maklumat", label: "ℹ️ Informasi Layanan - Maklumat Pelayanan" },
+                      { value: "standar", label: "ℹ️ Informasi Layanan - Standar Pelayanan" },
+                      { value: "jenis", label: "ℹ️ Informasi Layanan - Jenis Layanan" },
+                      { value: "pnbp", label: "📖 Panduan Layanan - Jenis & Tarif Layanan PNBP" },
+                      { value: "tarif-nol", label: "📖 Panduan Layanan - Tarif Nol Rupiah" }
+                    ]}
+                  />
+                </div>
                 <div className="mt-2 text-xs text-slate-500 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[15px] text-blue-600">info</span>
                   <span>
@@ -355,10 +356,11 @@ export function PelayananPublikTab() {
               {/* Penulis / Sumber */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Penulis / Tim Pengelola
+                  Penulis / Tim Pengelola <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={formData.penulis || ""}
                   onChange={(e) => setFormData({ ...formData, penulis: e.target.value })}
                   placeholder="Contoh: Tim Pelayanan Publik BMKG"
@@ -501,8 +503,27 @@ export function PelayananPublikTab() {
             />
           </div>
 
-          <div className="text-xs font-bold text-slate-500">
-            Menampilkan: <span className="text-primary font-extrabold">{filteredItems.length} data</span>
+          <div className="flex items-center gap-4 self-end sm:self-auto">
+            <div className="flex items-center gap-2">
+              <label htmlFor="perPage" className="text-xs font-bold text-slate-500">Tampilkan:</label>
+              <select
+                id="perPage"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-2 py-1.5 outline-none focus:border-primary cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <option value={5}>5 Baris</option>
+                <option value={10}>10 Baris</option>
+                <option value={20}>20 Baris</option>
+                <option value={50}>50 Baris</option>
+              </select>
+            </div>
+            <div className="text-xs font-bold text-slate-500">
+              Total: <span className="text-primary font-extrabold">{filteredItems.length} data</span>
+            </div>
           </div>
         </div>
       )}
@@ -619,83 +640,88 @@ export function PelayananPublikTab() {
 
       {/* DETAIL MODAL */}
       {selectedDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 flex flex-col border border-slate-100">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10">
-              <div className="flex items-center gap-3">
-                {getCategoryBadge(selectedDetail.kategori)}
-                <span className="text-xs text-slate-400 font-medium">Diunggah: {formatDate(selectedDetail.created_at)}</span>
-              </div>
-              <button
-                onClick={() => setSelectedDetail(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 sm:p-8 space-y-6">
-              <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
-                {selectedDetail.judul}
-              </h3>
-
-              {/* PDF Preview */}
-              {(selectedDetail.file_url?.toLowerCase().endsWith(".pdf") || PELAYANAN_CATEGORIES.find(c => c.id === selectedDetail.kategori)?.type === "pdf") && (
-                <div className="w-full">
-                  <PdfViewer
-                    url={supabaseGetPublicUrl("pelayanan-publik-files", selectedDetail.file_url)}
-                    title={selectedDetail.judul}
-                  />
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 flex flex-col border border-slate-100">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10">
+                <div className="flex items-center gap-3">
+                  {getCategoryBadge(selectedDetail.kategori)}
+                  <span className="text-xs text-slate-400 font-medium">Diunggah: {formatDate(selectedDetail.created_at)}</span>
                 </div>
-              )}
-
-              {/* Image Preview */}
-              {(!selectedDetail.file_url?.toLowerCase().endsWith(".pdf") && PELAYANAN_CATEGORIES.find(c => c.id === selectedDetail.kategori)?.type !== "pdf") && selectedDetail.file_url && (
-                <div className="w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center p-4">
-                  <img
-                    src={supabaseGetPublicUrl("pelayanan-publik-files", selectedDetail.file_url)}
-                    alt={selectedDetail.judul}
-                    className="max-h-[65vh] object-contain rounded-xl shadow-sm"
-                  />
-                </div>
-              )}
-
-              {/* Description */}
-              {selectedDetail.deskripsi && (
-                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deskripsi / Rincian Layanan</h4>
-                  <div
-                    className="prose prose-slate max-w-none text-sm text-slate-700 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(selectedDetail.deskripsi) }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 sm:p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="text-xs text-slate-500 font-medium">
-                Penulis: <strong className="text-slate-800">{selectedDetail.penulis || "Admin"}</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleEditClick(selectedDetail)}
-                  className="px-4 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs transition-colors cursor-pointer"
-                >
-                  Edit Dokumen
-                </button>
                 <button
                   onClick={() => setSelectedDetail(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  Tutup
+                  <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 sm:p-8 space-y-6">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+                  {selectedDetail.judul}
+                </h3>
+
+                {/* PDF Preview */}
+                {(selectedDetail.file_url?.toLowerCase().endsWith(".pdf") || PELAYANAN_CATEGORIES.find(c => c.id === selectedDetail.kategori)?.type === "pdf") && (
+                  <div className="w-full">
+                    <PdfViewer
+                      url={supabaseGetPublicUrl("pelayanan-publik-files", selectedDetail.file_url)}
+                      title={selectedDetail.judul}
+                    />
+                  </div>
+                )}
+
+                {/* Image Preview */}
+                {(!selectedDetail.file_url?.toLowerCase().endsWith(".pdf") && PELAYANAN_CATEGORIES.find(c => c.id === selectedDetail.kategori)?.type !== "pdf") && selectedDetail.file_url && (
+                  <div className="w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center p-4">
+                    <img
+                      src={supabaseGetPublicUrl("pelayanan-publik-files", selectedDetail.file_url)}
+                      alt={selectedDetail.judul}
+                      className="max-h-[65vh] object-contain rounded-xl shadow-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Description */}
+                {selectedDetail.deskripsi && (
+                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deskripsi / Rincian Layanan</h4>
+                    <div
+                      className="prose prose-slate max-w-none text-sm text-slate-700 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: formatDescriptionHtml(selectedDetail.deskripsi) }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="text-xs text-slate-500 font-medium">
+                  Penulis: <strong className="text-slate-800">{selectedDetail.penulis || "Admin"}</strong>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedDetail(null);
+                      handleEditClick(selectedDetail);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Edit Dokumen
+                  </button>
+                  <button
+                    onClick={() => setSelectedDetail(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

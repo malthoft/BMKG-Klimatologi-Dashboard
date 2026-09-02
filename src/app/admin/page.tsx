@@ -26,11 +26,17 @@ import { ProfileDropdown } from "@/components/admin/ProfileDropdown";
 import { AccountSettingsModal } from "@/components/admin/AccountSettingsModal";
 
 function AdminDashboardContent() {
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "stations";
   const { user, loading: authLoading, logout, refreshUser } = useAuth();
   
+  // Create developer account on first load
+  useEffect(() => {
+    fetch("/api/auth/seed").catch(console.error);
+  }, []);
+
   const setActiveTab = (tab: string) => {
     router.replace(`/admin?tab=${tab}`, { scroll: false });
   };
@@ -98,8 +104,10 @@ function AdminDashboardContent() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/admin/login");
+    } else if (user && user.role === 'admin' && (!searchParams.get("tab") || searchParams.get("tab") === 'stations')) {
+      router.replace("/admin?tab=berita");
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, searchParams]);
 
   if (authLoading) return <div className="h-screen flex flex-col items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div><p className="text-slate-500 font-medium animate-pulse">Memverifikasi akses...</p></div>;
   if (!user) return null;
@@ -122,6 +130,7 @@ function AdminDashboardContent() {
         
         <nav className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Beranda Group */}
+          {(user?.role === "super_admin" || user?.role === "developer") && (
           <div>
             <button onClick={() => setOpenNavGroups({...openNavGroups, beranda: !openNavGroups.beranda})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors">
               <span>Beranda & Umum</span>
@@ -156,6 +165,7 @@ function AdminDashboardContent() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Pelayanan Publik / Sipadu Group */}
           <div>
@@ -199,7 +209,7 @@ function AdminDashboardContent() {
             </div>
           </div>
 
-          {user?.role === "super_admin" && (
+          {(user?.role === "super_admin" || user?.role === "developer") && (
           
           <div>
             <button onClick={() => setOpenNavGroups({...openNavGroups, profil: !openNavGroups.profil})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors">
@@ -233,7 +243,7 @@ function AdminDashboardContent() {
           </div>
           )}
 
-          {user?.role === "super_admin" && (
+          {(user?.role === "super_admin" || user?.role === "developer") && (
           
           <div>
             <button onClick={() => setOpenNavGroups({...openNavGroups, admin_control: !openNavGroups.admin_control})} className="w-full flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors">
@@ -385,7 +395,7 @@ function AdminDashboardContent() {
                 >
                   <div className="text-right hidden lg:block">
                     <p className="text-[14px] font-bold text-slate-800 leading-tight">{user?.display_name || "Admin"}</p>
-                    <p className="text-[11px] text-slate-500 uppercase font-bold mt-0.5">{user?.role === "super_admin" ? "Super Admin" : "Admin"}</p>
+                    <p className="text-[11px] text-slate-500 uppercase font-bold mt-0.5">{user?.role === "developer" ? "Developer" : user?.role === "super_admin" ? "Super Admin" : "Admin"}</p>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shrink-0">
                     <span className="material-symbols-outlined text-[22px]">person</span>
@@ -423,9 +433,11 @@ function AdminDashboardContent() {
                 }}
                 className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
+                {(user?.role === "super_admin" || user?.role === "developer") && (
                 <optgroup label="Beranda & Umum">
                   <option value="stations">Daftar AWS</option>
                 </optgroup>
+                )}
                 <optgroup label="Pelayanan Publik">
                   <option value="pelayanan">Kelola Konten Pelayanan</option>
                   <option value="sipadu">Sipadu Admin (Daftar Berkas Masuk) ↗</option>

@@ -34,6 +34,10 @@ export async function PATCH(req: Request) {
     }
     const user = users[0];
 
+    if (user.role === "developer") {
+      return NextResponse.json({ error: "Akun Developer utama tidak dapat diubah (Immutable)." }, { status: 403 });
+    }
+
     // Verify current password
     const isValid = await bcrypt.compare(current_password, user.password_hash);
     if (!isValid) {

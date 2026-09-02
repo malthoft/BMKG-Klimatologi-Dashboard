@@ -641,8 +641,10 @@ export default function Home() {
           </div>
         </section>
 
+
+
         {/* ═══════════════════════════════════════════════════ */}
-        {/* 6. INSTAGRAM BMKG */}
+        {/* 7. INSTAGRAM BMKG */}
         {/* ═══════════════════════════════════════════════════ */}
         <section className="bg-tertiary/30 py-12 md:py-16 border-t border-border w-full">
           <div className="max-w-7xl mx-auto px-6 md:px-8 w-full">

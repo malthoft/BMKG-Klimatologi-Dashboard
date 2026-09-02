@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast-provider";
 import { CustomSelect } from "@/components/ui/CustomSelect";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { Pagination } from "@/components/ui/pagination";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 export function PengumumanTab() {
   const confirm = useConfirm();
@@ -27,7 +28,7 @@ export function PengumumanTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedKategoriFilter, setSelectedKategoriFilter] = useState("Semua");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   useEffect(() => {
     load("order=created_at.desc");
@@ -197,6 +198,7 @@ export function PengumumanTab() {
     <>
       {/* Detail Modal */}
       {selectedDetail && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedDetail(null)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 animate-in fade-in zoom-in-95 duration-200">
@@ -262,10 +264,12 @@ export function PengumumanTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Preview Modal */}
       {showPreview && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowPreview(false)}></div>
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto relative z-10 flex flex-col animate-in fade-in zoom-in-95 duration-200">
@@ -326,6 +330,7 @@ export function PengumumanTab() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* FULL-PAGE EDITOR VIEW */}
@@ -567,21 +572,43 @@ export function PengumumanTab() {
                 type="text" 
                 placeholder="Cari pengumuman berdasarkan judul..." 
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-              {["Semua", "Umum", "Layanan", "Penting", "Kegiatan"].map((kategori) => (
-                <button
-                  key={kategori}
-                  onClick={() => { setSelectedKategoriFilter(kategori); setCurrentPage(1); }}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedKategoriFilter === kategori ? "bg-indigo-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+            <div className="flex items-center gap-4 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              <div className="flex items-center gap-2">
+                {["Semua", "Umum", "Layanan", "Penting", "Kegiatan"].map((kategori) => (
+                  <button
+                    key={kategori}
+                    onClick={() => { setSelectedKategoriFilter(kategori); setCurrentPage(1); }}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedKategoriFilter === kategori ? "bg-indigo-600 text-white shadow-sm" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                  >
+                    {kategori}
+                  </button>
+                ))}
+              </div>
+
+              <div className="hidden sm:block w-px h-6 bg-slate-200"></div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <label htmlFor="perPage" className="text-xs font-bold text-slate-500 hidden md:block">Tampilkan:</label>
+                <select
+                  id="perPage"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-100 transition-colors"
                 >
-                  {kategori}
-                </button>
-              ))}
+                  <option value={5}>5 Baris</option>
+                  <option value={10}>10 Baris</option>
+                  <option value={20}>20 Baris</option>
+                  <option value={50}>50 Baris</option>
+                </select>
+              </div>
             </div>
           </div>
 

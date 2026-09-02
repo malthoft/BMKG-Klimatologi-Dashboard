@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { User } from "@/hooks/useAuth";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 interface AccountSettingsModalProps {
   user: User;
@@ -114,8 +115,9 @@ export function AccountSettingsModal({ user, isOpen, onClose, onUpdateSuccess }:
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -259,6 +261,7 @@ export function AccountSettingsModal({ user, isOpen, onClose, onUpdateSuccess }:
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </ModalPortal>
   );
 }

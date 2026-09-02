@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { supabaseFetch, supabaseInsert, supabaseUpdate, supabaseDelete, supabaseDeleteFile, supabaseUploadFile } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAuth } from "@/hooks/useAuth";
+import { parseDbError } from "@/lib/error-parser";
 
 export function useCrud<T>(tableName: string, bucketName?: string) {
   const [items, setItems] = useState<T[]>([]);
@@ -29,23 +30,33 @@ export function useCrud<T>(tableName: string, bucketName?: string) {
   }, [tableName, error]);
 
   const add = async (payload: Partial<T>, successMsg: string = "Data berhasil ditambahkan") => {
-    const result = await supabaseInsert(tableName, payload);
-    if (result) {
-      success(successMsg);
-      return true;
+    try {
+      const result = await supabaseInsert(tableName, payload);
+      if (result) {
+        success(successMsg);
+        return true;
+      }
+      error("Gagal menambahkan data.");
+      return false;
+    } catch (e: any) {
+      error(`Gagal: ${parseDbError(e.message || "Kesalahan tidak diketahui")}`);
+      return false;
     }
-    error("Gagal menambahkan data");
-    return false;
   };
 
   const update = async (id: number | string, payload: Partial<T>, successMsg: string = "Data berhasil diperbarui") => {
-    const result = await supabaseUpdate(tableName, `id=eq.${id}`, payload);
-    if (result) {
-      success(successMsg);
-      return true;
+    try {
+      const result = await supabaseUpdate(tableName, `id=eq.${id}`, payload);
+      if (result) {
+        success(successMsg);
+        return true;
+      }
+      error("Gagal memperbarui data.");
+      return false;
+    } catch (e: any) {
+      error(`Gagal: ${parseDbError(e.message || "Kesalahan tidak diketahui")}`);
+      return false;
     }
-    error("Gagal memperbarui data");
-    return false;
   };
 
   const remove = async (id: number | string, fileUrl?: string, successMsg: string = "Data berhasil dihapus") => {
@@ -63,8 +74,8 @@ export function useCrud<T>(tableName: string, bucketName?: string) {
       }
       error("Gagal menghapus data");
       return false;
-    } catch (e) {
-      error("Terjadi kesalahan saat menghapus data");
+    } catch (e: any) {
+      error(`Gagal: ${parseDbError(e.message || "Terjadi kesalahan saat menghapus data")}`);
       return false;
     }
   };

@@ -13,8 +13,16 @@ export function TempMapsTab() {
   const { items: tempMaps, isLoading, load, add, update, remove } = useCrud<TempMap>("temperature_maps", "temperature-maps");
   
   const [newTempMap, setNewTempMap] = useState<{year: number, category: string, file: File | null}>({ year: new Date().getFullYear(), category: "Normal", file: null });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploadingTempMap, setIsUploadingTempMap] = useState(false);
   const [editTempMapId, setEditTempMapId] = useState<number | null>(null);
+
+  // Clean up preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   useEffect(() => {
     load("order=year.desc");
@@ -23,9 +31,19 @@ export function TempMapsTab() {
   const handleAddTempMap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTempMap.file) {
-      error("Silakan pilih file gambar peta suhu!");
+      error("Silakan pilih file gambar peta suhu terlebih dahulu!");
       return;
     }
+    if (newTempMap.file.size > 5 * 1024 * 1024) {
+      error("Ukuran file tidak boleh lebih dari 5MB!");
+      return;
+    }
+    const isDuplicate = tempMaps.some(map => map.year === newTempMap.year && map.category === newTempMap.category);
+    if (isDuplicate) {
+      error(`Data peta suhu untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
+      return;
+    }
+
     setIsUploadingTempMap(true);
 
     try {
@@ -47,6 +65,8 @@ export function TempMapsTab() {
 
       if (isOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
         load("order=year.desc");
       }
     } catch (err: any) {
@@ -59,19 +79,30 @@ export function TempMapsTab() {
   const handleEditTempMap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTempMapId) return;
+    const isDuplicate = tempMaps.some(map => map.id !== editTempMapId && map.year === newTempMap.year && map.category === newTempMap.category);
+    if (isDuplicate) {
+      error(`Data peta suhu untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
+      return;
+    }
+
     setIsUploadingTempMap(true);
 
     try {
       let finalImageUrl = undefined;
       
       if (newTempMap.file) {
+        if (newTempMap.file.size > 5 * 1024 * 1024) {
+          setIsUploadingTempMap(false);
+          error("Ukuran file tidak boleh lebih dari 5MB!");
+          return;
+        }
         const fileExt = newTempMap.file.name.split('.').pop();
         const fileName = `tempmap-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${newTempMap.year}/${fileName}`;
         const uploadedUrl = await supabaseUploadFile("temperature-maps", filePath, newTempMap.file);
         if (!uploadedUrl) {
           setIsUploadingTempMap(false);
-          throw new Error("Gagal mengupload gambar baru");
+          throw new Error("Gagal mengunggah gambar baru ke server");
         }
         finalImageUrl = uploadedUrl;
       }
@@ -86,6 +117,8 @@ export function TempMapsTab() {
       if (isUpdateOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
         setEditTempMapId(null);
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
         load("order=year.desc");
       }
     } catch (err: any) {
@@ -98,11 +131,15 @@ export function TempMapsTab() {
   const startEditTempMap = (map: TempMap) => {
     setEditTempMapId(map.id);
     setNewTempMap({ year: map.year, category: map.category, file: null });
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
   };
 
   const cancelEditTempMap = () => {
     setEditTempMapId(null);
     setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
   };
 
   const handleDeleteTempMap = async (id: number, imageUrl: string) => {
@@ -143,11 +180,42 @@ export function TempMapsTab() {
                           required={!editTempMapId}
                           onChange={e => {
                             const file = e.target.files?.[0];
-                            if (file) setNewTempMap({...newTempMap, file});
+                            if (file) {
+                              if (file.size > 5 * 1024 * 1024) {
+                                error("Ukuran file melebihi 5MB!");
+                                e.target.value = '';
+                                return;
+                              }
+                              setNewTempMap({...newTempMap, file});
+                              if (previewUrl) URL.revokeObjectURL(previewUrl);
+                              setPreviewUrl(URL.createObjectURL(file));
+                            }
                           }} 
                         />
                         <span className="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-lg group-hover:bg-primary group-hover:text-white transition-colors shrink-0">Browse</span>
                       </label>
+                      <p className="text-[10px] text-slate-400 mt-1.5 ml-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[12px]">info</span>
+                        Maksimal ukuran file 5MB (JPG/PNG/WEBP)
+                      </p>
+                      
+                      {previewUrl && (
+                        <div className="mt-3 relative w-full h-40 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" />
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setNewTempMap({...newTempMap, file: null});
+                              URL.revokeObjectURL(previewUrl);
+                              setPreviewUrl(null);
+                            }}
+                            className="absolute top-2 right-2 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">close</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -169,7 +237,8 @@ export function TempMapsTab() {
                           onChange={(val) => setNewTempMap({...newTempMap, category: val})}
                           options={[
                             { value: "Normal", label: "Normal" },
-                            { value: "Anomali", label: "Anomali" }
+                            { value: "El Niño", label: "El Niño" },
+                            { value: "La Niña", label: "La Niña" }
                           ]}
                         />
                       </div>
@@ -216,7 +285,7 @@ export function TempMapsTab() {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {tempMaps.map(m => (
+                    {[...tempMaps].sort((a, b) => b.year - a.year).map(m => (
                       <div key={m.id} className="group rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 relative flex flex-col">
                         <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
                           {m.image_url ? (

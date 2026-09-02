@@ -10,8 +10,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    if (username.toLowerCase() === "develop") {
+      return NextResponse.json({ error: "Username 'Develop' tidak diizinkan." }, { status: 400 });
+    }
+
     const password_hash = await bcrypt.hash(password, 10);
     
+    // Explicitly prevent creating developer role via regular register
     const userRole = role === "super_admin" ? "super_admin" : "admin";
 
     const res = await supabaseInsert("admin_users", {

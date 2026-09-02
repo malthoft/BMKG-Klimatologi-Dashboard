@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useState, useEffect } from "react";
 import { supabaseFetch } from "@/lib/supabase";
+import { CustomSelect } from "@/components/ui/CustomSelect";
 
 // Import peta tanpa SSR karena Leaflet menggunakan window
 const RainfallMap = dynamic(
@@ -82,40 +83,30 @@ export default function PrakiraanCurahHujanPage() {
 
         {/* Filter Controls */}
         <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-end relative z-20">
-          <div className="flex-1 w-full space-y-1.5">
+          <div className="flex-1 w-full space-y-1.5 relative z-50">
             <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Kategori Prakiraan</label>
-            <select
+            <CustomSelect
               value={activeCategory}
-              onChange={(e) => setActiveCategory(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-primary focus:border-primary block px-4 py-2.5 outline-none transition-all"
-            >
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.label}</option>
-              ))}
-            </select>
+              onChange={(val) => setActiveCategory(val)}
+              options={categories.map(c => ({ value: c.id, label: c.label }))}
+            />
           </div>
           
-          <div className="flex-1 w-full space-y-1.5">
+          <div className="flex-1 w-full space-y-1.5 relative z-40">
             <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Periode</label>
-            <select
-              value={selectedForecast?.id || ""}
-              onChange={(e) => {
-                const found = forecasts.find(f => f.id.toString() === e.target.value);
+            <CustomSelect
+              value={selectedForecast?.id?.toString() || ""}
+              onChange={(val) => {
+                const found = forecasts.find(f => f.id.toString() === val);
                 if (found) setSelectedForecast(found);
               }}
               disabled={isLoading || forecasts.length === 0}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-primary focus:border-primary block px-4 py-2.5 outline-none transition-all disabled:opacity-50"
-            >
-              {isLoading ? (
-                <option>Memuat data...</option>
-              ) : forecasts.length === 0 ? (
-                <option>Data tidak tersedia</option>
-              ) : (
-                forecasts.map(f => (
-                  <option key={f.id} value={f.id}>{f.label}</option>
-                ))
-              )}
-            </select>
+              options={isLoading 
+                ? [{ value: "", label: "Memuat data..." }] 
+                : forecasts.length === 0 
+                  ? [{ value: "", label: "Data tidak tersedia" }] 
+                  : forecasts.map(f => ({ value: f.id.toString(), label: f.label }))}
+            />
           </div>
         </div>
 

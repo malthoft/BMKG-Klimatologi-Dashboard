@@ -15,9 +15,10 @@ interface CustomSelectProps {
   placeholder?: string;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
-export function CustomSelect({ value, onChange, options, placeholder = "Pilih...", className = "", required = false }: CustomSelectProps) {
+export function CustomSelect({ value, onChange, options, placeholder = "Pilih...", className = "", required = false, disabled = false }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -48,8 +49,9 @@ export function CustomSelect({ value, onChange, options, placeholder = "Pilih...
       
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`w-full bg-white border ${isOpen ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'} text-slate-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all flex items-center justify-between shadow-sm cursor-pointer hover:border-slate-300`}
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full bg-white border ${isOpen ? 'border-primary ring-2 ring-primary/20' : 'border-slate-200'} text-slate-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all flex items-center justify-between shadow-sm ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'cursor-pointer hover:border-slate-300'}`}
       >
         <span className={`block truncate min-w-0 text-left flex-1 pr-4 ${selectedOption ? "" : "text-slate-400"}`}>
           {selectedOption ? selectedOption.label : placeholder}

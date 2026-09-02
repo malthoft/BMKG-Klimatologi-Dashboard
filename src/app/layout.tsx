@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { WhatsappFab } from "@/components/ui/whatsapp-fab";
 import { ToastProvider } from "@/components/ui/toast-provider";
@@ -54,7 +55,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
         />
-        <script dangerouslySetInnerHTML={{ __html: `
+        <Script id="global-splash-remover" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
           // Remove splash screen when fonts ready
           document.fonts.ready.then(function() {
             var splash = document.getElementById('global-splash-screen');

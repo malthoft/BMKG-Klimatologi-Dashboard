@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Pagination } from "@/components/ui/pagination";
+import { supabaseGetPublicUrl } from "@/lib/supabase";
 
 interface PengumumanItem {
   id: number;
@@ -103,49 +104,72 @@ export function PengumumanList({ initialData }: PengumumanListProps) {
       {/* List Items */}
       {paginatedData.length > 0 ? (
         <div className="flex flex-col gap-6">
-          {paginatedData.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-3 hover:shadow-md transition-shadow group"
-            >
-              <div className="flex items-center gap-2">
-                <span className="bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider border border-indigo-100">
-                  {item.kategori || "Pengumuman"}
-                </span>
-                {item.file_url && item.file_url.toLowerCase().includes(".pdf") && (
-                  <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-md text-xs font-bold flex items-center gap-1 border border-red-100">
-                    <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span>
-                    Dokumen PDF
-                  </span>
-                )}
-              </div>
+          {paginatedData.map((item) => {
+            const isPdf = item.file_url?.toLowerCase().includes(".pdf");
+            const hasImage = item.file_url && !isPdf;
 
-              <h2 className="text-xl font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
-                {item.judul}
-              </h2>
-
-              <div className="flex items-center gap-4 text-sm text-slate-500 font-medium mt-1">
-                <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-                  {formatDate(item.published_at || item.created_at)}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]">person</span>
-                  {item.penulis || "Admin"}
-                </span>
-              </div>
-
+            return (
               <Link
                 href={`/publikasi/pengumuman/${item.id}`}
-                className="text-indigo-600 font-bold hover:text-indigo-700 flex items-center gap-1 text-sm mt-2 transition-colors self-start"
+                key={item.id}
+                className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 flex flex-col sm:flex-row gap-6 hover:shadow-md transition-all group overflow-hidden"
               >
-                Baca Selengkapnya
-                <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">
-                  chevron_right
-                </span>
+                {/* Thumbnail Image / Icon */}
+                <div className="relative w-full sm:w-48 h-48 sm:h-36 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 flex items-center justify-center group-hover:shadow-sm transition-all">
+                  {hasImage ? (
+                    <img 
+                      src={supabaseGetPublicUrl("pengumuman-files", item.file_url)} 
+                      alt={item.judul}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : isPdf ? (
+                    <div className="flex flex-col items-center gap-2 text-red-500 group-hover:scale-110 transition-transform duration-500">
+                      <span className="material-symbols-outlined text-5xl">picture_as_pdf</span>
+                      <span className="text-[10px] font-bold tracking-wider">DOKUMEN PDF</span>
+                    </div>
+                  ) : (
+                    <span className="material-symbols-outlined text-5xl text-slate-300 group-hover:scale-110 transition-transform duration-500">
+                      campaign
+                    </span>
+                  )}
+                  {/* Overlay gradient for empty/pdf images */}
+                  {!hasImage && (
+                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-100/50 to-transparent mix-blend-overlay"></div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider border border-indigo-100">
+                      {item.kategori || "Pengumuman"}
+                    </span>
+                    {isPdf && (
+                      <span className="bg-red-50 text-red-600 px-2.5 py-0.5 rounded-md text-xs font-bold flex items-center gap-1 border border-red-100">
+                        <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span>
+                        PDF
+                      </span>
+                    )}
+                  </div>
+
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors line-clamp-2">
+                    {item.judul}
+                  </h2>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500 font-medium mt-3">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+                      {formatDate(item.published_at || item.created_at)}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">person</span>
+                      {item.penulis || "Admin"}
+                    </span>
+                  </div>
+                </div>
               </Link>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Pagination */}
           <Pagination

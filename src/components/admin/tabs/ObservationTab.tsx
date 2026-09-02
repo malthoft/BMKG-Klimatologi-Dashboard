@@ -4,6 +4,7 @@ import { parseObservationExcel, ParsedDailyObservation, ParsedHourlyObservation 
 import { useToast } from "@/components/ui/toast-provider";
 import { Info, Map, TableProperties, UploadCloud } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-provider";
+import { ModalPortal } from "@/components/ui/ModalPortal";
 
 export function ObservationTab() {
   const confirm = useConfirm();
@@ -136,7 +137,9 @@ export function ObservationTab() {
     setIsSavingObservation(true);
     (async () => {
       try {
-        const nowIso = new Date().toISOString();
+        const now = new Date();
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const nowIso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
         const dailyPayload = {
           tanggal_pengamatan: observationDaily.tanggal_pengamatan,
           source_file: observationDaily.source_file || "Manual Input.xlsx",
@@ -266,12 +269,14 @@ export function ObservationTab() {
                           Sinkron: {
                             (() => {
                               try {
-                                let safeStr = activeObservationSync;
-                                if (safeStr.includes(" ") && !safeStr.includes("T")) safeStr = safeStr.replace(" ", "T");
-                                if (!safeStr.endsWith("Z") && !safeStr.includes("+")) {
-                                  safeStr += "Z";
+                                if (activeObservationSync.includes('T')) {
+                                  const [datePart, timePart] = activeObservationSync.split('T');
+                                  const [yyyy, mm, dd] = datePart.split('-');
+                                  let time = timePart.split('+')[0].replace('Z', '').split('.')[0];
+                                  const [H, M, S] = time.split(':');
+                                  return `${dd}/${mm}/${yyyy}, ${H}.${M}.${S}`;
                                 }
-                                return new Date(safeStr).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }).replace(/\./g, ':');
+                                return activeObservationSync;
                               } catch (e) {
                                 return activeObservationSync;
                               }
@@ -619,6 +624,7 @@ export function ObservationTab() {
 
               {/* Modal Tambah Data Jam (Opsional jika ingin diluar flow admin) */}
               {isAddHourlyModalOpen && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
                   <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-fade-up overflow-hidden">
                     <div className="bg-indigo-50 border-b border-indigo-100 p-4 flex justify-between items-center">
@@ -660,6 +666,7 @@ export function ObservationTab() {
                     </form>
                   </div>
                 </div>
+                </ModalPortal>
               )}
     </>
   );

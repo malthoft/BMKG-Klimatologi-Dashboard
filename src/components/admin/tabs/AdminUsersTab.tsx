@@ -7,6 +7,7 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 
 export function AdminUsersTab() {
   const confirm = useConfirm();
+  const { success: toastSuccess, error: toastError } = useToast();
   const { user } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +77,37 @@ export function AdminUsersTab() {
     }
   };
 
+  const handleResetPassword = async (targetUserId: number, targetUsername: string) => {
+    if (await confirm(`Anda yakin ingin mereset password untuk user "${targetUsername}" menjadi "123456"?`)) {
+      try {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ target_user_id: targetUserId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Gagal mereset password.");
+        toastSuccess(data.message || `Password user ${targetUsername} berhasil direset.`);
+      } catch (err: any) {
+        toastError(err.message);
+      }
+    }
+  };
+
+  const isSuperUser = user?.role === "super_admin" || user?.role === "developer";
+
+  const canManageUser = (targetRole: string, targetUsername: string) => {
+    if (user?.username === targetUsername) return false;
+    if (targetRole === 'developer') return false;
+    if (user?.role === 'developer') return true;
+    if (user?.role === 'super_admin' && targetRole === 'admin') return true;
+    return false;
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -108,11 +140,13 @@ export function AdminUsersTab() {
                 ) : users.length === 0 ? (
                   <tr><td colSpan={5} className="text-center py-6">Belum ada user.</td></tr>
                 ) : (
-                  [...users].sort((a, b) => {
-                    if (user?.username === a.username) return -1;
-                    if (user?.username === b.username) return 1;
-                    return 0;
-                  }).map(u => (
+                  [...users]
+                    .filter(u => user?.role === 'developer' ? true : u.role !== 'developer')
+                    .sort((a, b) => {
+                      if (user?.username === a.username) return -1;
+                      if (user?.username === b.username) return 1;
+                      return 0;
+                    }).map(u => (
                     <tr key={u.id} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${user?.username === u.username ? 'border-l-[3px] border-l-indigo-500 bg-indigo-50/30' : ''}`}>
                       <td className="py-3 px-4 font-semibold text-slate-700">{u.username}</td>
                       <td className="py-3 px-4 text-slate-600">
@@ -124,17 +158,24 @@ export function AdminUsersTab() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wider ${u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {u.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        <span className={`px-2 py-1 rounded text-[11px] font-bold uppercase tracking-wider ${u.role === 'developer' ? 'bg-emerald-100 text-emerald-700' : u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {u.role === 'developer' ? 'Developer' : u.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-500 text-xs">{new Date(u.created_at).toLocaleDateString('id-ID')}</td>
                       <td className="py-3 px-4 text-right">
-                        {user?.username !== u.username && (
-                          <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 transition p-1" title="Hapus">
-                            <span className="material-symbols-outlined text-lg">delete</span>
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {canManageUser(u.role, u.username) && (
+                            <button onClick={() => handleResetPassword(u.id, u.username)} className="text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition p-1.5 flex items-center justify-center" title="Reset Password ke 123456">
+                              <span className="material-symbols-outlined text-[18px]">lock_reset</span>
+                            </button>
+                          )}
+                          {canManageUser(u.role, u.username) && (
+                            <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition p-1.5 flex items-center justify-center" title="Hapus">
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx";
+
 export async function fetchAndParseHTHCsv(url: string) {
   try {
     const res = await fetch(url, { cache: "no-store" });
@@ -87,8 +89,98 @@ export async function fetchAndParseHTHCsv(url: string) {
     }
 
     return results;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error parsing HTH CSV:", error);
-    throw error;
+    throw new Error(error.message || "Gagal mengambil atau mem-parse data dari URL.");
+  }
+}
+
+export async function parseHTHExcel(file: File) {
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      throw new Error("File Excel kosong (tidak ada sheet).");
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rawRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+    if (!rawRows || rawRows.length < 2) {
+      throw new Error("Tidak ditemukan baris data di dalam file Excel. Pastikan file tidak kosong.");
+    }
+
+    // Parse header to find column indices
+    const headers = rawRows[0].map(h => String(h).trim().toLowerCase());
+    
+    let idx_id = -1, idx_nama = -1, idx_lat = -1, idx_lon = -1;
+    let idx_kab = -1, idx_pic = -1, idx_hth = -1, idx_ket = -1;
+
+    headers.forEach((h, i) => {
+      if (h === 'id' || h === 'kode' || h === 'id pos') idx_id = i;
+      else if (h.includes('nama')) idx_nama = i;
+      else if (h.includes('lat')) idx_lat = i;
+      else if (h.includes('lon')) idx_lon = i;
+      else if (h.includes('kab')) idx_kab = i;
+      else if (h.includes('pic')) idx_pic = i;
+      else if (h === 'hth' || h.includes('hari tanpa hujan')) idx_hth = i;
+      else if (h.includes('ket') || h.includes('status')) idx_ket = i;
+    });
+
+    const missingColumns = [];
+    if (idx_nama === -1) missingColumns.push("Nama");
+    if (idx_lat === -1) missingColumns.push("Lat");
+    if (idx_lon === -1) missingColumns.push("Lon");
+    
+    if (missingColumns.length > 0) {
+      throw new Error(`File Excel tidak memiliki kolom wajib: [${missingColumns.join(", ")}]. Pastikan format tabel sudah sesuai.`);
+    }
+
+    const results = [];
+
+    for (let i = 1; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      if (idx_id >= 0 && (!row[idx_id] || String(row[idx_id]).trim() === "")) continue;
+      // if no ID column, we check if name is empty to skip empty rows
+      if (idx_id === -1 && (!row[idx_nama] || String(row[idx_nama]).trim() === "")) continue;
+
+      const item: any = {
+        id: idx_id >= 0 ? String(row[idx_id]).trim() : "-",
+        nama: idx_nama >= 0 ? String(row[idx_nama]).trim() || "Pos Tanpa Nama" : "Pos Tanpa Nama",
+        lat: idx_lat >= 0 ? parseFloat(String(row[idx_lat]).replace(',', '.') || "0") : 0,
+        lon: idx_lon >= 0 ? parseFloat(String(row[idx_lon]).replace(',', '.') || "0") : 0,
+        kab: idx_kab >= 0 ? String(row[idx_kab]).trim() || "-" : "-",
+        pic: idx_pic >= 0 ? String(row[idx_pic]).trim().toUpperCase() || "-" : "-",
+        hth: 0,
+        ket: "Masih Ada Hujan"
+      };
+
+      if (idx_hth >= 0 && row[idx_hth] !== undefined && String(row[idx_hth]).trim() !== "") {
+        const hthVal = parseInt(String(row[idx_hth]).trim(), 10);
+        if (!isNaN(hthVal)) {
+          item.hth = hthVal;
+          if (hthVal === 0) item.ket = "Masih Ada Hujan";
+          else if (hthVal <= 5) item.ket = "Sangat Pendek";
+          else if (hthVal <= 10) item.ket = "Pendek";
+          else if (hthVal <= 20) item.ket = "Menengah";
+          else if (hthVal <= 30) item.ket = "Panjang";
+          else if (hthVal <= 60) item.ket = "Sangat Panjang";
+          else item.ket = "Kekeringan Ekstrem";
+        }
+      }
+
+      if (idx_ket >= 0 && row[idx_ket] !== undefined && String(row[idx_ket]).trim() !== "") {
+        item.ket = String(row[idx_ket]).trim();
+      }
+
+      results.push(item);
+    }
+
+    return results;
+  } catch (error: any) {
+    console.error("Error parsing HTH Excel:", error);
+    throw new Error(error.message || "Gagal mem-parse file Excel HTH.");
   }
 }

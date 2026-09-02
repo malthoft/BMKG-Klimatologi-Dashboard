@@ -20,13 +20,15 @@ export function BackButton({
 
   const handleBack = () => {
     if (typeof window !== "undefined") {
-      // Prioritaskan kembali ke halaman sebelumnya (browser history)
-      if (window.history.length > 1) {
+      // Periksa apakah user berasal dari halaman lain di domain yang sama
+      const isInternalReferrer = document.referrer.includes(window.location.origin);
+      
+      if (isInternalReferrer && window.history.length > 1) {
         window.history.back();
       } else if (fallbackHref) {
         router.push(fallbackHref);
       } else {
-        router.back();
+        router.push("/");
       }
     }
   };

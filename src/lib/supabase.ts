@@ -62,16 +62,17 @@ export async function supabaseInsert(tableName: string, data: any) {
     });
     if (!res.ok) {
       const errorText = await res.text();
-      if (errorText.includes("PGRST205") || res.status === 404 || res.status === 400) {
-        console.warn(`Error inserting to ${tableName} (PGRST205/40x): ${errorText}`);
-        return null;
-      }
-      throw new Error(errorText);
+      let errorMessage = errorText;
+      try {
+        const json = JSON.parse(errorText);
+        errorMessage = json.message || json.details || errorText;
+      } catch (e) {}
+      throw new Error(errorMessage);
     }
     return await res.json();
   } catch (error) {
     console.error(`Error inserting to ${tableName}:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -84,16 +85,17 @@ export async function supabaseUpdate(tableName: string, idFilter: string, data: 
     });
     if (!res.ok) {
       const errorText = await res.text();
-      if (errorText.includes("PGRST205") || res.status === 404 || res.status === 400) {
-        console.warn(`Error updating ${tableName} (PGRST205/40x): ${errorText}`);
-        return null;
-      }
-      throw new Error(errorText);
+      let errorMessage = errorText;
+      try {
+        const json = JSON.parse(errorText);
+        errorMessage = json.message || json.details || errorText;
+      } catch (e) {}
+      throw new Error(errorMessage);
     }
     return await res.json();
   } catch (error) {
     console.error(`Error updating ${tableName}:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -105,16 +107,17 @@ export async function supabaseDelete(tableName: string, idFilter: string) {
     });
     if (!res.ok) {
       const errorText = await res.text();
-      if (errorText.includes("PGRST205") || res.status === 404 || res.status === 400) {
-        console.warn(`Error deleting from ${tableName} (PGRST205/40x): ${errorText}`);
-        return false;
-      }
-      throw new Error(errorText);
+      let errorMessage = errorText;
+      try {
+        const json = JSON.parse(errorText);
+        errorMessage = json.message || json.details || errorText;
+      } catch (e) {}
+      throw new Error(errorMessage);
     }
     return true;
   } catch (error) {
     console.error(`Error deleting from ${tableName}:`, error);
-    return false;
+    throw error;
   }
 }
 
@@ -127,11 +130,12 @@ export async function supabaseRpc(functionName: string, params: any = {}) {
     });
     if (!res.ok) {
       const errorText = await res.text();
-      if (errorText.includes("PGRST205") || res.status === 404 || res.status === 400) {
-        console.warn(`Error executing RPC ${functionName} (PGRST205/40x): ${errorText}`);
-        return null;
-      }
-      throw new Error(errorText);
+      let errorMessage = errorText;
+      try {
+        const json = JSON.parse(errorText);
+        errorMessage = json.message || json.details || errorText;
+      } catch (e) {}
+      throw new Error(errorMessage);
     }
     
     const text = await res.text();
@@ -179,7 +183,7 @@ export async function supabaseUploadFile(bucket: string, filePath: string, file:
     return `${SUPABASE_PROJECT_URL}/storage/v1/object/public/${bucket}/${filePath}`;
   } catch (error) {
     console.error(`Error uploading to bucket ${bucket}:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -204,7 +208,7 @@ export async function supabaseDeleteFile(bucket: string, filePath: string) {
     return true;
   } catch (error) {
     console.error(`Error deleting from bucket ${bucket}:`, error);
-    return false;
+    throw error;
   }
 }
 

@@ -22,30 +22,22 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
+    let start = currentPage - 1;
+    let end = currentPage + 1;
 
-    if (totalPages <= maxVisible + 2) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-      if (currentPage > 3) {
-        pages.push("...");
-      }
+    if (start < 1) {
+      start = 1;
+      end = Math.min(3, totalPages);
+    }
 
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(1, totalPages - 2);
+    }
 
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (currentPage < totalPages - 2) {
-        pages.push("...");
-      }
-      pages.push(totalPages);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
     }
     return pages;
   };
