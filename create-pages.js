@@ -26,7 +26,7 @@ const pages = [
   
   // Pelayanan Publik -> Dokumen Kinerja
   { route: '/pelayanan-publik/dokumen-kinerja/pk', title: 'Perjanjian Kinerja (PK)' },
-  { route: '/pelayanan-publik/dokumen-kinerja/lakip', title: 'LAKIP' },
+  { route: '/pelayanan-publik/dokumen-kinerja/lkjip', title: 'LKJIP' },
   { route: '/pelayanan-publik/dokumen-kinerja/rkt', title: 'RKT' },
   
   // Pelayanan Publik -> Informasi Layanan

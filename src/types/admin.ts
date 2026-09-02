@@ -7,6 +7,7 @@ export interface Station {
   status: string;
   lat?: number;
   lon?: number;
+  mqtt_topic?: string;
   show_on_home: boolean;
   show_on_realtime: boolean;
   created_at?: string;
@@ -76,7 +77,7 @@ export interface RainfallForecast {
 
 export interface PelayananPublik {
   id: number;
-  kategori: "pk" | "lakip" | "rkt" | "maklumat" | "standar" | "jenis" | "pnbp" | "tarif-nol" | string;
+  kategori: "pk" | "lkjip" | "laporan-tahunan" | "rkt" | "maklumat" | "standar" | "jenis" | "pnbp" | "tarif-nol" | string;
   judul: string;
   file_url: string;
   deskripsi?: string;

@@ -118,7 +118,7 @@ export function PengumumanList({ initialData }: PengumumanListProps) {
                 <div className="relative w-full sm:w-48 h-48 sm:h-36 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 flex items-center justify-center group-hover:shadow-sm transition-all">
                   {hasImage ? (
                     <img 
-                      src={supabaseGetPublicUrl("pengumuman-files", item.file_url)} 
+                      src={supabaseGetPublicUrl("pengumuman-files", item.file_url || "")} 
                       alt={item.judul}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />

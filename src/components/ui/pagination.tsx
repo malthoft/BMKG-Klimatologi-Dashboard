@@ -35,9 +35,17 @@ export function Pagination({
       start = Math.max(1, totalPages - 2);
     }
 
-    const pages: number[] = [];
+    const pages: (number | string)[] = [];
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push("...");
+    }
     for (let i = start; i <= end; i++) {
       pages.push(i);
+    }
+    if (end < totalPages) {
+      if (end < totalPages - 1) pages.push("...");
+      pages.push(totalPages);
     }
     return pages;
   };

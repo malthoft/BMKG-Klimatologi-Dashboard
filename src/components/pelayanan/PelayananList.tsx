@@ -9,7 +9,7 @@ import { PelayananPublik } from "@/types/admin";
 import { Pagination } from "@/components/ui/pagination";
 
 interface PelayananListProps {
-  category: "pk" | "lakip" | "rkt" | "maklumat" | "standar" | "jenis" | "pnbp" | "tarif-nol" | string;
+  category: "pk" | "lkjip" | "laporan-tahunan" | "rkt" | "maklumat" | "standar" | "jenis" | "pnbp" | "tarif-nol" | string;
   title: string;
   subtitle?: string;
   basePath: string;

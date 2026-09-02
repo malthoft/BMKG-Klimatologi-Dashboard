@@ -161,7 +161,8 @@ export function HTHMap() {
         const res = await fetch(`${publicUrl}?t=${new Date().getTime()}`);
         if (res.ok) {
           const json = await res.json();
-          setData(json);
+          const validData = json.filter((item: any) => item.hth !== null && item.hth !== undefined && item.hth !== "");
+          setData(validData);
         } else {
           console.warn("Failed to fetch HTH data");
         }

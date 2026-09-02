@@ -55,6 +55,31 @@ export function OrgTab() {
     }
   };
 
+  const getParentOptions = () => {
+    if (newOrgMember.role_id === "kepala") {
+      return [{ value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" }];
+    }
+    
+    const baseOptions = [
+      { value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" },
+      { value: "kepala", label: "KEPALA UPT" },
+      { value: "kasubag", label: "KEPALA SUB BAGIAN" },
+      { value: "tim_1", label: "KETUA TIM TU" },
+      { value: "tim_2", label: "KETUA TIM DATA" },
+      { value: "tim_3", label: "KETUA TIM ANALISA DAN INFORMASI" },
+      { value: "tim_4", label: "KETUA TIM TEKNISI JARINGAN & KOMUNIKASI" },
+      { value: "tim_5", label: "KETUA TIM OBSERVASI" },
+      { value: "fungsional_pmg", label: "FUNGSIONAL PMG" },
+      { value: "fungsional_non_pmg", label: "FUNGSIONAL NON PMG" }
+    ];
+
+    if (newOrgMember.role_id.startsWith("tim_")) {
+      return baseOptions.filter(opt => opt.value === "" || opt.value === "kepala" || opt.value === "kasubag");
+    }
+
+    return baseOptions;
+  };
+
   return (
     <>
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -79,17 +104,21 @@ export function OrgTab() {
                         <CustomSelect
                           required
                           value={newOrgMember.role_id}
-                          onChange={(val) => setNewOrgMember({...newOrgMember, role_id: val})}
+                          onChange={(val) => {
+                             let newParent = newOrgMember.parent_role_id;
+                             if (val === "kepala") newParent = "";
+                             else if (val.startsWith("tim_") && newParent && !["kepala", "kasubag"].includes(newParent)) newParent = "";
+                             setNewOrgMember({...newOrgMember, role_id: val, parent_role_id: newParent});
+                          }}
                           options={[
                             { value: "", label: "-- Pilih Posisi --" },
                             { value: "kepala", label: "KEPALA UPT (Biru Tua)" },
                             { value: "kasubag", label: "KEPALA SUB BAGIAN (Hijau)" },
-                            { value: "tim_1", label: "KETUA TIM KERJA 1 (Oranye)" },
-                            { value: "tim_2", label: "KETUA TIM KERJA 2 (Biru)" },
-                            { value: "tim_3", label: "KETUA TIM KERJA 3 (Nila)" },
-                            { value: "tim_4", label: "KETUA TIM KERJA 4 (Merah Muda)" },
-                            { value: "tim_5", label: "KETUA TIM KERJA 5 (Ungu)" },
-                            { value: "tim_6", label: "KETUA TIM KERJA 6 (Hijau)" },
+                            { value: "tim_1", label: "KETUA TIM TU (Oranye)" },
+                            { value: "tim_2", label: "KETUA TIM DATA (Biru)" },
+                            { value: "tim_3", label: "KETUA TIM ANALISA DAN INFORMASI (Nila)" },
+                            { value: "tim_4", label: "KETUA TIM TEKNISI JARINGAN & KOMUNIKASI (Merah Muda)" },
+                            { value: "tim_5", label: "KETUA TIM OBSERVASI (Ungu)" },
                             { value: "fungsional_pmg", label: "FUNGSIONAL PMG (Oranye)" },
                             { value: "fungsional_non_pmg", label: "FUNGSIONAL NON PMG (Hijau)" },
                             { value: "anggota", label: "ANGGOTA / STAF BARU" }
@@ -102,19 +131,7 @@ export function OrgTab() {
                         <CustomSelect
                           value={newOrgMember.parent_role_id || ""}
                           onChange={(val) => setNewOrgMember({...newOrgMember, parent_role_id: val})}
-                          options={[
-                            { value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" },
-                            { value: "kepala", label: "KEPALA UPT" },
-                            { value: "kasubag", label: "KEPALA SUB BAGIAN" },
-                            { value: "tim_1", label: "KETUA TIM KERJA 1" },
-                            { value: "tim_2", label: "KETUA TIM KERJA 2" },
-                            { value: "tim_3", label: "KETUA TIM KERJA 3" },
-                            { value: "tim_4", label: "KETUA TIM KERJA 4" },
-                            { value: "tim_5", label: "KETUA TIM KERJA 5" },
-                            { value: "tim_6", label: "KETUA TIM KERJA 6" },
-                            { value: "fungsional_pmg", label: "FUNGSIONAL PMG" },
-                            { value: "fungsional_non_pmg", label: "FUNGSIONAL NON PMG" }
-                          ]}
+                          options={getParentOptions()}
                         />
                       </div>
                     </div>

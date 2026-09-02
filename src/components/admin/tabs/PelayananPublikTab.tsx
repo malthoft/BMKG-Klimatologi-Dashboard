@@ -13,7 +13,8 @@ import { ModalPortal } from "@/components/ui/ModalPortal";
 
 export const PELAYANAN_CATEGORIES = [
   { id: "pk", label: "Perjanjian Kinerja", type: "pdf", icon: "description", group: "Dokumen Kinerja" },
-  { id: "lakip", label: "Laporan Kinerja", type: "pdf", icon: "analytics", group: "Dokumen Kinerja" },
+  { id: "lkjip", label: "LKJIP", type: "pdf", icon: "analytics", group: "Dokumen Kinerja" },
+  { id: "laporan-tahunan", label: "Laporan Tahunan", type: "pdf", icon: "book", group: "Dokumen Kinerja" },
   { id: "rkt", label: "Rencana Kinerja Tahunan", type: "pdf", icon: "event_note", group: "Dokumen Kinerja" },
   { id: "maklumat", label: "Maklumat Pelayanan", type: "image", icon: "badge", group: "Informasi Layanan" },
   { id: "standar", label: "Standar Pelayanan", type: "image", icon: "verified", group: "Informasi Layanan" },
@@ -328,7 +329,8 @@ export function PelayananPublikTab() {
                     onChange={(val) => setFormData({ ...formData, kategori: val })}
                     options={[
                       { value: "pk", label: "📁 Dokumen Kinerja - Perjanjian Kinerja (PK)" },
-                      { value: "lakip", label: "📁 Dokumen Kinerja - Laporan Kinerja (LAKIP)" },
+                      { value: "lkjip", label: "📁 Dokumen Kinerja - LKJIP" },
+                      { value: "laporan-tahunan", label: "📁 Dokumen Kinerja - Laporan Tahunan" },
                       { value: "rkt", label: "📁 Dokumen Kinerja - Rencana Kinerja Tahunan (RKT)" },
                       { value: "maklumat", label: "ℹ️ Informasi Layanan - Maklumat Pelayanan" },
                       { value: "standar", label: "ℹ️ Informasi Layanan - Standar Pelayanan" },

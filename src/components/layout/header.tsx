@@ -80,7 +80,8 @@ export const navLinks: NavItem[] = [
         href: "/pelayanan-publik/dokumen-kinerja",
         subLinks: [
           { href: "/pelayanan-publik/dokumen-kinerja/pk", label: "Perjanjian Kinerja (PK)" },
-          { href: "/pelayanan-publik/dokumen-kinerja/lakip", label: "LAKIP" },
+          { href: "/pelayanan-publik/dokumen-kinerja/lkjip", label: "LKJIP" },
+          { href: "/pelayanan-publik/dokumen-kinerja/laporan-tahunan", label: "Laporan Tahunan" },
           { href: "/pelayanan-publik/dokumen-kinerja/rkt", label: "RKT" },
         ]
       },

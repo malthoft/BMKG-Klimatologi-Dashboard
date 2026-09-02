@@ -63,8 +63,8 @@ export async function fetchAndParseHTHCsv(url: string) {
         lon: idx_lon >= 0 ? parseFloat(row[idx_lon]?.replace(',', '.') || "0") : 0,
         kab: idx_kab >= 0 ? row[idx_kab]?.trim() || "-" : "-",
         pic: idx_pic >= 0 ? row[idx_pic]?.trim().toUpperCase() || "-" : "-",
-        hth: 0,
-        ket: "Masih Ada Hujan"
+        hth: null,
+        ket: "-"
       };
 
       if (idx_hth >= 0 && row[idx_hth] && row[idx_hth].trim() !== "") {
