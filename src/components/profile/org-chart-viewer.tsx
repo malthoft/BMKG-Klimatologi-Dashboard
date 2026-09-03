@@ -1,108 +1,88 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useLayoutEffect, useCallback } from "react";
 import { supabaseFetch } from "@/lib/supabase";
+import { OrgMember, OrgPosition } from "@/types/admin";
+import { fetchOrgPositions } from "@/lib/org-positions";
 
-export interface OrgMember {
-  id?: number;
-  role_id: string;
-  role_title: string;
-  name: string;
-  nip: string;
-  parent_role_id?: string;
-  show_role_title?: boolean;
-  sort_order?: number;
+// Node Card Component matching BMKG Official Design
+interface OrgCardProps {
+  member: OrgMember;
+  position?: OrgPosition;
+  isKasubagGroup?: boolean;
+  className?: string;
 }
 
-const OrgBox = ({ member, roleIdFallback, hasChildren = false }: { member?: OrgMember, roleIdFallback: string, hasChildren?: boolean }) => {
-  if (!member) {
-    return (
-      <div className="flex flex-col items-center justify-center w-full min-h-[140px] relative">
-        {hasChildren && <div className="absolute top-0 bottom-0 left-1/2 w-[3px] bg-slate-300 -translate-x-1/2" />}
-      </div>
-    );
-  }
-
-  const role = member.role_id || roleIdFallback;
-  let borderColor = "border-slate-300";
-  let themeText = "text-slate-700";
-  let themeBg = "bg-slate-100";
-
-  if (role === "kepala") {
-    borderColor = "border-[#1e3a8a]"; themeText = "text-[#1e3a8a]"; themeBg = "bg-[#1e3a8a]/10";
-  } else if (role === "kasubag" || role === "tim_6" || role === "fungsional_non_pmg") {
-    borderColor = "border-[#15803d]"; themeText = "text-[#15803d]"; themeBg = "bg-[#15803d]/10";
-  } else if (role === "tim_1" || role === "fungsional_pmg") {
-    borderColor = "border-[#c2410c]"; themeText = "text-[#c2410c]"; themeBg = "bg-[#c2410c]/10";
-  } else if (role === "tim_2") {
-    borderColor = "border-[#0369a1]"; themeText = "text-[#0369a1]"; themeBg = "bg-[#0369a1]/10";
-  } else if (role === "tim_3") {
-    borderColor = "border-[#4338ca]"; themeText = "text-[#4338ca]"; themeBg = "bg-[#4338ca]/10";
-  } else if (role === "tim_4") {
-    borderColor = "border-[#be185d]"; themeText = "text-[#be185d]"; themeBg = "bg-[#be185d]/10";
-  } else if (role === "tim_5") {
-    borderColor = "border-[#7e22ce]"; themeText = "text-[#7e22ce]"; themeBg = "bg-[#7e22ce]/10";
-  } else if (role.startsWith("anggota")) {
-    borderColor = "border-[#475569]"; themeText = "text-[#475569]"; themeBg = "bg-[#475569]/10";
-  }
-
-  // Fallback to true if undefined
+const OrgCard = ({ member, position, isKasubagGroup = false, className = "" }: OrgCardProps) => {
+  const defaultColor = isKasubagGroup ? "#15803d" : (position?.color || "#1e3a8a");
+  const color = position?.color || defaultColor;
   const showTitle = member.show_role_title !== false;
 
   return (
-    <div className={`w-full bg-[#fdfdfd] rounded-2xl border-[2px] ${borderColor} flex flex-col items-center justify-center text-center p-4 md:p-5 shadow-[5px_5px_0_0_rgba(226,232,240,0.6)] hover:shadow-[5px_5px_0_0_rgba(203,213,225,0.8)] transition-all hover:-translate-y-1`}>
+    <div
+      className={`bg-white rounded-2xl border-[2px] text-center flex flex-col items-center justify-center shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 w-[220px] sm:w-[240px] md:w-[250px] shrink-0 relative z-20 group overflow-hidden ${className}`}
+      style={{ borderColor: color }}
+    >
+      {/* Title Header Badge with Solid Fill */}
       {showTitle && (
-        <div className={`w-full font-black text-[15px] md:text-[18px] leading-snug mb-3 px-3 py-2 rounded-lg ${themeText} ${themeBg}`}>
-          {member.role_title}
+        <div
+          className="w-full font-black text-[10px] sm:text-[11px] md:text-xs tracking-wider uppercase px-2.5 py-2 text-white line-clamp-2 leading-tight"
+          style={{ backgroundColor: color }}
+        >
+          {member.role_title || position?.position_name || member.role_id}
         </div>
       )}
-      <span className="text-slate-800 text-[16px] md:text-[19px] font-bold leading-tight mb-1.5">{member.name || "-"}</span>
-      <span className="text-slate-500 text-[13px] md:text-[15px] font-medium">{member.nip ? `NIP: ${member.nip}` : ""}</span>
+
+      {/* Person Name & NIP Container */}
+      <div className="p-2.5 sm:p-3 md:p-3.5 w-full flex flex-col items-center justify-center">
+        <h3 className="text-slate-900 text-[11px] sm:text-xs md:text-sm font-black uppercase leading-snug mb-1 group-hover:text-primary transition-colors line-clamp-2">
+          {member.name || "-"}
+        </h3>
+
+        {member.nip && (
+          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-mono font-bold text-slate-500">
+            NIP : {member.nip}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
 
-// Komponen rekursif untuk me-render anak buah (side-spine tree layout)
-const VerticalStack = ({ parentId, members }: { parentId: string, members: OrgMember[] }) => {
-  const children = members
+// Recursive subordinate stack for levels below teams (PMG, Non-PMG, Staf)
+const SubordinateTree = ({ parentId, allMembers, positionMap }: { parentId: string; allMembers: OrgMember[]; positionMap: Map<string, OrgPosition> }) => {
+  const children = allMembers
     .filter(m => m.parent_role_id === parentId)
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  
+
   if (children.length === 0) return null;
 
   return (
-    <div className="w-full relative z-10 pt-[20px]">
-      {/* Line dropping from parent center */}
-      <div className="absolute top-0 left-1/2 w-[3px] h-[20px] bg-slate-300 -translate-x-1/2" />
-      
-      {/* Horizontal connector from center to spine */}
-      <div className="absolute top-[20px] left-[24px] right-[calc(50%-1px)] h-[3px] bg-slate-300" />
-      
-      <div className="flex flex-col w-full relative">
+    <div className="flex flex-col items-center w-full pt-0">
+      {/* Stem down from parent */}
+      <div className="w-[2px] h-6 bg-slate-500 shrink-0" />
+
+      {/* Children row */}
+      <div className="flex items-start justify-center">
         {children.map((child, idx) => {
           const isFirst = idx === 0;
           const isLast = idx === children.length - 1;
-          const hasChildren = members.some(m => m.parent_role_id === child.role_id);
-          
+          const isOnly = children.length === 1;
+
           return (
-            <div key={child.id || child.role_id} className="w-full flex relative py-3">
-              {/* Spine segment */}
-              <div 
-                 className="absolute left-[24px] w-[3px] bg-slate-300"
-                 style={{
-                    top: 0,
-                    bottom: isLast ? '50%' : 0,
-                    height: (isFirst && isLast) ? '50%' : undefined
-                 }} 
-              />
-              
-              {/* Horizontal connector to box */}
-              <div className="absolute left-[24px] top-1/2 w-[20px] h-[3px] bg-slate-300 -translate-y-1/2" />
-              
-              <div className="flex-1 ml-[44px] mr-[16px] relative z-20">
-                <OrgBox member={child} roleIdFallback={child.role_id} hasChildren={hasChildren} />
-                <VerticalStack parentId={child.role_id} members={members} />
-              </div>
+            <div key={child.id || child.role_id} className="relative flex flex-col items-center px-2">
+              {!isOnly && (
+                <div
+                  className="absolute top-0 h-[2px] bg-slate-500"
+                  style={{
+                    left: isFirst ? "50%" : "0%",
+                    right: isLast ? "50%" : "0%",
+                  }}
+                />
+              )}
+              <div className="w-[2px] h-6 bg-slate-500 shrink-0" />
+              <OrgCard member={child} position={positionMap.get(child.role_id)} />
+              <SubordinateTree parentId={child.role_id} allMembers={allMembers} positionMap={positionMap} />
             </div>
           );
         })}
@@ -113,179 +93,499 @@ const VerticalStack = ({ parentId, members }: { parentId: string, members: OrgMe
 
 export function OrgChartViewer() {
   const [members, setMembers] = useState<OrgMember[]>([]);
+  const [positions, setPositions] = useState<OrgPosition[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const outerRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [wrapperHeight, setWrapperHeight] = useState(1000);
-  const [wrapperWidth, setWrapperWidth] = useState(1750);
+
+  // Zoom & Pan controls
+  const [zoom, setZoom] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [scrollStart, setScrollStart] = useState({ left: 0, top: 0 });
+
+  // DOM Refs for dynamic SVG path calculations
+  const kepalaRef = useRef<HTMLDivElement>(null);
+  const kasubagRef = useRef<HTMLDivElement>(null);
+  const directTeamRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const kasubagTeamRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // SVG connector lines path string
+  const [svgPathData, setSvgPathData] = useState<string>("");
 
   useEffect(() => {
-    async function fetchOrg() {
+    async function loadData() {
       try {
-        const data = await supabaseFetch("organization_structure");
-        if (data) setMembers(data);
+        const [orgData, posData] = await Promise.all([
+          supabaseFetch("organization_structure"),
+          fetchOrgPositions()
+        ]);
+        if (orgData && Array.isArray(orgData)) {
+          setMembers(orgData);
+        }
+        if (posData && Array.isArray(posData)) {
+          setPositions(posData);
+        }
       } catch (err) {
-        console.error("Failed to fetch org structure", err);
+        console.error("Gagal memuat struktur organisasi:", err);
       } finally {
         setLoading(false);
       }
     }
-    fetchOrg();
+    loadData();
   }, []);
 
-  useEffect(() => {
-    if (!outerRef.current || !innerRef.current) return;
-    
-    const observer = new ResizeObserver(() => {
-      if (!outerRef.current || !innerRef.current) return;
-      
-      const containerWidth = outerRef.current.clientWidth;
-      if (containerWidth === 0) return;
-      
-      const CANVAS_WIDTH = 1750; 
-      const isDesktop = window.innerWidth >= 768;
-      const padding = isDesktop ? 48 : 16;
-      const availableWidth = containerWidth - padding;
-      
-      let rawScale = availableWidth / CANVAS_WIDTH;
-      const newScale = isDesktop ? rawScale : Math.max(rawScale, 0.65);
-      
-      setScale(newScale);
-      
-      const innerHeight = innerRef.current.offsetHeight;
-      setWrapperHeight(innerHeight * newScale);
-      setWrapperWidth(CANVAS_WIDTH * newScale);
+  const positionMap = useMemo(() => {
+    const map = new Map<string, OrgPosition>();
+    positions.forEach(p => map.set(p.position_id, p));
+    return map;
+  }, [positions]);
+
+  // =========================================================================
+  // FILTER VISIBLE MEMBERS & POSITIONS
+  // =========================================================================
+  const visibleMembers = useMemo(() => {
+    const visibleList = members.filter(m => {
+      const isMemberVisible = m.is_visible !== false;
+      const isPosVisible = positionMap.get(m.role_id)?.is_visible !== false;
+      return isMemberVisible && isPosVisible;
     });
 
-    observer.observe(outerRef.current);
-    // Use a small delay for innerRef to ensure DOM has settled with recursive children
-    setTimeout(() => {
-      if (innerRef.current) observer.observe(innerRef.current);
-    }, 100);
-    
-    return () => observer.disconnect();
-  }, [loading, members]);
+    const visibleSet = new Set(visibleList.map(m => m.role_id));
+    const allMembersMap = new Map<string, OrgMember>();
+    members.forEach(m => allMembersMap.set(m.role_id, m));
 
+    // Resolve nearest visible ancestor if immediate parent is hidden
+    const getNearestVisibleParent = (parentId: string | null | undefined): string | null => {
+      if (!parentId) return null;
+      if (visibleSet.has(parentId)) return parentId;
+      const ancestor = allMembersMap.get(parentId);
+      if (!ancestor) return null;
+      return getNearestVisibleParent(ancestor.parent_role_id);
+    };
+
+    return visibleList.map(m => ({
+      ...m,
+      parent_role_id: getNearestVisibleParent(m.parent_role_id)
+    }));
+  }, [members, positionMap]);
+
+  // =========================================================================
+  // BMKG HYBRID TREE STRUCTURE CALCULATION
+  // =========================================================================
+  const { rootNode, kasubagNode, directTeams, kasubagTeams, hasKasubagBranch } = useMemo(() => {
+    const memberRoleIds = new Set(visibleMembers.map(m => m.role_id));
+    
+    // 1. Root (Kepala UPT)
+    const root = visibleMembers.find(m => !m.parent_role_id || !memberRoleIds.has(m.parent_role_id)) || visibleMembers[0];
+    
+    if (!root) {
+      return { rootNode: null, kasubagNode: null, directTeams: [], kasubagTeams: [], hasKasubagBranch: false };
+    }
+
+    // 2. Kasubag Node (Level 2 side-branch reporting to root)
+    const kasubag = visibleMembers.find(m => 
+      m.parent_role_id === root.role_id && 
+      (m.role_id === "kasubag" || m.role_id.includes("kasubag") || positionMap.get(m.role_id)?.hierarchy_level === 2)
+    );
+
+    // 3. Teams reporting directly to root (excluding Kasubag)
+    const direct = visibleMembers
+      .filter(m => m.parent_role_id === root.role_id && m.id !== kasubag?.id)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    // 4. Teams reporting to Kasubag (e.g. tim_1 / Ketua Tim TU)
+    const fromKasubag = kasubag
+      ? visibleMembers
+          .filter(m => m.parent_role_id === kasubag.role_id)
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      : [];
+
+    const isHybrid = !!kasubag;
+
+    return {
+      rootNode: root,
+      kasubagNode: kasubag || null,
+      directTeams: direct,
+      kasubagTeams: fromKasubag,
+      hasKasubagBranch: isHybrid
+    };
+  }, [visibleMembers, positionMap]);
+
+  // Helper to calculate element coordinates relative to chartWrapperRef
+  const getRelativeBounds = useCallback((el: HTMLElement, parent: HTMLElement) => {
+    let x = 0;
+    let y = 0;
+    let curr: HTMLElement | null = el;
+    while (curr && curr !== parent) {
+      x += curr.offsetLeft;
+      y += curr.offsetTop;
+      curr = curr.offsetParent as HTMLElement;
+    }
+    return {
+      xCenter: Math.round(x + el.offsetWidth / 2),
+      yTop: Math.round(y),
+      yBottom: Math.round(y + el.offsetHeight)
+    };
+  }, []);
+
+  // Update SVG connector lines whenever layout settles
+  const updateConnectorPaths = useCallback(() => {
+    if (!chartWrapperRef.current || !kepalaRef.current) return;
+    const parent = chartWrapperRef.current;
+
+    const kBounds = getRelativeBounds(kepalaRef.current, parent);
+    const kasBounds = kasubagRef.current ? getRelativeBounds(kasubagRef.current, parent) : null;
+
+    const teamBounds = directTeamRefs.current
+      .filter((el): el is HTMLDivElement => !!el)
+      .map(el => getRelativeBounds(el, parent));
+
+    const kTeamBounds = kasubagTeamRefs.current
+      .filter((el): el is HTMLDivElement => !!el)
+      .map(el => getRelativeBounds(el, parent));
+
+    let path = "";
+
+    if (kasBounds) {
+      // 1. Trunk from Kepala
+      // Branch Y level is halfway between Kepala bottom and Kasubag top
+      const yBranch = Math.round(kBounds.yBottom + (kasBounds.yTop - kBounds.yBottom) / 2);
+      
+      // Crossbar Y level is halfway between Kasubag bottom and Direct Teams top
+      const teamTop = teamBounds.length > 0 ? teamBounds[0].yTop : (kasBounds.yBottom + 50);
+      const yCrossbar = Math.round(kasBounds.yBottom + (teamTop - kasBounds.yBottom) / 2);
+
+      // Line from Kepala down to crossbar
+      path += `M ${kBounds.xCenter} ${kBounds.yBottom} V ${yCrossbar} `;
+
+      // Line from Trunk branching right to Kasubag:
+      // Starts at (xK, yBranch), goes horizontally to (xKas, yBranch), then down into Kasubag top
+      path += `M ${kBounds.xCenter} ${yBranch} H ${kasBounds.xCenter} V ${kasBounds.yTop} `;
+
+      // 2. Direct Teams Horizontal Crossbar & Drops
+      if (teamBounds.length > 0) {
+        const minX = Math.min(...teamBounds.map(t => t.xCenter));
+        const maxX = Math.max(...teamBounds.map(t => t.xCenter));
+        const crossbarLeft = Math.min(minX, kBounds.xCenter);
+        const crossbarRight = Math.max(maxX, kBounds.xCenter);
+
+        // Horizontal crossbar across all direct teams
+        path += `M ${crossbarLeft} ${yCrossbar} H ${crossbarRight} `;
+
+        // Vertical drop into each direct team
+        teamBounds.forEach(t => {
+          path += `M ${t.xCenter} ${yCrossbar} V ${t.yTop} `;
+        });
+      }
+
+      // 3. Kasubag down to Kasubag Teams (e.g. Team TU)
+      if (kTeamBounds.length === 1) {
+        // Direct single drop straight from Kasubag bottom to Team TU top
+        path += `M ${kasBounds.xCenter} ${kasBounds.yBottom} V ${kTeamBounds[0].yTop} `;
+      } else if (kTeamBounds.length > 1) {
+        // Multiple teams under Kasubag
+        const minKX = Math.min(...kTeamBounds.map(t => t.xCenter));
+        const maxKX = Math.max(...kTeamBounds.map(t => t.xCenter));
+        path += `M ${kasBounds.xCenter} ${kasBounds.yBottom} V ${yCrossbar} `;
+        path += `M ${minKX} ${yCrossbar} H ${maxKX} `;
+        kTeamBounds.forEach(kt => {
+          path += `M ${kt.xCenter} ${yCrossbar} V ${kt.yTop} `;
+        });
+      }
+    } else {
+      // Standard tree without Kasubag
+      if (teamBounds.length > 0) {
+        const yCrossbar = Math.round(kBounds.yBottom + (teamBounds[0].yTop - kBounds.yBottom) / 2);
+        const minX = Math.min(...teamBounds.map(t => t.xCenter));
+        const maxX = Math.max(...teamBounds.map(t => t.xCenter));
+
+        path += `M ${kBounds.xCenter} ${kBounds.yBottom} V ${yCrossbar} `;
+        path += `M ${Math.min(minX, kBounds.xCenter)} ${yCrossbar} H ${Math.max(maxX, kBounds.xCenter)} `;
+        teamBounds.forEach(t => {
+          path += `M ${t.xCenter} ${yCrossbar} V ${t.yTop} `;
+        });
+      }
+    }
+
+    setSvgPathData(path);
+  }, [getRelativeBounds]);
+
+  // Recalculate paths when data or layout changes
+  useLayoutEffect(() => {
+    const timer = setTimeout(() => {
+      updateConnectorPaths();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [members, positions, hasKasubagBranch, updateConnectorPaths]);
+
+  // ResizeObserver on window resize
   useEffect(() => {
-    if (!outerRef.current || loading) return;
+    const handleResize = () => {
+      updateConnectorPaths();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [updateConnectorPaths]);
+
+  // Center on load
+  useEffect(() => {
+    if (!containerRef.current || loading || members.length === 0) return;
     const timeout = setTimeout(() => {
-      if (outerRef.current) {
-        const container = outerRef.current;
-        if (container.scrollWidth > container.clientWidth) {
-          container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+      if (containerRef.current) {
+        const c = containerRef.current;
+        if (c.scrollWidth > c.clientWidth) {
+          c.scrollLeft = (c.scrollWidth - c.clientWidth) / 2;
         }
       }
     }, 150);
     return () => clearTimeout(timeout);
-  }, [loading, scale]);
+  }, [loading, members]);
 
-  const getMember = (role_id: string) => members.find(m => m.role_id === role_id);
+  // Mouse pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setScrollStart({
+      left: containerRef.current.scrollLeft,
+      top: containerRef.current.scrollTop
+    });
+  };
 
-  // Function to calculate Kasubag container height to prevent overlap
-  const kasubagChildren = members.filter(m => m.parent_role_id === "kasubag");
-  const hasKasubagChildren = kasubagChildren.length > 0;
-  // Estimate height: base 220 + ~170 per child
-  const row15Height = Math.max(220, 150 + (kasubagChildren.length * 170));
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    e.preventDefault();
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    containerRef.current.scrollLeft = scrollStart.left - dx;
+    containerRef.current.scrollTop = scrollStart.top - dy;
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  // Zoom handlers
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.15, 1.8));
+    setTimeout(updateConnectorPaths, 50);
+  };
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.15, 0.45));
+    setTimeout(updateConnectorPaths, 50);
+  };
+  const handleZoomReset = () => {
+    setZoom(1);
+    setTimeout(updateConnectorPaths, 50);
+  };
 
   if (loading) {
-    return <div className="py-20 text-center font-bold text-slate-400 text-lg">Memuat Desain Struktur...</div>;
+    return (
+      <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400">
+        <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <p className="text-sm font-bold tracking-wide">Memuat Bagan Struktur Organisasi...</p>
+      </div>
+    );
   }
 
-  if (members.length === 0) {
+  if (members.length === 0 || !rootNode) {
     return (
-      <div className="py-16 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200">
-        <span className="material-symbols-outlined text-4xl mb-2">account_tree</span>
-        <p className="text-lg">Data struktur organisasi belum tersedia.</p>
+      <div className="py-20 text-center text-slate-500 bg-slate-50 rounded-3xl border border-slate-200 p-8 max-w-xl mx-auto">
+        <span className="material-symbols-outlined text-5xl mb-3 text-slate-300">account_tree</span>
+        <h3 className="text-base font-extrabold text-slate-700 mb-1">Data Struktur Belum Tersedia</h3>
+        <p className="text-xs text-slate-400">Silakan tambahkan anggota organisasi melalui panel Admin.</p>
       </div>
     );
   }
 
   return (
-    <>
-      <div 
-        ref={outerRef} 
-        className="w-full overflow-x-auto overflow-y-hidden md:overflow-hidden bg-slate-50/50 rounded-3xl border border-slate-100 p-2 md:p-6 scroll-smooth scrollbar-hide"
-      >
-        <div 
-          className="relative mx-auto transition-all duration-300" 
-          style={{ height: wrapperHeight, width: wrapperWidth }}
-        >
-          <div 
-            ref={innerRef}
-            className="absolute top-0 left-0 origin-top-left flex flex-col items-center pb-12"
-            style={{ 
-              width: 1750,
-              transform: `scale(${scale})`,
-            }}
+    <div className="w-full relative">
+      {/* Floating Toolbar Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white/90 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex items-center gap-2 text-xs text-slate-600 font-bold px-2">
+          <span className="material-symbols-outlined text-primary text-[18px]">domain</span>
+          <span>Stasiun Klimatologi Kelas II Jawa Timur ({members.length} Pegawai)</span>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="w-8 h-8 rounded-lg bg-white text-slate-600 hover:text-primary hover:shadow-sm transition-all flex items-center justify-center font-bold text-base"
+            title="Perkecil (-)"
           >
-            {/* Row 1: Kepala */}
-            <div className="w-[480px] relative z-10 pt-4 flex flex-col items-center">
-              <OrgBox member={getMember("kepala")} roleIdFallback="kepala" hasChildren={members.some(m => m.parent_role_id === "kepala")} />
-              <VerticalStack parentId="kepala" members={members} />
-            </div>
-
-            {/* Connector 1: Down from Kepala */}
-            <div className="w-[3px] h-[50px] bg-slate-300" />
-
-            {/* Row 1.5: Horizontal branch & Kasubag */}
-            <div className="w-full flex justify-center relative" style={{ height: row15Height }}>
-              <div className="w-[3px] h-full bg-slate-300" />
-              <div className="absolute top-0 left-1/2 w-[525px] h-[3px] bg-slate-300" />
-              <div className="absolute top-0 left-[calc(50%+525px)] w-[3px] h-[50px] bg-slate-300" />
-              <div className="absolute top-[50px] left-[calc(50%+325px)] w-[400px] z-10 flex flex-col items-center">
-                  <OrgBox member={getMember("kasubag")} roleIdFallback="kasubag" hasChildren={members.some(m => m.parent_role_id === "kasubag")} />
-                  <VerticalStack parentId="kasubag" members={members} />
-              </div>
-            </div>
-
-            {/* Connector 2: Horizontal line for Teams */}
-            <div className="w-[1480px] h-[3px] bg-slate-300" />
-
-            {/* Row 3: 6 Teams */}
-            <div className="w-[1750px] flex justify-between items-stretch mt-0 px-0">
-              {["tim_1", "tim_2", "tim_3", "tim_4", "tim_5", "tim_6"].map((roleId) => {
-                const hasLeader = !!getMember(roleId);
-                const hasChildren = members.some(m => m.parent_role_id === roleId);
-                const showTeam = hasLeader || hasChildren;
-                return (
-                  <div key={roleId} className="w-[270px] flex flex-col items-center relative z-10">
-                    {showTeam && <div className="w-[3px] h-[50px] bg-slate-300 shrink-0" />}
-                    {!showTeam && <div className="w-[3px] h-[50px] shrink-0 opacity-0" />}
-                    
-                    <div className="w-full flex flex-col shrink-0">
-                      <OrgBox member={getMember(roleId)} roleIdFallback={roleId} hasChildren={hasChildren} />
-                    </div>
-                    <VerticalStack parentId={roleId} members={members} />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Row 4: PMG & Non PMG (Floating functional groups) */}
-            <div className="w-[1750px] flex relative mt-16 pb-[100px]">
-              {/* Box PMG */}
-              <div className="absolute left-[487px] top-0 w-[480px] flex flex-col items-center">
-                  <OrgBox member={getMember("fungsional_pmg")} roleIdFallback="fungsional_pmg" hasChildren={members.some(m => m.parent_role_id === "fungsional_pmg")} />
-                  <VerticalStack parentId="fungsional_pmg" members={members} />
-              </div>
-
-              {/* Box Non PMG (under Team 6) */}
-              <div className="absolute left-[1455px] top-0 w-[320px] flex flex-col items-center">
-                  <OrgBox member={getMember("fungsional_non_pmg")} roleIdFallback="fungsional_non_pmg" hasChildren={members.some(m => m.parent_role_id === "fungsional_non_pmg")} />
-                  <VerticalStack parentId="fungsional_non_pmg" members={members} />
-              </div>
-            </div>
-          </div>
+            <span className="material-symbols-outlined text-[18px]">remove</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomReset}
+            className="px-2.5 h-8 rounded-lg bg-white text-slate-700 hover:text-primary hover:shadow-sm transition-all text-xs font-bold font-mono"
+            title="Reset Ukuran (100%)"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="w-8 h-8 rounded-lg bg-white text-slate-600 hover:text-primary hover:shadow-sm transition-all flex items-center justify-center font-bold text-base"
+            title="Perbesar (+)"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+          </button>
         </div>
       </div>
-      
-      {/* Swipe Indicator (Khusus Mobile) */}
-      <div className="flex justify-center items-center gap-2 text-slate-500 mt-4 mb-2 md:hidden animate-pulse">
-        <span className="material-symbols-outlined text-sm">swipe</span>
-        <span className="text-xs font-medium">Geser layar untuk melihat seluruh struktur</span>
+
+      {/* Main Pannable / Scrollable Tree Viewport */}
+      <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className={`w-full overflow-x-auto overflow-y-auto bg-gradient-to-b from-slate-50/70 to-slate-100/50 rounded-3xl border border-slate-200/80 p-6 md:p-12 min-h-[580px] select-none scrollbar-thin transition-colors ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+      >
+        <div
+          ref={chartWrapperRef}
+          className="relative flex flex-col items-center transition-transform duration-150 origin-top min-w-fit mx-auto pb-16"
+          style={{ transform: `scale(${zoom})` }}
+        >
+          {/* ============================================================= */}
+          {/* SVG DYNAMIC CONNECTOR OVERLAY (Calculated from Real DOM Nodes)*/}
+          {/* ============================================================= */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible">
+            {svgPathData && (
+              <path
+                d={svgPathData}
+                fill="none"
+                stroke="#475569"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </svg>
+
+          {/* ============================================================= */}
+          {/* BMKG HYBRID LAYOUT: KEPALA + KASUBAG (SIDE) + ALL TEAMS (ROW) */}
+          {/* ============================================================= */}
+          {hasKasubagBranch ? (
+            <div className="flex flex-col items-center">
+              {/* ROW 1: KEPALA UPT (Top Center) */}
+              <div ref={kepalaRef} className="relative z-30">
+                <OrgCard
+                  member={rootNode}
+                  position={positionMap.get(rootNode.role_id)}
+                  className="w-[280px] sm:w-[320px] md:w-[340px]"
+                />
+              </div>
+
+              {/* VERTICAL SPACING BETWEEN KEPALA AND ROW 2 (KASUBAG) */}
+              <div className="h-12 md:h-14 w-full" />
+
+              {/* TEAMS AND KASUBAG COLUMNS (All teams aligned in Row 3) */}
+              <div className="flex items-start justify-center gap-3 sm:gap-4 md:gap-6">
+                {/* ------------------------------------------------------ */}
+                {/* DIRECT TEAMS COLUMNS (1 to N)                          */}
+                {/* ------------------------------------------------------ */}
+                {directTeams.map((team, idx) => (
+                  <div key={team.id || team.role_id} className="flex flex-col items-center">
+                    {/* Spacer matching Kasubag's card height */}
+                    {kasubagNode && (
+                      <div className="h-[95px] sm:h-[105px] md:h-[110px] w-full" />
+                    )}
+
+                    {/* Gap matching Kasubag-to-Team gap */}
+                    {kasubagNode && <div className="h-10 md:h-12 w-full" />}
+
+                    {/* Direct Team Card */}
+                    <div ref={el => { directTeamRefs.current[idx] = el; }}>
+                      <OrgCard
+                        member={team}
+                        position={positionMap.get(team.role_id)}
+                      />
+                    </div>
+
+                    {/* Subordinates below this team if any */}
+                    <SubordinateTree
+                      parentId={team.role_id}
+                      allMembers={visibleMembers}
+                      positionMap={positionMap}
+                    />
+                  </div>
+                ))}
+
+                {/* ------------------------------------------------------ */}
+                {/* KASUBAG COLUMN (Row 2: Kasubag, Row 3: Team TU)        */}
+                {/* ------------------------------------------------------ */}
+                {kasubagNode && (
+                  <div className="flex flex-col items-center">
+                    {/* Kasubag Card (Row 2: Intermediate Level on the Right) */}
+                    <div ref={kasubagRef}>
+                      <OrgCard
+                        member={kasubagNode}
+                        position={positionMap.get(kasubagNode.role_id)}
+                        isKasubagGroup={true}
+                        className="w-[220px] sm:w-[240px] md:w-[250px]"
+                      />
+                    </div>
+
+                    {/* Vertical Gap between Kasubag and Team TU */}
+                    <div className="h-10 md:h-12 w-full" />
+
+                    {/* Kasubag's Team (Row 3: Aligned with other teams) */}
+                    {kasubagTeams.map((kTeam, kIdx) => (
+                      <div key={kTeam.id || kTeam.role_id} className="flex flex-col items-center">
+                        <div ref={el => { kasubagTeamRefs.current[kIdx] = el; }}>
+                          <OrgCard
+                            member={kTeam}
+                            position={positionMap.get(kTeam.role_id)}
+                            isKasubagGroup={true}
+                          />
+                        </div>
+
+                        {/* Subordinates below Team TU if any */}
+                        <SubordinateTree
+                          parentId={kTeam.role_id}
+                          allMembers={visibleMembers}
+                          positionMap={positionMap}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* ============================================================= */
+            /* FALLBACK: Standard Clean Recursive Tree (if no Kasubag)       */
+            /* ============================================================= */
+            <div className="flex flex-col items-center">
+              <div ref={kepalaRef}>
+                <OrgCard member={rootNode} position={positionMap.get(rootNode.role_id)} />
+              </div>
+              <div className="h-12 w-full" />
+              <div className="flex items-start justify-center gap-4 md:gap-6">
+                {directTeams.map((team, idx) => (
+                  <div key={team.id || team.role_id} className="flex flex-col items-center">
+                    <div ref={el => { directTeamRefs.current[idx] = el; }}>
+                      <OrgCard member={team} position={positionMap.get(team.role_id)} />
+                    </div>
+                    <SubordinateTree parentId={team.role_id} allMembers={visibleMembers} positionMap={positionMap} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </>
+
+      {/* Mobile Hint */}
+      <div className="flex justify-center items-center gap-2 text-slate-400 text-xs font-medium mt-3">
+        <span className="material-symbols-outlined text-sm">pan_tool</span>
+        <span>Klik dan geser (drag) bagan untuk menjelajahi posisi</span>
+      </div>
+    </div>
   );
 }

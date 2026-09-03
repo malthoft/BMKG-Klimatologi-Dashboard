@@ -24,6 +24,7 @@ import { EBuletinTab } from "@/components/admin/tabs/EBuletinTab";
 import { AdminUsersTab } from "@/components/admin/tabs/AdminUsersTab";
 import { ProfileDropdown } from "@/components/admin/ProfileDropdown";
 import { AccountSettingsModal } from "@/components/admin/AccountSettingsModal";
+import { fetchServiceLinks, getStoredServiceLinks, ServiceLinks } from "@/lib/service-links";
 
 function AdminDashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
@@ -44,13 +45,26 @@ function AdminDashboardContent() {
   // Default all nav groups to open
   const [openNavGroups, setOpenNavGroups] = useState<Record<string, boolean>>({
     beranda: true,
-    layanan: true,
+    layanan: false,
     profil: false,
     iklim: false,
     publikasi: false,
     admin_control: false
   });
   
+  // --- Service Links State ---
+  const [serviceLinks, setServiceLinks] = useState<ServiceLinks>(getStoredServiceLinks());
+
+  useEffect(() => {
+    fetchServiceLinks().then(setServiceLinks);
+
+    const handleLinksUpdate = (e: any) => {
+      if (e.detail) setServiceLinks(e.detail);
+    };
+    window.addEventListener("service-links-updated", handleLinksUpdate);
+    return () => window.removeEventListener("service-links-updated", handleLinksUpdate);
+  }, []);
+
   // --- Profile State ---
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -191,7 +205,7 @@ function AdminDashboardContent() {
                 </div>
               </a>
               <a 
-                href="https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin"
+                href={serviceLinks.sipaduAdmin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold border border-transparent group"
@@ -426,7 +440,7 @@ function AdminDashboardContent() {
                 value={activeTab}
                 onChange={(e) => {
                   if (e.target.value === "sipadu") {
-                    window.open("https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=admin", "_blank");
+                    window.open(serviceLinks.sipaduAdmin, "_blank");
                   } else {
                     setActiveTab(e.target.value);
                   }

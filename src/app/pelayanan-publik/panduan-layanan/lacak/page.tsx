@@ -1,15 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-
-const LACAK_URL = "https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=client";
+import { fetchServiceLinks, getStoredServiceLinks, DEFAULT_SERVICE_LINKS } from "@/lib/service-links";
 
 export default function LacakPage() {
+  const [lacakUrl, setLacakUrl] = useState<string>(() => getStoredServiceLinks().lacakStatus);
+
   useEffect(() => {
-    window.location.href = LACAK_URL;
-  }, []);
+    let isMounted = true;
+    fetchServiceLinks().then(links => {
+      if (isMounted) {
+        setLacakUrl(links.lacakStatus);
+        window.location.href = links.lacakStatus;
+      }
+    }).catch(() => {
+      if (isMounted) {
+        window.location.href = lacakUrl || DEFAULT_SERVICE_LINKS.lacakStatus;
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [lacakUrl]);
 
   return (
     <>
@@ -24,7 +39,7 @@ export default function LacakPage() {
             Sedang mengalihkan Anda ke portal Pelacakan Status Dokumen SIPADU...
           </p>
           <a
-            href={LACAK_URL}
+            href={lacakUrl}
             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <span>Buka Pelacakan Dokumen</span>

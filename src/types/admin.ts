@@ -41,11 +41,28 @@ export interface InstagramPost {
 }
 
 export interface OrgMember {
-  id: number;
+  id?: number;
   role_id: string;
   role_title: string;
   name: string;
+  nip?: string;
+  parent_role_id?: string | null;
+  show_role_title?: boolean;
+  is_visible?: boolean;
+  sort_order?: number;
   image_url?: string;
+  created_at?: string;
+}
+
+export interface OrgPosition {
+  id?: number;
+  position_id: string;
+  position_name: string;
+  color?: string;
+  hierarchy_level?: number;
+  sort_order?: number;
+  is_visible?: boolean;
+  created_at?: string;
 }
 
 export interface HthData {

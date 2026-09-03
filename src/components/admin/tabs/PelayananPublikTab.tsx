@@ -10,6 +10,8 @@ import { Pagination } from "@/components/ui/pagination";
 import { PdfViewer } from "@/components/ui/pdf-viewer";
 import { formatDescriptionHtml } from "@/lib/utils";
 import { ModalPortal } from "@/components/ui/ModalPortal";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchServiceLinks, saveServiceLinks, DEFAULT_SERVICE_LINKS, ServiceLinks } from "@/lib/service-links";
 
 export const PELAYANAN_CATEGORIES = [
   { id: "pk", label: "Perjanjian Kinerja", type: "pdf", icon: "description", group: "Dokumen Kinerja" },
@@ -28,6 +30,42 @@ export function PelayananPublikTab() {
   const { success, error } = useToast();
   
   const { items, isLoading, isError, load, add, update, remove } = useCrud<PelayananPublik>("pelayanan_publik", "pelayanan-publik-files");
+  const { user } = useAuth();
+  const canEditLinks = user?.role === "super_admin" || user?.role === "developer";
+
+  // Service Links Modal State
+  const [isLinksModalOpen, setIsLinksModalOpen] = useState(false);
+  const [serviceLinks, setServiceLinks] = useState<ServiceLinks>(DEFAULT_SERVICE_LINKS);
+  const [isSavingLinks, setIsSavingLinks] = useState(false);
+
+  useEffect(() => {
+    fetchServiceLinks().then(setServiceLinks);
+  }, []);
+
+  const handleSaveLinks = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canEditLinks) {
+      error("Hanya Super Admin dan Developer yang memiliki izin mengubah link layanan.");
+      return;
+    }
+
+    setIsSavingLinks(true);
+    const ok = await saveServiceLinks(serviceLinks);
+    setIsSavingLinks(false);
+
+    if (ok) {
+      success("Link layanan (SIPADU, Formulir, Lacak) berhasil diperbarui!");
+      setIsLinksModalOpen(false);
+    } else {
+      error("Gagal menyimpan link layanan ke database.");
+    }
+  };
+
+  const handleResetLinks = () => {
+    if (!canEditLinks) return;
+    setServiceLinks(DEFAULT_SERVICE_LINKS);
+    success("Link dikembalikan ke default. Klik 'Simpan Perubahan Link' untuk menerapkan.");
+  };
 
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -281,13 +319,26 @@ export function PelayananPublikTab() {
             </div>
           </div>
 
-          <button
-            onClick={() => handleOpenCreateForm()}
-            className="px-6 py-3.5 rounded-2xl font-black text-white bg-primary hover:bg-blue-700 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 self-start md:self-auto hover:scale-105 active:scale-95 shrink-0 text-sm"
-          >
-            <span className="material-symbols-outlined text-[22px]">add_circle</span>
-            Tambah Konten Baru
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsLinksModalOpen(true)}
+              className="px-5 py-3.5 rounded-2xl font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all flex items-center gap-2 hover:scale-105 active:scale-95 text-xs sm:text-sm cursor-pointer"
+              title="Atur Link SIPADU Admin, Formulir Permohonan & Lacak Status Dokumen"
+            >
+              <span className="material-symbols-outlined text-[20px] text-blue-600">link</span>
+              Pengaturan Link Layanan
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleOpenCreateForm()}
+              className="px-6 py-3.5 rounded-2xl font-black text-white bg-primary hover:bg-blue-700 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 hover:scale-105 active:scale-95 text-xs sm:text-sm cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[22px]">add_circle</span>
+              Tambah Konten Baru
+            </button>
+          </div>
         </div>
       )}
 
@@ -721,6 +772,187 @@ export function PelayananPublikTab() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* MODAL PENGATURAN LINK LAYANAN (SIPADU, FORMULIR, LACAK) */}
+      {isLinksModalOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 animate-scaleUp">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[22px]">link</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800">Pengaturan Link Layanan & SIPADU</h3>
+                    <p className="text-xs text-slate-400">Atur link tujuan untuk navigasi publik dan admin</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLinksModalOpen(false)}
+                  className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              {/* Role Permission Badge */}
+              <div className={`p-3.5 rounded-2xl border mb-5 flex items-start gap-3 text-xs ${
+                canEditLinks 
+                  ? 'bg-blue-50/70 border-blue-200 text-blue-900' 
+                  : 'bg-amber-50/80 border-amber-200 text-amber-900'
+              }`}>
+                <span className="material-symbols-outlined text-[20px] shrink-0 mt-0.5">
+                  {canEditLinks ? 'verified_user' : 'lock'}
+                </span>
+                <div className="flex-1 leading-relaxed">
+                  {canEditLinks ? (
+                    <div>
+                      <strong className="font-extrabold uppercase">Akses Diizinkan ({user?.role === 'developer' ? 'Developer' : 'Super Admin'})</strong>
+                      <p className="text-[11px] text-blue-700 mt-0.5">Anda memiliki hak akses untuk memperbarui dan menyimpan link integrasi sistem ini.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <strong className="font-extrabold uppercase">Akses Terbatas (Role: Admin)</strong>
+                      <p className="text-[11px] text-amber-800 mt-0.5">Hanya <strong>Super Admin</strong> dan <strong>Developer</strong> yang berhak mengubah link tujuan ini. Form di bawah ini dalam mode <em>Read-Only</em>.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveLinks} className="space-y-4">
+                {/* 1. SIPADU Admin */}
+                <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[17px] text-blue-600">folder_shared</span>
+                      Link SIPADU Admin (Daftar Berkas Masuk)
+                    </label>
+                    <a
+                      href={serviceLinks.sipaduAdmin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Uji Buka</span>
+                      <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    disabled={!canEditLinks || isSavingLinks}
+                    value={serviceLinks.sipaduAdmin}
+                    onChange={(e) => setServiceLinks({ ...serviceLinks, sipaduAdmin: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all disabled:bg-slate-100 disabled:text-slate-500"
+                    placeholder="https://script.google.com/.../exec?p=admin"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Tautan tujuan tombol &quot;Sipadu Admin&quot; di bilah navigasi menu admin.
+                  </p>
+                </div>
+
+                {/* 2. Formulir Permohonan Informasi */}
+                <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[17px] text-emerald-600">assignment</span>
+                      Link Formulir Permohonan Informasi
+                    </label>
+                    <a
+                      href={serviceLinks.formulirPermohonan}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-emerald-600 hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Uji Buka</span>
+                      <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    disabled={!canEditLinks || isSavingLinks}
+                    value={serviceLinks.formulirPermohonan}
+                    onChange={(e) => setServiceLinks({ ...serviceLinks, formulirPermohonan: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all disabled:bg-slate-100 disabled:text-slate-500"
+                    placeholder="https://script.google.com/.../exec?p=daftar"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Tautan saat pemohon mengklik menu &quot;Formulir Permohonan Informasi&quot; di portal publik.
+                  </p>
+                </div>
+
+                {/* 3. Lacak Status Dokumen */}
+                <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[17px] text-indigo-600">track_changes</span>
+                      Link Lacak Status Dokumen
+                    </label>
+                    <a
+                      href={serviceLinks.lacakStatus}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-0.5"
+                    >
+                      <span>Uji Buka</span>
+                      <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                    </a>
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    disabled={!canEditLinks || isSavingLinks}
+                    value={serviceLinks.lacakStatus}
+                    onChange={(e) => setServiceLinks({ ...serviceLinks, lacakStatus: e.target.value })}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all disabled:bg-slate-100 disabled:text-slate-500"
+                    placeholder="https://script.google.com/.../exec?p=client"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    Tautan saat pemohon mengklik menu &quot;Lacak Status Dokumen&quot; di portal publik.
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-6">
+                  {canEditLinks ? (
+                    <button
+                      type="button"
+                      onClick={handleResetLinks}
+                      className="text-xs font-bold text-slate-500 hover:text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                      Kembalikan ke Default
+                    </button>
+                  ) : <div />}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLinksModalOpen(false)}
+                      className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                    {canEditLinks && (
+                      <button
+                        type="submit"
+                        disabled={isSavingLinks}
+                        className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-xs shadow-md hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">save</span>
+                        {isSavingLinks ? "Menyimpan..." : "Simpan Perubahan Link"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </ModalPortal>

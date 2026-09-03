@@ -1,15 +1,30 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-
-const FORM_URL = "https://script.google.com/macros/s/AKfycbyYH9biqvAWfUKkmwvENg7gVw3amiWz_IIgO2UkQhj0yI2mY-_U-ekChvmRubuUQEv1/exec?p=daftar";
+import { fetchServiceLinks, getStoredServiceLinks, DEFAULT_SERVICE_LINKS } from "@/lib/service-links";
 
 export default function FormulirPage() {
+  const [formUrl, setFormUrl] = useState<string>(() => getStoredServiceLinks().formulirPermohonan);
+
   useEffect(() => {
-    window.location.href = FORM_URL;
-  }, []);
+    let isMounted = true;
+    fetchServiceLinks().then(links => {
+      if (isMounted) {
+        setFormUrl(links.formulirPermohonan);
+        window.location.href = links.formulirPermohonan;
+      }
+    }).catch(() => {
+      if (isMounted) {
+        window.location.href = formUrl || DEFAULT_SERVICE_LINKS.formulirPermohonan;
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [formUrl]);
 
   return (
     <>
@@ -24,7 +39,7 @@ export default function FormulirPage() {
             Sedang mengalihkan Anda ke portal Sistem Informasi Pelayanan Terpadu (SIPADU)...
           </p>
           <a
-            href={FORM_URL}
+            href={formUrl}
             className="w-full bg-primary hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 text-sm"
           >
             <span>Buka Formulir Sekarang</span>
