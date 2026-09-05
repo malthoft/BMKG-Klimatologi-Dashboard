@@ -145,13 +145,13 @@ export default function PerubahanIklim() {
           <div className="h-[1px] w-full max-w-xs bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
         </div>
 
-        {/* Peta Perubahan Suhu Component */}
+        {/* Peta Perubahan Curah Hujan Component */}
         <section className="space-y-[24px]">
           <AnimatedContainer animation="fadeInDown" once={true}>
             <div className="text-center max-w-3xl mx-auto space-y-2">
-              <H2 className="text-text-primary">Peta Perubahan Suhu Jawa Timur</H2>
+              <H2 className="text-text-primary">Peta Perubahan Curah Hujan Jawa Timur</H2>
               <p className="text-text-secondary text-sm">
-                Distribusi spasial perubahan suhu tahunan berdasarkan fenomena El Niño dan La Niña di wilayah Jawa Timur.
+                Distribusi spasial perubahan curah hujan tahunan berdasarkan fenomena El Niño dan La Niña di wilayah Jawa Timur.
               </p>
             </div>
           </AnimatedContainer>
@@ -159,7 +159,7 @@ export default function PerubahanIklim() {
           {loadingMaps ? (
             <div className="w-full py-16 flex flex-col items-center justify-center gap-3 text-text-secondary">
               <span className="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
-              <span className="text-sm font-medium">Memuat data peta suhu...</span>
+              <span className="text-sm font-medium">Memuat data peta curah hujan...</span>
             </div>
           ) : (
             <AnimatedContainer animation="fadeInUp" delay={0.3} once={true}>

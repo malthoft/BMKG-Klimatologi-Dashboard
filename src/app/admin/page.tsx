@@ -288,9 +288,9 @@ function AdminDashboardContent() {
             <div className={`space-y-1 pl-2 border-l-2 border-slate-100 ml-3 transition-all overflow-hidden ${openNavGroups.iklim ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {[
                 { id: 'observations', icon: 'fact_check', label: 'Data Pengamatan' },
-                { id: 'climate', icon: 'thermostat', label: 'Warming Stripes' },
+                { id: 'climate', icon: 'thermostat', label: 'Perubahan Iklim' },
                 { id: 'rainfall', icon: 'rainy', label: 'Prakiraan Hujan' },
-                { id: 'tempmaps', icon: 'map', label: 'Peta Suhu' },
+                { id: 'tempmaps', icon: 'map', label: 'Peta Curah Hujan' },
                 { id: 'hth', icon: 'wb_sunny', label: 'Hari Tanpa Hujan' },
                 { id: 'iklim_publikasi', icon: 'menu_book', label: 'Publikasi Iklim' },
               ].map(tab => (
@@ -458,9 +458,9 @@ function AdminDashboardContent() {
                 </optgroup>
                 <optgroup label="Iklim">
                   <option value="observations">Data Pengamatan</option>
-                  <option value="climate">Warming Stripes</option>
+                  <option value="climate">Perubahan Iklim</option>
                   <option value="rainfall">Prakiraan Hujan</option>
-                  <option value="tempmaps">Peta Suhu</option>
+                  <option value="tempmaps">Peta Curah Hujan</option>
                   <option value="hth">Hari Tanpa Hujan</option>
                 </optgroup>
                 <optgroup label="Publikasi">

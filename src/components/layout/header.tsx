@@ -32,7 +32,7 @@ export const navLinks: NavItem[] = [
     subLinks: [
       { href: "/data-pengamatan", label: "Data Pengamatan" },
       { href: "/iklim/peringatan-dini", label: "Peringatan Dini Cuaca dan Iklim" },
-      { href: "/perubahan-iklim", label: "Perubahan Iklim (Warming Stripes)" },
+      { href: "/perubahan-iklim", label: "Perubahan Iklim" },
       {
         label: "Prediksi Iklim",
         href: "/iklim/prediksi-iklim",

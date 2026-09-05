@@ -31,7 +31,7 @@ export function TempMapsTab() {
   const handleAddTempMap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTempMap.file) {
-      error("Silakan pilih file gambar peta suhu terlebih dahulu!");
+      error("Silakan pilih file gambar peta curah hujan terlebih dahulu!");
       return;
     }
     if (newTempMap.file.size > 5 * 1024 * 1024) {
@@ -40,7 +40,7 @@ export function TempMapsTab() {
     }
     const isDuplicate = tempMaps.some(map => map.year === newTempMap.year && map.category === newTempMap.category);
     if (isDuplicate) {
-      error(`Data peta suhu untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
+      error(`Data peta curah hujan untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
       return;
     }
 
@@ -61,7 +61,7 @@ export function TempMapsTab() {
         year: newTempMap.year,
         category: newTempMap.category,
         image_url: imageUrl
-      }, "Peta Suhu berhasil ditambahkan!");
+      }, "Peta Curah Hujan berhasil ditambahkan!");
 
       if (isOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
@@ -81,7 +81,7 @@ export function TempMapsTab() {
     if (!editTempMapId) return;
     const isDuplicate = tempMaps.some(map => map.id !== editTempMapId && map.year === newTempMap.year && map.category === newTempMap.category);
     if (isDuplicate) {
-      error(`Data peta suhu untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
+      error(`Data peta curah hujan untuk tahun ${newTempMap.year} dengan kategori ${newTempMap.category} sudah ada!`);
       return;
     }
 
@@ -113,7 +113,7 @@ export function TempMapsTab() {
       };
       if (finalImageUrl) updateData.image_url = finalImageUrl;
 
-      const isUpdateOk = await update(editTempMapId, updateData, "Peta Suhu berhasil diperbarui!");
+      const isUpdateOk = await update(editTempMapId, updateData, "Peta Curah Hujan berhasil diperbarui!");
       if (isUpdateOk) {
         setNewTempMap({ year: new Date().getFullYear(), category: "Normal", file: null });
         setEditTempMapId(null);
@@ -143,8 +143,8 @@ export function TempMapsTab() {
   };
 
   const handleDeleteTempMap = async (id: number, imageUrl: string) => {
-    if (await confirm("Yakin ingin menghapus peta suhu ini?")) {
-      remove(id, imageUrl, "Peta Suhu berhasil dihapus");
+    if (await confirm("Yakin ingin menghapus peta curah hujan ini?")) {
+      remove(id, imageUrl, "Peta Curah Hujan berhasil dihapus");
     }
   };
 
@@ -157,7 +157,7 @@ export function TempMapsTab() {
                       <span className="material-symbols-outlined text-[18px]">map</span>
                     </div>
                     <h3 className="text-lg font-bold text-slate-800">
-                      {editTempMapId ? "Edit Peta Suhu" : "Upload Peta Suhu Baru"}
+                      {editTempMapId ? "Edit Peta Curah Hujan" : "Upload Peta Curah Hujan Baru"}
                     </h3>
                   </div>
                   <form onSubmit={editTempMapId ? handleEditTempMap : handleAddTempMap} className="flex flex-col gap-4 flex-1">
@@ -281,7 +281,7 @@ export function TempMapsTab() {
                     <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
                       <span className="material-symbols-outlined text-[18px]">collections</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800">Galeri Peta Suhu ({tempMaps.length})</h3>
+                    <h3 className="text-lg font-bold text-slate-800">Galeri Peta Curah Hujan ({tempMaps.length})</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -291,7 +291,7 @@ export function TempMapsTab() {
                           {m.image_url ? (
                             <Image 
                               src={m.image_url.includes('http') ? m.image_url : `https://malthoft.supabase.co/storage/v1/object/public/${m.image_url}`} 
-                              alt={`Peta Suhu ${m.year}`}
+                              alt={`Peta Curah Hujan ${m.year}`}
                               fill
                               unoptimized
                               className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -334,7 +334,7 @@ export function TempMapsTab() {
                     {tempMaps.length === 0 && (
                       <div className="col-span-full py-16 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
                         <span className="material-symbols-outlined text-4xl mb-2">map</span>
-                        <p className="text-sm font-medium">Belum ada peta suhu yang diupload.</p>
+                        <p className="text-sm font-medium">Belum ada peta curah hujan yang diupload.</p>
                       </div>
                     )}
                   </div>

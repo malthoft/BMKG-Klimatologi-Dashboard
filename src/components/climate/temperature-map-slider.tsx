@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
+import { RainfallLegend } from "./rainfall-legend";
 
 interface TemperatureMap {
   id: number;
@@ -154,6 +155,9 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
         </div>
       </div>
 
+      {/* Indikator / Legenda Skala Warna Curah Hujan */}
+      <RainfallLegend />
+
       {/* Slider Container */}
       <div className="relative w-full overflow-hidden rounded-3xl bg-slate-50/50 border border-slate-100 p-2 md:p-6 shadow-inner">
         
@@ -191,7 +195,7 @@ export function TemperatureMapSlider({ maps }: TemperatureMapSliderProps) {
                       <div className="w-full flex items-center justify-center pt-14 pb-3 px-3 md:pt-16 md:pb-4 md:px-4 bg-slate-50/80 group-hover:bg-slate-100/80 transition-colors duration-500 min-h-[300px]">
                         <img 
                           src={map.image_url} 
-                          alt={`Peta Suhu ${map.year} - ${map.category}`}
+                          alt={`Peta Curah Hujan ${map.year} - ${map.category}`}
                           className="w-auto h-auto max-w-full max-h-[50vh] md:max-h-[420px] object-contain drop-shadow-lg transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           loading="lazy"
                         />

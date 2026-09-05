@@ -303,7 +303,7 @@ export function ClimateTab() {
                   </div>
 
                   <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner">
-                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">monitoring</span> Preview Grafik Suhu</h4>
+                    <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><span className="material-symbols-outlined text-primary">monitoring</span> Preview Grafik Trend Suhu</h4>
                     <TemperatureLineChart parsedData={climatePreviewAnnual} selectedRegion={selectedRegion} />
                   </div>
                 </div>

@@ -2,14 +2,14 @@
 
 import React, { useMemo } from "react";
 import {
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
 import { ClimateParsedResult } from "@/lib/climate-parser";
 
@@ -19,10 +19,19 @@ interface TemperatureLineChartProps {
 }
 
 export function TemperatureLineChart({ parsedData, selectedRegion }: TemperatureLineChartProps) {
-  const chartData = useMemo(() => {
-    if (!parsedData || !selectedRegion) return [];
+  const { chartData, yMin, yMax, yTicks, xTicks, stats } = useMemo(() => {
+    if (!parsedData || !selectedRegion) {
+      return {
+        chartData: [],
+        yMin: 22.0,
+        yMax: 25.0,
+        yTicks: [],
+        xTicks: [],
+        stats: null,
+      };
+    }
     
-    return parsedData.years.map((year, index) => {
+    const rawData = parsedData.years.map((year, index) => {
       const regionInfo = parsedData.regionsData[selectedRegion];
       const anomaly = regionInfo?.anomalies[index];
       const val = anomaly !== undefined ? anomaly + regionInfo.baseline : undefined;
@@ -30,90 +39,339 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
         year,
         temperature: val !== undefined ? parseFloat(val.toFixed(2)) : null,
       };
-    }).filter(item => item.temperature !== null);
+    }).filter((item): item is { year: number; temperature: number } => item.temperature !== null);
+
+    const n = rawData.length;
+    if (n === 0) {
+      return {
+        chartData: [],
+        yMin: 22.0,
+        yMax: 25.0,
+        yTicks: [],
+        xTicks: [],
+        stats: null,
+      };
+    }
+
+    // Linear regression (y = mx + c) for the trend line
+    const sumX = rawData.reduce((sum, d) => sum + d.year, 0);
+    const sumY = rawData.reduce((sum, d) => sum + d.temperature, 0);
+    const meanX = sumX / n;
+    const meanY = sumY / n;
+
+    let numerator = 0;
+    let denominator = 0;
+    for (const d of rawData) {
+      numerator += (d.year - meanX) * (d.temperature - meanY);
+      denominator += (d.year - meanX) * (d.year - meanX);
+    }
+
+    const slope = denominator !== 0 ? numerator / denominator : 0;
+    const intercept = meanY - slope * meanX;
+
+    const dataWithTrend = rawData.map((d) => {
+      const trendVal = slope * d.year + intercept;
+      return {
+        ...d,
+        trend: parseFloat(trendVal.toFixed(2)),
+      };
+    });
+
+    // Statistical calculations for informative summary cards
+    const temperatures = dataWithTrend.map((d) => d.temperature);
+    const avgTemp = temperatures.reduce((a, b) => a + b, 0) / n;
+    let minItem = dataWithTrend[0];
+    let maxItem = dataWithTrend[0];
+    for (const d of dataWithTrend) {
+      if (d.temperature < minItem.temperature) minItem = d;
+      if (d.temperature > maxItem.temperature) maxItem = d;
+    }
+    const decadeTrend = slope * 10; // °C per decade
+
+    // Determine Y-axis bounds
+    const allValues = dataWithTrend.flatMap((d) => [d.temperature, d.trend]);
+    const minVal = Math.min(...allValues);
+    const maxVal = Math.max(...allValues);
+
+    // Always display directly from 22.0°C as requested
+    const calculatedYMin = minVal < 22.0 ? Math.floor((minVal - 0.25) * 2) / 2 : 22.0;
+    let calculatedYMax = Math.ceil((maxVal + 0.3) * 2) / 2;
+    if (calculatedYMax - calculatedYMin < 2.5) {
+      calculatedYMax = calculatedYMin + 2.5;
+    }
+
+    // Determine step size (0.5°C if span <= 4.5, otherwise 1.0°C)
+    const span = calculatedYMax - calculatedYMin;
+    const step = span <= 4.5 ? 0.5 : 1.0;
+
+    const ticks: number[] = [];
+    for (let v = calculatedYMin; v <= calculatedYMax + 0.001; v += step) {
+      ticks.push(Number(v.toFixed(1)));
+    }
+
+    // Dynamic X-axis ticks adapting to ANY year range uploaded by admin
+    const allYears = dataWithTrend.map((d) => d.year);
+    const minYear = allYears[0];
+    const maxYear = allYears[allYears.length - 1];
+    const yearSpan = maxYear - minYear;
+
+    // Determine adaptive step so ticks are readable for any dataset length
+    const xStep = yearSpan <= 15 ? 1 : yearSpan <= 40 ? 2 : 5;
+    const dynamicXTicks: number[] = [];
+    for (let y = minYear; y <= maxYear; y += xStep) {
+      dynamicXTicks.push(y);
+    }
+    // Always guarantee the latest year is displayed so admin sees the latest uploaded data point
+    if (!dynamicXTicks.includes(maxYear)) {
+      if (maxYear - dynamicXTicks[dynamicXTicks.length - 1] === 1 && dynamicXTicks.length > 2) {
+        dynamicXTicks[dynamicXTicks.length - 1] = maxYear;
+      } else {
+        dynamicXTicks.push(maxYear);
+      }
+    }
+
+    return {
+      chartData: dataWithTrend,
+      yMin: calculatedYMin,
+      yMax: calculatedYMax,
+      yTicks: ticks,
+      xTicks: dynamicXTicks,
+      period: {
+        start: minYear,
+        end: maxYear,
+        count: n,
+      },
+      stats: {
+        avg: avgTemp,
+        min: minItem,
+        max: maxItem,
+        trendPerDecade: decadeTrend,
+      },
+    };
   }, [parsedData, selectedRegion]);
 
   if (!parsedData) {
     return (
-      <div className="w-full h-[400px] flex flex-col items-center justify-center border border-border rounded-xl bg-surface-container-low text-secondary text-sm">
+      <div className="w-full h-[400px] flex flex-col items-center justify-center border border-border rounded-2xl bg-surface-container-low text-secondary text-sm">
         <span className="material-symbols-outlined text-4xl mb-2 animate-pulse">monitoring</span>
-        <p>Memuat data grafik suhu...</p>
+        <p>Memuat data grafik trend suhu...</p>
       </div>
     );
   }
 
   if (chartData.length === 0) {
     return (
-      <div className="w-full h-[400px] flex flex-col items-center justify-center border border-border rounded-xl bg-surface-container-low text-secondary text-sm">
+      <div className="w-full h-[400px] flex flex-col items-center justify-center border border-border rounded-2xl bg-surface-container-low text-secondary text-sm">
         <span className="material-symbols-outlined text-4xl mb-2">info</span>
         <p>Data suhu tidak tersedia untuk wilayah ini.</p>
       </div>
     );
   }
 
-  // Calculate average for reference line
-  const averageTemp = chartData.reduce((sum, item) => sum + (item.temperature || 0), 0) / chartData.length;
+  const period = chartData.length > 0 ? {
+    start: chartData[0].year,
+    end: chartData[chartData.length - 1].year,
+    count: chartData.length,
+  } : null;
 
   return (
-    <div className="w-full bg-surface border border-border rounded-xl p-4 md:p-6 shadow-sm">
-      <div className="mb-6 text-center md:text-left">
-        <h3 className="text-xl font-bold text-text-primary">Grafik Perubahan Suhu Rata-rata Tahunan</h3>
-        <p className="text-sm text-text-secondary mt-1">Wilayah: {selectedRegion}</p>
+    <div className="w-full max-w-5xl mx-auto bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-7 md:p-8 shadow-sm space-y-6">
+      {/* Header & Title matching reference image with dynamic period */}
+      <div className="flex flex-col items-center text-center space-y-2">
+        <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
+          Trend Suhu Udara
+        </h3>
+        <div className="flex flex-wrap items-center justify-center gap-2 text-sm font-semibold text-slate-500">
+          <span>Wilayah: <strong className="text-primary font-bold">{selectedRegion}</strong></span>
+          {period && (
+            <>
+              <span className="text-slate-300">•</span>
+              <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                Periode: {period.start} – {period.end} ({period.count} Tahun Data)
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 pt-1">
+          <div className="flex items-center gap-2 text-xs font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+            <span className="w-3.5 h-1 bg-[#356a9a] rounded-sm inline-block"></span>
+            <span className="text-slate-700">Suhu Udara</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+            <span className="w-4 h-0.5 border-t-2 border-dashed border-[#7a8288] inline-block"></span>
+            <span className="text-slate-700">Trend</span>
+          </div>
+        </div>
       </div>
+
+      {/* Climate Summary Stats Cards to eliminate empty space sensation */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 pt-1">
+          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100/90 flex flex-col items-center text-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Rata-rata</span>
+            <span className="text-base sm:text-lg font-extrabold text-slate-800 mt-0.5">
+              {stats.avg.toFixed(2).replace(".", ",")} °C
+            </span>
+          </div>
+
+          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100/90 flex flex-col items-center text-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Tertinggi</span>
+            <span className="text-base sm:text-lg font-extrabold text-rose-600 mt-0.5">
+              {stats.max.temperature.toFixed(2).replace(".", ",")} °C
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">({stats.max.year})</span>
+          </div>
+
+          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100/90 flex flex-col items-center text-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Terendah</span>
+            <span className="text-base sm:text-lg font-extrabold text-blue-600 mt-0.5">
+              {stats.min.temperature.toFixed(2).replace(".", ",")} °C
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">({stats.min.year})</span>
+          </div>
+
+          <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100/90 flex flex-col items-center text-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Laju Tren</span>
+            <span className={`text-base sm:text-lg font-extrabold mt-0.5 ${stats.trendPerDecade >= 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {stats.trendPerDecade >= 0 ? "+" : ""}{stats.trendPerDecade.toFixed(3).replace(".", ",")}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">°C / dekade</span>
+          </div>
+        </div>
+      )}
       
-      <div className="w-full h-[350px] md:h-[450px]">
+      {/* Chart Canvas */}
+      <div className="w-full h-[400px] sm:h-[460px] md:h-[500px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
+          <ComposedChart
             data={chartData}
-            margin={{ top: 20, right: 30, left: 0, bottom: 10 }}
+            margin={{ top: 15, right: 25, left: 10, bottom: 25 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(200, 200, 200, 0.2)" vertical={false} />
+            <defs>
+              {/* Soft atmospheric gradient under the line down to baseline 22°C */}
+              <linearGradient id="temperatureAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#356a9a" stopOpacity={0.22} />
+                <stop offset="65%" stopColor="#356a9a" stopOpacity={0.08} />
+                <stop offset="100%" stopColor="#356a9a" stopOpacity={0.01} />
+              </linearGradient>
+            </defs>
+
+            {/* Horizontal Grid lines only, exactly matching reference image */}
+            <CartesianGrid
+              strokeDasharray="2 2"
+              stroke="#e2e8f0"
+              vertical={false}
+            />
+
+            {/* X-Axis: Rotated -90 degrees, showing even years */}
             <XAxis 
               dataKey="year" 
-              tick={{ fill: "#64748b", fontSize: 12 }} 
-              tickMargin={10}
+              ticks={xTicks}
+              interval={0}
+              angle={-90}
+              textAnchor="end"
+              height={55}
+              dy={8}
+              tick={{ fill: "#475569", fontSize: 11, fontWeight: 500 }}
               axisLine={{ stroke: "#cbd5e1" }}
+              tickLine={{ stroke: "#cbd5e1" }}
             />
+
+            {/* Y-Axis: Shows down to 22,0 with Indonesian comma decimal format */}
             <YAxis 
-              domain={['auto', 'auto']}
-              tick={{ fill: "#64748b", fontSize: 12 }}
-              tickFormatter={(value) => `${value}°C`}
+              domain={[yMin, yMax]}
+              ticks={yTicks}
+              tick={{ fill: "#475569", fontSize: 12, fontWeight: 500 }}
+              tickFormatter={(value) => value.toFixed(1).replace(".", ",")}
               axisLine={{ stroke: "#cbd5e1" }}
-              tickLine={false}
-              width={60}
+              tickLine={{ stroke: "#cbd5e1" }}
+              width={75}
+              label={{
+                value: "Suhu (Celcius)",
+                angle: -90,
+                position: "insideLeft",
+                offset: 5,
+                style: {
+                  textAnchor: "middle",
+                  fill: "#334155",
+                  fontSize: 13,
+                  fontWeight: 600,
+                },
+              }}
             />
+
             <Tooltip
               content={({ active, payload, label }) => {
                 if (active && payload && payload.length) {
+                  const tempItem = payload.find((p) => p.dataKey === "temperature");
+                  const trendItem = payload.find((p) => p.dataKey === "trend");
                   return (
-                    <div className="bg-surface border border-border shadow-lg rounded-lg p-3 text-sm">
-                      <p className="font-bold text-text-primary mb-1">Tahun {label}</p>
-                      <p className="text-primary font-semibold">
-                        Suhu: {payload[0].value}°C
-                      </p>
+                    <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-xl rounded-2xl p-3.5 text-sm">
+                      <p className="font-bold text-slate-800 mb-2">Tahun {label}</p>
+                      {tempItem && tempItem.value !== undefined && (
+                        <p className="text-[#356a9a] font-bold flex items-center gap-2">
+                          <span className="w-2.5 h-1.5 bg-[#356a9a] rounded-sm inline-block"></span>
+                          Suhu Udara: {tempItem.value.toString().replace(".", ",")} °C
+                        </p>
+                      )}
+                      {trendItem && trendItem.value !== undefined && (
+                        <p className="text-slate-600 font-semibold flex items-center gap-2 mt-1">
+                          <span className="w-3 h-0.5 border-t-2 border-dashed border-[#7a8288] inline-block"></span>
+                          Trend: {trendItem.value.toString().replace(".", ",")} °C
+                        </p>
+                      )}
                     </div>
                   );
                 }
                 return null;
               }}
             />
-            <ReferenceLine 
-              y={averageTemp} 
-              stroke="#94a3b8" 
-              strokeDasharray="5 5"
-              label={{ position: 'insideTopLeft', value: `Rata-rata: ${averageTemp.toFixed(2)}°C`, fill: '#64748b', fontSize: 12 }} 
-            />
-            <Line
-              type="monotone"
+
+            {/* Soft area fill to give visual weight down to 22.0°C and remove empty dead space */}
+            <Area
+              type="linear"
               dataKey="temperature"
-              stroke="#3b82f6"
-              strokeWidth={3}
-              dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "#ffffff" }}
-              activeDot={{ r: 6, fill: "#1d4ed8", stroke: "#ffffff", strokeWidth: 2 }}
-              animationDuration={1500}
+              fill="url(#temperatureAreaGrad)"
+              stroke="none"
+              isAnimationActive={true}
+              animationDuration={1200}
             />
-          </LineChart>
+
+            {/* Dashed Gray Trend Line (linear regression) matching reference image */}
+            <Line
+              type="linear"
+              dataKey="trend"
+              name="Trend"
+              stroke="#7a8288"
+              strokeWidth={2}
+              strokeDasharray="5 3"
+              dot={false}
+              activeDot={false}
+              animationDuration={1200}
+            />
+
+            {/* Solid Steel-Blue Actual Temperature Line (angular linear segments, no dots) */}
+            <Line
+              type="linear"
+              dataKey="temperature"
+              name="Suhu Udara"
+              stroke="#356a9a"
+              strokeWidth={2.8}
+              dot={false}
+              activeDot={{ r: 5, fill: "#2b6cb0", stroke: "#ffffff", strokeWidth: 2 }}
+              animationDuration={1200}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Subtle baseline note */}
+      <div className="text-center pt-2">
+        <span className="text-[11px] text-slate-400 font-medium">
+          * Sumbu Y ditampilkan mulai dari batas 22,0°C sebagai acuan dasar klimatologis.
+        </span>
       </div>
     </div>
   );
