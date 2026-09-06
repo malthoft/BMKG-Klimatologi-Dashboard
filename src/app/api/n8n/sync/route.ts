@@ -102,7 +102,7 @@ export async function POST(req: Request) {
         "Accept": "application/json",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ nodes: workflow.nodes })
+      body: JSON.stringify({ name: workflow.name, nodes: workflow.nodes })
     });
 
     if (!putRes.ok) {
