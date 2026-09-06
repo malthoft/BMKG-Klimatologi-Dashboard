@@ -95,11 +95,12 @@ export async function POST(req: Request) {
     }
 
     // 6. Save Workflow — only send fields accepted by n8n PUT API
-    const { name, nodes, connections, settings, staticData, tags } = workflow;
-    const putBody: Record<string, any> = { name, nodes, connections };
-    if (settings) putBody.settings = settings;
-    if (staticData) putBody.staticData = staticData;
-    if (tags) putBody.tags = tags;
+    const putBody: Record<string, any> = {
+      name: workflow.name,
+      nodes: workflow.nodes,
+      connections: workflow.connections,
+    };
+    if (workflow.settings) putBody.settings = workflow.settings;
 
     const putRes = await fetch(`${n8nBaseUrl}/workflows/${n8nWorkflowId}`, {
       method: "PUT",
