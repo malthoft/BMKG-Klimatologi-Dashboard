@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 export function StationsTab() {
   const { user } = useAuth();
   const confirm = useConfirm();
-  const { success, error, info } = useToast();
+  const { success, error, info, warning } = useToast();
   const { items: stations, load, remove, add } = useCrud<Station>("stations");
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -34,9 +34,12 @@ export function StationsTab() {
     load("order=created_at.desc");
   }, [load]);
 
-  const syncN8n = async () => {
+  const syncN8n = async (isAutoSync: boolean = false) => {
+    const isAuto = isAutoSync === true;
     setIsSyncing(true);
-    info("Menyinkronkan data dengan n8n...");
+    if (!isAuto) {
+      info("Menyinkronkan data dengan n8n...");
+    }
     try {
       const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/n8n/sync", {
@@ -46,10 +49,28 @@ export function StationsTab() {
         }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      
+      if (!res.ok) {
+        if (data.code === "N8N_NOT_CONFIGURED" || res.status === 503) {
+          if (isAuto) {
+            warning("Sinkronisasi n8n otomatis dilewati: Kredensial n8n belum diatur di server.");
+          } else {
+            warning("Kredensial n8n belum diatur di server hosting / Vercel.");
+          }
+          return false;
+        }
+        throw new Error(data.error || "Gagal sinkronisasi");
+      }
+
       success("Sinkronisasi n8n berhasil!");
+      return true;
     } catch (err: any) {
-      error(`Gagal sinkronisasi n8n: ${err.message}`);
+      if (isAuto) {
+        warning(`Sinkronisasi n8n dilewati: ${err.message}`);
+      } else {
+        error(`Gagal sinkronisasi n8n: ${err.message}`);
+      }
+      return false;
     } finally {
       setIsSyncing(false);
     }
@@ -66,7 +87,7 @@ export function StationsTab() {
   const handleDeleteStation = async (id: number) => {
     if (await confirm("Yakin ingin menghapus stasiun ini? Data tidak dapat dikembalikan.")) {
       const ok = await remove(id, undefined, "Stasiun berhasil dihapus");
-      if (ok) await syncN8n();
+      if (ok) await syncN8n(true);
     }
   };
 
@@ -85,7 +106,7 @@ export function StationsTab() {
       setNewStation({ station_id: "", station_name: "", display_name: "", table_name: "" });
       setAddSourceValue("");
       load("order=created_at.desc");
-      await syncN8n();
+      await syncN8n(true);
     }
   };
 
@@ -124,7 +145,7 @@ export function StationsTab() {
       success("Data stasiun berhasil diperbarui!");
       setEditModalOpen(false);
       load("order=created_at.desc");
-      await syncN8n();
+      await syncN8n(true);
     } else {
       error("Gagal memperbarui data stasiun.");
     }
@@ -194,7 +215,7 @@ export function StationsTab() {
             </div>
             <div className="flex items-center gap-3">
               {user?.role === "super_admin" && (
-                <button onClick={syncN8n} disabled={isSyncing} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors">
+                <button onClick={() => syncN8n(false)} disabled={isSyncing} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-colors">
                   <span className={`material-symbols-outlined text-[14px] ${isSyncing ? 'animate-spin' : ''}`}>sync</span>
                   Sync n8n
                 </button>

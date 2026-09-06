@@ -2,9 +2,9 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
+import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from "lucide-react";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastMessage {
   id: string;
@@ -16,6 +16,7 @@ interface ToastContextType {
   success: (message: string) => void;
   error: (message: string) => void;
   info: (message: string) => void;
+  warning: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -35,9 +36,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const success = useCallback((msg: string) => addToast(msg, "success"), [addToast]);
   const error = useCallback((msg: string) => addToast(msg, "error"), [addToast]);
   const info = useCallback((msg: string) => addToast(msg, "info"), [addToast]);
+  const warning = useCallback((msg: string) => addToast(msg, "warning"), [addToast]);
 
   return (
-    <ToastContext.Provider value={{ success, error, info }}>
+    <ToastContext.Provider value={{ success, error, info, warning }}>
       {children}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none w-full max-w-md px-4">
         <AnimatePresence>
@@ -59,15 +61,17 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
   }, [toast.id, onRemove]);
 
   const icons = {
-    success: <CheckCircle className="w-5 h-5 text-green-500" />,
-    error: <AlertCircle className="w-5 h-5 text-red-500" />,
-    info: <Info className="w-5 h-5 text-blue-500" />,
+    success: <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />,
+    error: <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />,
+    info: <Info className="w-5 h-5 text-blue-500 shrink-0" />,
+    warning: <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />,
   };
 
   const bgColors = {
     success: "bg-white border-green-200 shadow-green-100",
     error: "bg-white border-red-200 shadow-red-100",
     info: "bg-white border-blue-200 shadow-blue-100",
+    warning: "bg-white border-amber-200 shadow-amber-100",
   };
 
   return (

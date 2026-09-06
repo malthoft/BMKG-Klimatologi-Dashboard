@@ -53,7 +53,13 @@ export async function POST(req: Request) {
     const n8nApiKey = process.env.N8N_API_KEY;
 
     if (!n8nBaseUrl || !n8nWorkflowId || !n8nApiKey) {
-      throw new Error("Kredensial n8n belum diatur di server");
+      return NextResponse.json(
+        {
+          error: "Kredensial n8n belum diatur di server",
+          code: "N8N_NOT_CONFIGURED"
+        },
+        { status: 503 }
+      );
     }
 
     const wfRes = await fetch(`${n8nBaseUrl}/workflows/${n8nWorkflowId}`, {
