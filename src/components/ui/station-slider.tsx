@@ -267,7 +267,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
         <div className="flex flex-col items-center px-2.5 sm:px-4 pt-3 sm:pt-4 pb-3 sm:pb-4 relative z-10 flex-1 justify-between gap-1.5 sm:gap-2">
 
           {/* Station Name */}
-          <h4 className="font-bold text-slate-800 text-[0.8rem] sm:text-[0.9rem] leading-snug text-center w-full px-1 truncate">
+          <h4 className="font-bold text-slate-800 text-[0.8rem] sm:text-[0.9rem] leading-snug text-center w-full px-1 break-words">
             {(card.station.display_name || card.station.station_name).replace("AWS ", "")}
           </h4>
 
@@ -315,7 +315,7 @@ export function StationSlider({ onStationSelect }: StationSliderProps = {}) {
           {/* Condition + Humidity Pills in Fixed Grid for Consistency */}
           <div className="grid grid-cols-2 gap-1 sm:gap-1.5 w-full mt-0.5">
             <div className={`flex items-center justify-center px-1 sm:px-1.5 py-1 rounded-md sm:rounded-lg border text-[8.5px] sm:text-[9.5px] font-bold text-center leading-[1.1] min-h-[26px] sm:min-h-[30px] ${theme.pill}`}>
-              <span className="truncate">{card.condition}</span>
+              <span className="text-center w-full">{card.condition}</span>
             </div>
             <div className="flex items-center justify-center gap-0.5 sm:gap-1 px-1 sm:px-1.5 py-1 rounded-md sm:rounded-lg border bg-blue-50 text-blue-700 border-blue-100 text-[8.5px] sm:text-[10px] font-bold min-h-[26px] sm:min-h-[30px]">
               <span className="material-symbols-outlined text-[10px] sm:text-[11px]">water_drop</span>

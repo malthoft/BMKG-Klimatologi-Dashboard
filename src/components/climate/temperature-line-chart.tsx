@@ -93,11 +93,10 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
     const minVal = Math.min(...allValues);
     const maxVal = Math.max(...allValues);
 
-    // Always display directly from 22.0°C as requested
-    const calculatedYMin = minVal < 22.0 ? Math.floor((minVal - 0.25) * 2) / 2 : 22.0;
-    let calculatedYMax = Math.ceil((maxVal + 0.3) * 2) / 2;
-    if (calculatedYMax - calculatedYMin < 2.5) {
-      calculatedYMax = calculatedYMin + 2.5;
+    const calculatedYMin = Math.floor(minVal) - 2;
+    let calculatedYMax = Math.ceil(maxVal) + 1;
+    if (calculatedYMax - calculatedYMin < 5) {
+      calculatedYMax = calculatedYMin + 5;
     }
 
     // Determine step size (0.5°C if span <= 4.5, otherwise 1.0°C)

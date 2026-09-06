@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
+import { getStoredServiceLinks, fetchServiceLinks } from "@/lib/service-links";
 
 // Tipe Data untuk Navigasi Rekursif
 export type NavItem = {
@@ -309,6 +310,26 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
 
 export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dynamicLinks, setDynamicLinks] = useState(getStoredServiceLinks());
+
+  useEffect(() => {
+    fetchServiceLinks().then(links => {
+      if (links) setDynamicLinks(links);
+    });
+  }, []);
+
+  const mappedNavLinks = navLinks.map(function mapLink(link: NavItem): NavItem {
+    if (link.label === "Formulir Permohonan Informasi") {
+      return { ...link, href: dynamicLinks.formulirPermohonan, isExternal: true };
+    }
+    if (link.label === "Lacak Status Dokumen Anda") {
+      return { ...link, href: dynamicLinks.lacakStatus, isExternal: true };
+    }
+    if (link.subLinks) {
+      return { ...link, subLinks: link.subLinks.map(mapLink) };
+    }
+    return link;
+  });
   
   // Date/Time States
   const [dateStr, setDateStr] = useState("");
@@ -409,7 +430,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
             {/* Center: Navigation Bar (Desktop) */}
             <div className="hidden xl:flex items-center justify-center flex-1 z-10 px-4">
               <nav className="flex items-center gap-1.5">
-                {navLinks.map((link, idx) => (
+                {mappedNavLinks.map((link, idx) => (
                   <div key={idx} className="relative group h-full flex items-center">
                     <DesktopDropdownItem item={link} activeRoute={activeRoute} />
                   </div>
@@ -505,7 +526,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
 
                 {/* Mobile Nav Links (Accordions) */}
                 <div className="flex-1 overflow-y-auto py-2">
-                  {navLinks.map((link, idx) => (
+                  {mappedNavLinks.map((link, idx) => (
                     <MobileAccordionItem 
                       key={idx} 
                       item={link} 
