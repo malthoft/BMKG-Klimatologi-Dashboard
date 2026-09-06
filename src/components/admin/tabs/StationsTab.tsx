@@ -103,6 +103,30 @@ export function StationsTab() {
     }, "Stasiun baru berhasil ditambahkan!");
     
     if (ok) {
+      try {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch("/api/stations/create-table", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ table_name: newStation.table_name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          if (data.result === 'TABLE_CREATED') {
+            success(`Tabel ${newStation.table_name} berhasil dibuat di database`);
+          } else if (data.result === 'TABLE_EXISTS') {
+            info(`Tabel ${newStation.table_name} sudah ada di database`);
+          }
+        } else {
+          warning(`Stasiun tersimpan, tetapi gagal membuat tabel: ${data.error}`);
+        }
+      } catch (err: any) {
+        warning(`Stasiun tersimpan, tetapi gagal membuat tabel AWS: ${err.message}`);
+      }
+
       setNewStation({ station_id: "", station_name: "", display_name: "", table_name: "" });
       setAddSourceValue("");
       load("order=created_at.desc");
