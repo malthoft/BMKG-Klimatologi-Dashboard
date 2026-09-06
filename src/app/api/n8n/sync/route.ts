@@ -94,7 +94,13 @@ export async function POST(req: Request) {
       throw new Error("Node yang akan dimodifikasi tidak ditemukan di n8n");
     }
 
-    // 6. Save Workflow
+    // 6. Save Workflow — only send fields accepted by n8n PUT API
+    const { name, nodes, connections, settings, staticData, tags } = workflow;
+    const putBody: Record<string, any> = { name, nodes, connections };
+    if (settings) putBody.settings = settings;
+    if (staticData) putBody.staticData = staticData;
+    if (tags) putBody.tags = tags;
+
     const putRes = await fetch(`${n8nBaseUrl}/workflows/${n8nWorkflowId}`, {
       method: "PUT",
       headers: {
@@ -102,7 +108,7 @@ export async function POST(req: Request) {
         "Accept": "application/json",
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(workflow)
+      body: JSON.stringify(putBody)
     });
 
     if (!putRes.ok) {
