@@ -5,7 +5,7 @@ import { ClimatePublicationViewer } from "@/components/climate/ClimatePublicatio
 export default function Hujan6BulanPage() {
   return (
     <>
-    <Header activeRoute="/iklim" />
+    <Header activeRoute="/iklim/prediksi-iklim/prediksi-bulanan/hujan-6-bulan" />
       <main className="min-h-screen bg-slate-50 pt-24 pb-12 w-full">
       <ClimatePublicationViewer 
         tableName="iklim_hujan_6_bulan" 

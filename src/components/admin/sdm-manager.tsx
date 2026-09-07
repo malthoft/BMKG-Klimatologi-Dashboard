@@ -195,7 +195,7 @@ export function SdmManager() {
         <form onSubmit={handleSave} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-            <input required placeholder="Contoh: Dr. Budi Santoso, M.Si" value={currentEmp.nama} onChange={e => setCurrentEmp({...currentEmp, nama: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
+            <input required placeholder="Contoh: John Doe" value={currentEmp.nama} onChange={e => setCurrentEmp({...currentEmp, nama: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">NIP</label>
@@ -203,7 +203,7 @@ export function SdmManager() {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Jabatan</label>
-            <input placeholder="Contoh: Kepala Stasiun Klimatologi" value={currentEmp.jabatan} onChange={e => setCurrentEmp({...currentEmp, jabatan: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
+            <input placeholder="Contoh: Ketua Tim Kerja Tata Usaha" value={currentEmp.jabatan} onChange={e => setCurrentEmp({...currentEmp, jabatan: e.target.value})} type="text" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300" />
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bagian / Unit</label>

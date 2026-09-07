@@ -93,15 +93,11 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
     const minVal = Math.min(...allValues);
     const maxVal = Math.max(...allValues);
 
-    const calculatedYMin = Math.floor(minVal) - 2;
-    let calculatedYMax = Math.ceil(maxVal) + 1;
-    if (calculatedYMax - calculatedYMin < 5) {
-      calculatedYMax = calculatedYMin + 5;
-    }
+    const calculatedYMin = Math.floor(minVal);
+    const calculatedYMax = Math.ceil(maxVal);
 
-    // Determine step size (0.5°C if span <= 4.5, otherwise 1.0°C)
-    const span = calculatedYMax - calculatedYMin;
-    const step = span <= 4.5 ? 0.5 : 1.0;
+    // Determine step size (0.5 degree intervals)
+    const step = 0.5;
 
     const ticks: number[] = [];
     for (let v = calculatedYMin; v <= calculatedYMax + 0.001; v += step) {
@@ -174,7 +170,7 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
   } : null;
 
   return (
-    <div className="w-full max-w-5xl mx-auto bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-7 md:p-8 shadow-sm space-y-6">
+    <div className="w-full bg-white border border-border rounded-xl p-4 sm:p-6 shadow-sm flex flex-col gap-4 sm:gap-6 overflow-hidden">
       {/* Header & Title matching reference image with dynamic period */}
       <div className="flex flex-col items-center text-center space-y-2">
         <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
@@ -278,7 +274,7 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
               tickLine={{ stroke: "#cbd5e1" }}
             />
 
-            {/* Y-Axis: Shows down to 22,0 with Indonesian comma decimal format */}
+            {/* Y-Axis: Shows down to calculatedYMin with 0.5 step */}
             <YAxis 
               domain={[yMin, yMax]}
               ticks={yTicks}
@@ -312,13 +308,13 @@ export function TemperatureLineChart({ parsedData, selectedRegion }: Temperature
                       {tempItem && tempItem.value !== undefined && (
                         <p className="text-[#356a9a] font-bold flex items-center gap-2">
                           <span className="w-2.5 h-1.5 bg-[#356a9a] rounded-sm inline-block"></span>
-                          Suhu Udara: {tempItem.value.toString().replace(".", ",")} °C
+                          Suhu Udara: {Number(tempItem.value).toFixed(2).replace(".", ",")} °C
                         </p>
                       )}
                       {trendItem && trendItem.value !== undefined && (
                         <p className="text-slate-600 font-semibold flex items-center gap-2 mt-1">
                           <span className="w-3 h-0.5 border-t-2 border-dashed border-[#7a8288] inline-block"></span>
-                          Trend: {trendItem.value.toString().replace(".", ",")} °C
+                          Trend: {Number(trendItem.value).toFixed(2).replace(".", ",")} °C
                         </p>
                       )}
                     </div>

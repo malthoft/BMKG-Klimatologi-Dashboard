@@ -17,30 +17,36 @@ const OrgCard = ({ member, position, isKasubagGroup = false, className = "" }: O
   const defaultColor = isKasubagGroup ? "#15803d" : (position?.color || "#1e3a8a");
   const color = position?.color || defaultColor;
   const showTitle = member.show_role_title !== false;
+  const titleText = (member.role_title || position?.position_name || member.role_id || "").trim();
 
   return (
     <div
-      className={`bg-white rounded-2xl border-[2px] text-center flex flex-col items-center justify-center shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 w-[220px] sm:w-[240px] md:w-[250px] shrink-0 relative z-20 group overflow-hidden ${className}`}
+      className={`bg-white rounded-2xl border-[2px] text-center flex flex-col items-center justify-between shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 w-[220px] sm:w-[240px] md:w-[250px] shrink-0 relative z-20 group overflow-hidden ${
+        showTitle ? "h-[126px] sm:h-[134px] md:h-[140px]" : "min-h-[70px] sm:min-h-[76px]"
+      } ${className}`}
       style={{ borderColor: color }}
     >
       {/* Title Header Badge with Solid Fill */}
       {showTitle && (
         <div
-          className="w-full font-black text-[10px] sm:text-[11px] md:text-xs tracking-wider uppercase px-2.5 py-2 text-white line-clamp-2 leading-tight"
+          className="w-full h-[54px] sm:h-[58px] md:h-[62px] px-2.5 py-1.5 flex items-center justify-center text-center overflow-hidden shrink-0 transition-colors"
           style={{ backgroundColor: color }}
+          title={titleText}
         >
-          {member.role_title || position?.position_name || member.role_id}
+          <p className="font-black text-[9px] sm:text-[10px] md:text-[10.5px] tracking-tight uppercase text-white leading-tight line-clamp-3 break-words select-none w-full m-0">
+            {titleText}
+          </p>
         </div>
       )}
 
       {/* Person Name & NIP Container */}
-      <div className="p-2.5 sm:p-3 md:p-3.5 w-full flex flex-col items-center justify-center">
-        <h3 className="text-slate-900 text-[11px] sm:text-xs md:text-sm font-black uppercase leading-snug mb-1 group-hover:text-primary transition-colors line-clamp-2">
+      <div className="flex-1 w-full p-2 sm:p-2.5 md:p-3 flex flex-col items-center justify-center min-h-[66px] sm:min-h-[72px] md:min-h-[74px]">
+        <h3 className="text-slate-900 text-[11px] sm:text-xs md:text-sm font-black uppercase leading-snug group-hover:text-primary transition-colors line-clamp-2 text-center w-full">
           {member.name || "-"}
         </h3>
 
         {member.nip && (
-          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-mono font-bold text-slate-500">
+          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-mono font-bold text-slate-500 mt-1 tracking-tight">
             NIP : {member.nip}
           </span>
         )}
@@ -98,11 +104,14 @@ export function OrgChartViewer() {
 
   // Zoom & Pan controls
   const [zoom, setZoom] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartWrapperRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [scrollStart, setScrollStart] = useState({ left: 0, top: 0 });
+  const touchState = useRef<{ initialDist: number; initialZoom: number } | null>(null);
 
   // DOM Refs for dynamic SVG path calculations
   const kepalaRef = useRef<HTMLDivElement>(null);
@@ -319,14 +328,78 @@ export function OrgChartViewer() {
     return () => clearTimeout(timer);
   }, [members, positions, hasKasubagBranch, updateConnectorPaths]);
 
-  // ResizeObserver on window resize
+  // Auto-fit scale calculation for Desktop
+  const calculateFitScale = useCallback(() => {
+    if (!containerRef.current) return;
+    const isLargeScreen = window.innerWidth >= 1024;
+    setIsDesktop(isLargeScreen);
+
+    if (isLargeScreen) {
+      const containerWidth = containerRef.current.clientWidth;
+      // Content width of the 5 columns row is ~1380px with margins
+      const contentWidth = 1380;
+      const availableWidth = containerWidth - 48;
+      const fit = Math.min(1, Math.max(0.4, availableWidth / contentWidth));
+      setZoom(fit);
+    } else {
+      // Mobile default scale
+      setZoom(0.85);
+    }
+  }, []);
+
+  // Window resize listener
   useEffect(() => {
     const handleResize = () => {
+      if (!isModalOpen) {
+        calculateFitScale();
+      }
       updateConnectorPaths();
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [updateConnectorPaths]);
+  }, [calculateFitScale, updateConnectorPaths, isModalOpen]);
+
+  // Trigger auto-fit once data has loaded into DOM
+  useEffect(() => {
+    if (!loading && members.length > 0 && !isModalOpen) {
+      const timer = setTimeout(() => {
+        calculateFitScale();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, members.length, isModalOpen, calculateFitScale]);
+
+  // Update connector lines whenever zoom or modal changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateConnectorPaths();
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [zoom, isModalOpen, updateConnectorPaths]);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isModalOpen]);
+
+  // Escape key listener to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isModalOpen) {
+        setIsModalOpen(false);
+        setTimeout(calculateFitScale, 50);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen, calculateFitScale]);
 
   // Center on load
   useEffect(() => {
@@ -364,13 +437,73 @@ export function OrgChartViewer() {
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // Zoom handlers
+  // Touch Pinch-to-zoom handlers (two-finger zoom)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchState.current = {
+        initialDist: dist,
+        initialZoom: zoom
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchState.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / touchState.current.initialDist;
+      const newZoom = Math.min(2.5, Math.max(0.35, touchState.current.initialZoom * factor));
+      setZoom(newZoom);
+      setTimeout(updateConnectorPaths, 30);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchState.current = null;
+  };
+
+  // Mouse wheel zoom (PC)
+  const handleWheel = (e: React.WheelEvent) => {
+    if (isModalOpen) {
+      e.preventDefault();
+      const step = e.deltaY < 0 ? 0.12 : -0.12;
+      setZoom(prev => Math.min(2.5, Math.max(0.35, parseFloat((prev + step).toFixed(2)))));
+    }
+  };
+
+  // Double-click to zoom (Gallery style on PC)
+  const handleDoubleClick = () => {
+    if (isModalOpen) {
+      setZoom(prev => (prev >= 1.4 ? 1.0 : 1.8));
+    }
+  };
+
+  // Double-tap for mobile
+  const lastTapTime = useRef(0);
+  const handleTouchStartWithTap = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isModalOpen) {
+      const now = Date.now();
+      if (now - lastTapTime.current < 300) {
+        setZoom(prev => (prev >= 1.4 ? 1.0 : 1.8));
+      }
+      lastTapTime.current = now;
+    }
+    handleTouchStart(e);
+  };
+
+  // Zoom handlers (for modal view)
   const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.15, 1.8));
+    setZoom(prev => Math.min(prev + 0.15, 2.2));
     setTimeout(updateConnectorPaths, 50);
   };
   const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.15, 0.45));
+    setZoom(prev => Math.max(prev - 0.15, 0.35));
     setTimeout(updateConnectorPaths, 50);
   };
   const handleZoomReset = () => {
@@ -398,58 +531,145 @@ export function OrgChartViewer() {
   }
 
   return (
-    <div className="w-full relative">
-      {/* Floating Toolbar Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white/90 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div className="flex items-center gap-2 text-xs text-slate-600 font-bold px-2">
-          <span className="material-symbols-outlined text-primary text-[18px]">domain</span>
-          <span>Stasiun Klimatologi Kelas II Jawa Timur ({members.length} Pegawai)</span>
-        </div>
+    <div
+      className={
+        isModalOpen
+          ? "fixed inset-0 z-[9999] bg-slate-950 flex flex-col w-screen h-screen overflow-hidden select-none animate-in fade-in duration-150"
+          : "w-full relative"
+      }
+    >
+      {/* 1. Header Toolbar */}
+      {isModalOpen ? (
+        /* Modal Top Bar */
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white z-30 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setIsModalOpen(false);
+              setTimeout(calculateFitScale, 50);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white font-bold text-xs transition-all cursor-pointer shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            <span>Kembali</span>
+          </button>
 
-        {/* Zoom Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <div className="text-center min-w-0 px-2">
+            <h2 className="text-xs sm:text-sm font-extrabold text-white truncate">
+              Struktur Organisasi BMKG
+            </h2>
+            <p className="text-[10px] text-slate-400 truncate">
+              Stasiun Klimatologi Kelas I Jawa Timur ({members.length} Pegawai)
+            </p>
+          </div>
+
+          {/* Modal Zoom Controls */}
+          <div className="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl shrink-0 border border-slate-700">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center font-bold text-sm transition-all"
+              title="Perkecil (-)"
+            >
+              <span className="material-symbols-outlined text-[16px]">remove</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              className="px-2 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-[11px] font-bold font-mono transition-all"
+              title="Reset Ukuran (100%)"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center font-bold text-sm transition-all"
+              title="Perbesar (+)"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Embedded Floating Header (NO +/- buttons) */
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 bg-white/90 backdrop-blur-md p-3 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div className="flex items-center gap-2 text-xs text-slate-600 font-bold px-2">
+            <span className="material-symbols-outlined text-primary text-[18px]">domain</span>
+            <span>Stasiun Klimatologi Kelas I Jawa Timur ({members.length} Pegawai)</span>
+          </div>
+
           <button
             type="button"
-            onClick={handleZoomOut}
-            className="w-8 h-8 rounded-lg bg-white text-slate-600 hover:text-primary hover:shadow-sm transition-all flex items-center justify-center font-bold text-base"
-            title="Perkecil (-)"
+            onClick={() => {
+              setZoom(1);
+              setIsModalOpen(true);
+              setTimeout(updateConnectorPaths, 60);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-white font-bold text-xs transition-all shadow-sm cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]">remove</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomReset}
-            className="px-2.5 h-8 rounded-lg bg-white text-slate-700 hover:text-primary hover:shadow-sm transition-all text-xs font-bold font-mono"
-            title="Reset Ukuran (100%)"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            className="w-8 h-8 rounded-lg bg-white text-slate-600 hover:text-primary hover:shadow-sm transition-all flex items-center justify-center font-bold text-base"
-            title="Perbesar (+)"
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span className="material-symbols-outlined text-[16px]">open_in_full</span>
+            <span>Buka Tampilan Penuh</span>
           </button>
         </div>
-      </div>
+      )}
 
-      {/* Main Pannable / Scrollable Tree Viewport */}
+      {/* Modal Tip Banner */}
+      {isModalOpen && (
+        <div className="bg-primary/20 border-b border-primary/30 px-3 py-1.5 text-[11px] text-cyan-200 text-center font-medium flex items-center justify-center gap-1.5 shrink-0">
+          <span className="material-symbols-outlined text-[15px]">pinch</span>
+          <span>Gunakan 2 jari untuk zoom (cubit layar), tombol +/- di atas, atau geser bagan untuk menjelajah</span>
+        </div>
+      )}
+
+      {/* Main Viewport */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className={`w-full overflow-x-auto overflow-y-auto bg-gradient-to-b from-slate-50/70 to-slate-100/50 rounded-3xl border border-slate-200/80 p-6 md:p-12 min-h-[580px] select-none scrollbar-thin transition-colors ${
-          isDragging ? 'cursor-grabbing' : 'cursor-grab'
-        }`}
+        onTouchStart={handleTouchStartWithTap}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        onClick={() => {
+          if (!isDesktop && !isModalOpen) {
+            setZoom(1);
+            setIsModalOpen(true);
+            setTimeout(updateConnectorPaths, 60);
+          }
+        }}
+        className={
+          isModalOpen
+            ? `flex-1 w-full overflow-x-auto overflow-y-auto bg-slate-950 p-6 md:p-12 scrollbar-thin transition-colors ${
+                isDragging ? "cursor-grabbing" : "cursor-grab"
+              }`
+            : `w-full ${
+                isDesktop ? "overflow-x-hidden overflow-y-hidden" : "overflow-x-auto overflow-y-auto"
+              } bg-gradient-to-b from-slate-50/70 to-slate-100/50 rounded-3xl border border-slate-200/80 p-4 md:p-8 min-h-[520px] select-none scrollbar-thin transition-all relative ${
+                isDragging ? "cursor-grabbing" : isDesktop ? "cursor-default" : "cursor-pointer"
+              }`
+        }
       >
+        {/* Mobile Tap Overlay Badge in Embedded Mode */}
+        {!isDesktop && !isModalOpen && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+            <div className="bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-lg flex items-center gap-1.5 border border-white/20 animate-pulse">
+              <span className="material-symbols-outlined text-[15px] text-primary">touch_app</span>
+              <span>Ketuk untuk Buka Layar Penuh & Zoom</span>
+            </div>
+          </div>
+        )}
+
         <div
           ref={chartWrapperRef}
           className="relative flex flex-col items-center transition-transform duration-150 origin-top min-w-fit mx-auto pb-16"
-          style={{ transform: `scale(${zoom})` }}
+          style={{
+            transform: `scale(${zoom})`,
+            marginBottom: isDesktop && !isModalOpen && zoom < 1 ? `-${Math.round((1 - zoom) * 560)}px` : undefined
+          }}
         >
           {/* ============================================================= */}
           {/* SVG DYNAMIC CONNECTOR OVERLAY (Calculated from Real DOM Nodes)*/}
@@ -459,7 +679,7 @@ export function OrgChartViewer() {
               <path
                 d={svgPathData}
                 fill="none"
-                stroke="#475569"
+                stroke={isModalOpen ? "#94a3b8" : "#475569"}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -493,7 +713,7 @@ export function OrgChartViewer() {
                   <div key={team.id || team.role_id} className="flex flex-col items-center">
                     {/* Spacer matching Kasubag's card height */}
                     {kasubagNode && (
-                      <div className="h-[95px] sm:h-[105px] md:h-[110px] w-full" />
+                      <div className="h-[126px] sm:h-[134px] md:h-[140px] w-full" />
                     )}
 
                     {/* Gap matching Kasubag-to-Team gap */}
@@ -581,11 +801,52 @@ export function OrgChartViewer() {
         </div>
       </div>
 
-      {/* Mobile Hint */}
-      <div className="flex justify-center items-center gap-2 text-slate-400 text-xs font-medium mt-3">
-        <span className="material-symbols-outlined text-sm">pan_tool</span>
-        <span>Klik dan geser (drag) bagan untuk menjelajahi posisi</span>
-      </div>
+      {/* Camera-style Zoom Lens Switcher Pills (0.5x, 0.8x, 1x, 1.5x, 2x) */}
+      {isModalOpen && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 backdrop-blur-xl border border-white/20 px-2.5 py-1.5 rounded-full shadow-2xl flex items-center gap-1.5 animate-in slide-in-from-bottom-3 duration-200">
+          <span className="material-symbols-outlined text-[15px] text-amber-400 pl-1.5 pr-0.5">photo_camera</span>
+          {[
+            { label: "0.5x", value: 0.5, name: "Ultra-Wide" },
+            { label: "0.8x", value: 0.8, name: "Fit" },
+            { label: "1x", value: 1.0, name: "Normal" },
+            { label: "1.5x", value: 1.5, name: "Dekat" },
+            { label: "2x", value: 2.0, name: "Detail" }
+          ].map(lens => {
+            const isActive = Math.abs(zoom - lens.value) < 0.12;
+            return (
+              <button
+                key={lens.label}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setZoom(lens.value);
+                  setTimeout(updateConnectorPaths, 40);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-black transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? "bg-amber-400 text-slate-950 shadow-md scale-105 font-black"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+                title={`Lensa ${lens.name} (${lens.label})`}
+              >
+                {lens.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hint Footer */}
+      {!isModalOpen && (
+        <div className="flex justify-center items-center gap-2 text-slate-400 text-xs font-medium mt-3">
+          <span className="material-symbols-outlined text-sm">{isDesktop ? "fit_screen" : "touch_app"}</span>
+          <span>
+            {isDesktop
+              ? "Bagan tertata pas sesuai ukuran layar desktop. Klik \"Buka Tampilan Penuh\" untuk melihat detail."
+              : "Ketuk bagan untuk memperbesar atau membuka tampilan penuh"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,13 +7,13 @@ import { AnimatedContainer } from "@/components/ui/animated-container";
 export default function TugasFungsiPage() {
   return (
     <>
-      <Header activeRoute="/profil" />
+      <Header activeRoute="/profil/tugas-fungsi" />
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] flex flex-col gap-[64px]">
         
         <section className="max-w-4xl mx-auto w-full">
           <AnimatedContainer animation="fadeInUp" once={true}>
             <h1 className="text-[2.5rem] font-bold text-text-primary mb-2 text-center">Tugas dan Fungsi</h1>
-            <h2 className="text-[1.5rem] font-semibold text-text-secondary mb-8 text-center">BMKG Stasiun Klimatologi Kelas II Provinsi Jawa Timur</h2>
+            <h2 className="text-[1.5rem] font-semibold text-text-secondary mb-8 text-center">BMKG Stasiun Klimatologi Kelas I Provinsi Jawa Timur</h2>
             
             <div className="bg-surface border border-border p-8 rounded-2xl shadow-sm text-text-secondary text-[1.05rem] leading-relaxed space-y-8">
               <div>

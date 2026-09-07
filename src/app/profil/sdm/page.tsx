@@ -137,7 +137,7 @@ export default function SdmPage() {
 
   return (
     <>
-      <Header activeRoute="/profil" />
+      <Header activeRoute="/profil/sdm" />
       <main className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-[32px] py-[64px] flex flex-col gap-[64px]">
         
         <section className="w-full">

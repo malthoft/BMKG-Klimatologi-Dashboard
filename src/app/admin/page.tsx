@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { StationsTab } from "@/components/admin/tabs/StationsTab";
 import { BeritaTab } from "@/components/admin/tabs/BeritaTab";
 import { PengumumanTab } from "@/components/admin/tabs/PengumumanTab";
+import { SurveiTab } from "@/components/admin/tabs/SurveiTab";
 import { InstagramTab } from "@/components/admin/tabs/InstagramTab";
 import { OrgTab } from "@/components/admin/tabs/OrgTab";
 import { SdmTab } from "@/components/admin/tabs/SdmTab";
@@ -99,6 +100,7 @@ function AdminDashboardContent() {
       case 'stations': return <StationsTab />;
       case 'berita': return <BeritaTab />;
       case 'pengumuman': return <PengumumanTab />;
+      case 'survei': return <SurveiTab />;
       case 'instagram': return <InstagramTab />;
       case 'org': return <OrgTab />;
       case 'sdm': return <SdmTab />;
@@ -323,10 +325,11 @@ function AdminDashboardContent() {
             </button>
             <div className={`space-y-1 pl-2 border-l-2 border-slate-100 ml-3 transition-all overflow-hidden ${openNavGroups.publikasi ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {[
-                { id: 'berita', icon: 'newspaper', label: 'Berita & Kegiatan' },
+                { id: 'berita', icon: 'article', label: 'Berita & Kegiatan' },
                 { id: 'pengumuman', icon: 'campaign', label: 'Pengumuman' },
+                { id: 'survei', icon: 'how_to_vote', label: 'Survei Publik' },
                 { id: 'ebuletin', icon: 'menu_book', label: 'E-Buletin' },
-                { id: 'instagram', icon: 'photo_library', label: 'Galeri Instagram' },
+                { id: 'instagram', icon: 'photo_library', label: 'Post Instagram' },
               ].map(tab => (
                 <a 
                   key={tab.id}
@@ -362,6 +365,7 @@ function AdminDashboardContent() {
                 { activeTab === 'observations' && 'Data Pengamatan (Excel)' }
                 { activeTab === 'berita' && 'Kelola Berita & Kegiatan' }
                 { activeTab === 'pengumuman' && 'Kelola Pengumuman' }
+                { activeTab === 'survei' && 'Survei Publik' }
                 { activeTab === 'instagram' && 'Kelola Galeri Instagram' }
                 { activeTab === 'climate' && 'Data Iklim (Warming Stripes)' }
                 { activeTab === 'org' && 'Struktur Organisasi' }

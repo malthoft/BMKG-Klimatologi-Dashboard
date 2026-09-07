@@ -5,7 +5,7 @@ import { ClimatePublicationViewer } from "@/components/climate/ClimatePublicatio
 export default function AwalMusimPage() {
   return (
     <>
-    <Header activeRoute="/iklim" />
+    <Header activeRoute="/iklim/prediksi-iklim/prediksi-musim/awal" />
       <main className="min-h-screen bg-slate-50 pt-24 pb-12 w-full">
       <ClimatePublicationViewer 
         tableName="iklim_awal_musim" 

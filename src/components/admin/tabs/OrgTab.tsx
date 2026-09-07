@@ -309,7 +309,7 @@ export function OrgTab() {
     const subordinates = orgMembers.filter(m => m.parent_role_id === member.role_id && m.id !== member.id);
     let confirmMsg = `Yakin ingin menghapus "${member.name}" (${member.role_title})?`;
     if (subordinates.length > 0) {
-      confirmMsg += `\n\nPerhatian: Anggota ini memiliki ${subordinates.length} bawahan. Garis hierarki bawahan akan dialihkan otomatis ke atasan (${member.parent_role_id || 'Posisi Puncak'}).`;
+      confirmMsg += `\n\nPerhatian: Anggota ini memiliki ${subordinates.length} child. Garis hierarki child akan dialihkan otomatis ke parent (${member.parent_role_id || 'Tingkat Utama'}).`;
     }
 
     if (await confirm(confirmMsg)) {
@@ -443,33 +443,33 @@ export function OrgTab() {
                 ]}
               />
 
-              {/* Atasan Langsung (Parent) */}
+              {/* Parent */}
               <div>
                 <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[15px] text-blue-600">arrow_upward</span>
-                  Atasan Langsung (Parent)
+                  Parent
                 </label>
                 <CustomSelect
                   value={newOrgMember.parent_role_id || ""}
                   onChange={(val) => setNewOrgMember({ ...newOrgMember, parent_role_id: val })}
                   options={[
-                    { value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" },
+                    { value: "", label: "-- Tingkat Utama (Tanpa Parent) --" },
                     ...positions
                       .filter(p => p.position_id !== newOrgMember.role_id)
                       .map(p => ({
                         value: p.position_id,
-                        label: `↑ Atasan: ${p.position_name}`
+                        label: `↑ Parent: ${p.position_name}`
                       }))
                   ]}
                 />
               </div>
 
-              {/* Bawahan Langsung (Child) - Opsional */}
+              {/* Child (Opsional) */}
               <div>
                 <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <span className="material-symbols-outlined text-[15px] text-emerald-600">arrow_downward</span>
-                    Bawahan Langsung (Child - Opsional)
+                    Child (Opsional)
                   </span>
                   {selectedChildren.length > 0 && (
                     <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
@@ -478,7 +478,7 @@ export function OrgTab() {
                   )}
                 </label>
                 <p className="text-[10px] text-slate-400 mb-2 leading-relaxed">
-                  Pilih posisi yang berada tepat di bawah posisi ini. Garis penghubung akan dibuat otomatis.
+                  Pilih posisi yang berada di bawah posisi ini. Garis hierarki akan dibuat otomatis.
                 </p>
 
                 <div className="max-h-36 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200 space-y-1 scrollbar-thin">
@@ -526,7 +526,7 @@ export function OrgTab() {
                   onChange={e => setNewOrgMember({ ...newOrgMember, name: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 bg-white"
                   type="text"
-                  placeholder="Cth: Dr. Budi Santoso, M.Si"
+                  placeholder="Cth: John Doe"
                 />
               </div>
 
@@ -540,7 +540,7 @@ export function OrgTab() {
                   onChange={e => setNewOrgMember({ ...newOrgMember, role_title: e.target.value })}
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-300 bg-white font-semibold"
                   type="text"
-                  placeholder="Cth: KEPALA STASIUN KLIMATOLOGI"
+                  placeholder="Cth: Ketua Tim Kerja Tata Usaha"
                 />
               </div>
 
@@ -726,14 +726,14 @@ export function OrgTab() {
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                          Posisi Puncak
+                          Tingkat Utama
                         </span>
                       )}
 
                       {children.length > 0 && (
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 flex items-center gap-0.5">
                           <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-                          {children.length} Bawahan
+                          {children.length} Child
                         </span>
                       )}
 
@@ -838,33 +838,33 @@ export function OrgTab() {
                   />
                 </div>
 
-                {/* Atasan Langsung */}
+                {/* Parent */}
                 <div>
                   <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                     <span className="material-symbols-outlined text-[15px] text-blue-600">arrow_upward</span>
-                    Atasan Langsung (Parent)
+                    Parent
                   </label>
                   <CustomSelect
                     value={editingMember.parent_role_id || ""}
                     onChange={(val) => setEditingMember({ ...editingMember, parent_role_id: val })}
                     options={[
-                      { value: "", label: "-- Posisi Teratas (Tanpa Atasan) --" },
+                      { value: "", label: "-- Tingkat Utama (Tanpa Parent) --" },
                       ...positions
                         .filter(p => p.position_id !== editingMember.role_id)
                         .map(p => ({
                           value: p.position_id,
-                          label: `↑ Atasan: ${p.position_name}`
+                          label: `↑ Parent: ${p.position_name}`
                         }))
                     ]}
                   />
                 </div>
 
-                {/* Bawahan Langsung (Child) */}
+                {/* Child */}
                 <div>
                   <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-[15px] text-emerald-600">arrow_downward</span>
-                      Bawahan Langsung (Child - Opsional)
+                      Child (Opsional)
                     </span>
                     {editSelectedChildren.length > 0 && (
                       <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">

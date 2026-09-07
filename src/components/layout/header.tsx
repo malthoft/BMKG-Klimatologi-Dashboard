@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { getStoredServiceLinks, fetchServiceLinks } from "@/lib/service-links";
@@ -144,6 +145,45 @@ export const navLinks: NavItem[] = [
   { href: "https://website-edu-klim-83ao.vercel.app/", label: "Edukasi Iklim", isExternal: true },
 ];
 
+// Helper untuk memeriksa apakah NavItem sedang aktif berdasarkan rute saat ini
+export function isItemActive(item: NavItem, currentPath: string): boolean {
+  if (!currentPath) return false;
+
+  const normPath = currentPath.length > 1 && currentPath.endsWith("/")
+    ? currentPath.slice(0, -1)
+    : currentPath;
+
+  const normHref = item.href && item.href.length > 1 && item.href.endsWith("/")
+    ? item.href.slice(0, -1)
+    : item.href;
+
+  // Root path ("/") hanya aktif jika tepat di home
+  if (normHref === "/" || normPath === "/") {
+    return normHref === normPath;
+  }
+
+  // Pencocokan rute persis
+  if (normHref && normHref === normPath) {
+    return true;
+  }
+
+  // Jika memiliki subLinks, periksa apakah ada sublink yang aktif secara rekursif
+  if (item.subLinks && item.subLinks.some(sub => isItemActive(sub, normPath))) {
+    return true;
+  }
+
+  // Pencocokan halaman detail dinamis (contoh: /publikasi/berita-kegiatan/123 -> mencocokkan /publikasi/berita-kegiatan)
+  if (
+    normHref &&
+    !item.isExternal &&
+    normHref !== "/" &&
+    normPath.startsWith(normHref + "/")
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 // --- Komponen Rekursif untuk Desktop Dropdown ---
 function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; activeRoute: string; level?: number }) {
@@ -161,13 +201,7 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
     }, 100); // slight delay prevents accidental closes
   };
 
-  const isActive = (link: NavItem): boolean => {
-    if (link.href && activeRoute === link.href) return true;
-    if (link.subLinks) return link.subLinks.some(isActive);
-    return false;
-  };
-
-  const active = isActive(item);
+  const active = isItemActive(item, activeRoute);
 
   if (item.subLinks) {
     return (
@@ -180,7 +214,7 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
           className={`flex items-center justify-between transition-all duration-300 cursor-default ${
             level === 1 
               ? `px-4 py-1.5 text-[13px] font-bold rounded-full border ${active ? "text-blue-700 bg-blue-50/80 border-blue-200/60 shadow-xs" : "text-slate-600 border-transparent hover:bg-slate-100/80 hover:text-slate-900"}`
-              : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
+              : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/70 font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
           }`}
         >
           {item.label}
@@ -196,7 +230,6 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
               animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
               exit={{ opacity: 0, x: level === 1 ? 0 : -10, y: level === 1 ? 10 : 0, scale: 0.98 }}
               transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.8 }}
-              // Removed overflow-hidden so that nested submenus aren't clipped!
               className={`absolute bg-white border border-slate-200 shadow-xl rounded-xl min-w-[240px] z-50 ${
                 level === 1 
                   ? "top-full left-0 mt-1" // Dropdown pertama ke bawah
@@ -223,7 +256,7 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
       className={`flex items-center justify-between transition-all duration-300 cursor-pointer ${
         level === 1 
           ? `px-4 py-1.5 text-[13px] font-bold rounded-full border ${active ? "text-blue-700 bg-blue-50/80 border-blue-200/60 shadow-xs" : "text-slate-600 border-transparent hover:bg-slate-100/80 hover:text-slate-900"}`
-          : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/50" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
+          : `w-full px-4 py-2.5 text-[13px] font-semibold rounded-lg ${active ? "text-blue-700 bg-blue-50/70 font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-blue-600"}`
       }`}
     >
       {item.label}
@@ -236,15 +269,12 @@ function DesktopDropdownItem({ item, activeRoute, level = 1 }: { item: NavItem; 
 
 // --- Komponen Rekursif untuk Mobile Accordion ---
 function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item: NavItem; activeRoute: string; level?: number; closeMenu: () => void }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const active = isItemActive(item, activeRoute);
+  const [isOpen, setIsOpen] = useState(active);
   
-  const isActive = (link: NavItem): boolean => {
-    if (link.href && activeRoute === link.href) return true;
-    if (link.subLinks) return link.subLinks.some(isActive);
-    return false;
-  };
-
-  const active = isActive(item);
+  useEffect(() => {
+    if (active) setIsOpen(true);
+  }, [active]);
 
   if (item.subLinks) {
     return (
@@ -264,7 +294,7 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
           <button 
             className="p-2 ml-2 hover:bg-slate-200 rounded-full transition-colors flex-shrink-0"
           >
-            <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-slate-400'}`}>
+            <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : (active ? 'text-primary' : 'text-slate-400')}`}>
               expand_more
             </span>
           </button>
@@ -308,7 +338,11 @@ function MobileAccordionItem({ item, activeRoute, level = 0, closeMenu }: { item
 }
 
 
-export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
+export function Header({ activeRoute }: { activeRoute?: string }) {
+  const pathname = usePathname();
+  // Auto-detect URL aktif, fallback ke prop activeRoute atau default "/"
+  const effectiveRoute = pathname || activeRoute || "/";
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dynamicLinks, setDynamicLinks] = useState(getStoredServiceLinks());
 
@@ -432,7 +466,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
               <nav className="flex items-center gap-1.5">
                 {mappedNavLinks.map((link, idx) => (
                   <div key={idx} className="relative group h-full flex items-center">
-                    <DesktopDropdownItem item={link} activeRoute={activeRoute} />
+                    <DesktopDropdownItem item={link} activeRoute={effectiveRoute} />
                   </div>
                 ))}
               </nav>
@@ -530,7 +564,7 @@ export function Header({ activeRoute = "/" }: { activeRoute?: string }) {
                     <MobileAccordionItem 
                       key={idx} 
                       item={link} 
-                      activeRoute={activeRoute} 
+                      activeRoute={effectiveRoute} 
                       closeMenu={() => setMobileMenuOpen(false)} 
                     />
                   ))}

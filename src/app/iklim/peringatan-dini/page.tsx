@@ -5,7 +5,7 @@ import { ClimatePublicationViewer } from "@/components/climate/ClimatePublicatio
 export default function PeringatanDiniPage() {
   return (
     <>
-    <Header activeRoute="/iklim" />
+    <Header activeRoute="/iklim/peringatan-dini" />
       <main className="min-h-screen bg-slate-50 pt-24 pb-12 w-full">
       <ClimatePublicationViewer 
         tableName="iklim_peringatan_dini" 

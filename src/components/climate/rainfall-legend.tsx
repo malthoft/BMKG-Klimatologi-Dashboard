@@ -73,35 +73,35 @@ export function RainfallLegend() {
 
       {/* Category Badges for Easy Interpretation */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-        <div className="flex items-center gap-1.5 bg-slate-50/80 px-2.5 py-1.5 rounded-lg border border-slate-100 text-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#d82727] shrink-0 shadow-sm" />
-          <div className="flex-1 min-w-0 break-words">
-            <span className="font-semibold text-slate-700">Rendah</span>
-            <span className="text-[10px] text-slate-400 ml-1 block xl:inline">&lt; 1500</span>
+        <div className="flex items-start gap-2 bg-slate-50/80 px-2.5 py-2 rounded-lg border border-slate-100 text-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#d82727] shrink-0 shadow-sm mt-0.5" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-semibold text-slate-700 leading-tight">Rendah</span>
+            <span className="text-[10px] text-slate-500 font-medium mt-0.5">&lt; 1500</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-50/80 px-2.5 py-1.5 rounded-lg border border-slate-100 text-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#f8b63e] shrink-0 shadow-sm" />
-          <div className="flex-1 min-w-0 break-words">
-            <span className="font-semibold text-slate-700">Menengah</span>
-            <span className="text-[10px] text-slate-400 ml-1 block xl:inline">1500-2500</span>
+        <div className="flex items-start gap-2 bg-slate-50/80 px-2.5 py-2 rounded-lg border border-slate-100 text-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#f8b63e] shrink-0 shadow-sm mt-0.5" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-semibold text-slate-700 leading-tight">Menengah</span>
+            <span className="text-[10px] text-slate-500 font-medium mt-0.5">1500-2500</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-50/80 px-2.5 py-1.5 rounded-lg border border-slate-100 text-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#2ea74d] shrink-0 shadow-sm" />
-          <div className="flex-1 min-w-0 break-words">
-            <span className="font-semibold text-slate-700">Tinggi</span>
-            <span className="text-[10px] text-slate-400 ml-1 block xl:inline">2500-3500</span>
+        <div className="flex items-start gap-2 bg-slate-50/80 px-2.5 py-2 rounded-lg border border-slate-100 text-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#2ea74d] shrink-0 shadow-sm mt-0.5" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-semibold text-slate-700 leading-tight">Tinggi</span>
+            <span className="text-[10px] text-slate-500 font-medium mt-0.5">2500-3500</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-50/80 px-2.5 py-1.5 rounded-lg border border-slate-100 text-xs">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#083266] shrink-0 shadow-sm" />
-          <div className="flex-1 min-w-0 break-words">
-            <span className="font-semibold text-slate-700 block sm:inline">Sangat Tinggi</span>
-            <span className="text-[10px] text-slate-400 ml-1 block xl:inline">&gt; 3500</span>
+        <div className="flex items-start gap-2 bg-slate-50/80 px-2.5 py-2 rounded-lg border border-slate-100 text-xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#083266] shrink-0 shadow-sm mt-0.5" />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-semibold text-slate-700 leading-tight">Sangat Tinggi</span>
+            <span className="text-[10px] text-slate-500 font-medium mt-0.5">&gt; 3500</span>
           </div>
         </div>
       </div>

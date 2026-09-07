@@ -34,6 +34,18 @@ export interface Pengumuman {
   created_at?: string;
 }
 
+export interface Survey {
+  id?: string;
+  survey_type: 'hskm' | 'hspak';
+  title: string;
+  year: number;
+  content?: string;
+  file_url?: string;
+  file_type?: 'image' | 'pdf';
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface InstagramPost {
   id: number;
   post_url: string;
