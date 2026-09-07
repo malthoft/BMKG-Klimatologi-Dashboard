@@ -166,43 +166,6 @@ export default function MediaSosialPage() {
             </div>
           </div>
         </section>
-
-        {/* Call to Action App */}
-        <section className="py-20 bg-slate-900 relative overflow-hidden">
-          {/* Decorative Background Elements */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 blur-[100px] rounded-full translate-x-1/3 -translate-y-1/3"></div>
-          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-sky-500/10 blur-[80px] rounded-full -translate-x-1/3 translate-y-1/3"></div>
-          
-          <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
-            <span className="material-symbols-outlined text-5xl text-blue-400 mb-6">phone_iphone</span>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">
-              Aplikasi Info BMKG
-            </h2>
-            <p className="text-slate-400 text-lg mb-10 max-w-2xl mx-auto">
-              Dapatkan informasi cuaca, iklim, gempa bumi, dan peringatan dini langsung di smartphone Anda dengan aplikasi Info BMKG yang tersedia untuk Android dan iOS.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a 
-                href="https://play.google.com/store/apps/details?id=com.Info_BMKG" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-900 font-bold py-4 px-8 rounded-xl shadow-lg transition-transform hover:scale-105 flex items-center justify-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[24px]">android</span>
-                Download di Play Store
-              </a>
-              <a 
-                href="https://apps.apple.com/id/app/info-bmkg/id1112292264" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto bg-transparent hover:bg-slate-800 text-white border border-slate-700 font-bold py-4 px-8 rounded-xl transition-colors flex items-center justify-center gap-3"
-              >
-                <span className="material-symbols-outlined text-[24px]">apple</span>
-                Download di App Store
-              </a>
-            </div>
-          </div>
-        </section>
       </main>
       <Footer />
     </>
