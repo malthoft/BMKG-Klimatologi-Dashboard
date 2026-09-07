@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useCrud } from "@/hooks/useCrud";
 import { Survey } from "@/types/admin";
 import { supabaseUploadFile } from "@/lib/supabase";
+import { DEFAULT_SURVEYS } from "@/lib/default-surveys";
 import { useConfirm } from "@/components/ui/confirm-provider";
 import { useToast } from "@/components/ui/toast-provider";
 import { CustomSelect } from "@/components/ui/CustomSelect";
@@ -81,14 +82,21 @@ export function SurveiTab() {
       let finalFileType = newSurvey.file_type;
       
       if (surveyFile) {
-        const timestamp = Date.now();
-        const cleanName = surveyFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-        const path = `surveys/${timestamp}_${cleanName}`;
-        finalFileUrl = await supabaseUploadFile("public_assets", path, surveyFile);
-        
-        if (!finalFileUrl) throw new Error("Gagal mengunggah file");
-        
         finalFileType = surveyFile.type.includes("pdf") ? "pdf" : "image";
+        try {
+          const timestamp = Date.now();
+          const cleanName = surveyFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+          const path = `surveys/${timestamp}_${cleanName}`;
+          finalFileUrl = await supabaseUploadFile("public_assets", path, surveyFile);
+        } catch (uploadErr) {
+          // Fallback ke penyimpanan Base64 Data URI langsung di database PostgreSQL
+          finalFileUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(surveyFile);
+          });
+        }
       }
 
       const payload = {
@@ -127,7 +135,9 @@ export function SurveiTab() {
     }
   };
 
-  const filteredSurveys = surveys.filter((s) => {
+  const effectiveSurveys = surveys.length > 0 ? surveys : DEFAULT_SURVEYS;
+
+  const filteredSurveys = effectiveSurveys.filter((s) => {
     const matchSearch = s.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                         s.year.toString().includes(searchQuery);
     const matchType = selectedTypeFilter === "Semua" || 
@@ -251,6 +261,22 @@ export function SurveiTab() {
                       {surveyFile ? surveyFile.name : (newSurvey.file_url ? "File sudah ada, klik untuk mengganti" : "Klik untuk memilih file")}
                     </span>
                   </label>
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    value={newSurvey.file_url || ""}
+                    onChange={(e) => {
+                      const url = e.target.value;
+                      setNewSurvey({ 
+                        ...newSurvey, 
+                        file_url: url,
+                        file_type: url.toLowerCase().includes(".pdf") ? "pdf" : "image"
+                      });
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-slate-700 placeholder:text-slate-400"
+                    placeholder="Atau masukkan URL / path file (/images/surveys/...)"
+                  />
                 </div>
               </div>
             </div>

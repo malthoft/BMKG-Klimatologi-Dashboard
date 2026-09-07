@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabaseFetch } from "@/lib/supabase";
+import { fetchSurveysByType } from "@/lib/default-surveys";
 import { Survey } from "@/types/admin";
 import { ModalPortal } from "@/components/ui/ModalPortal";
 import { Badge } from "@/components/ui/badge";
@@ -25,16 +25,12 @@ export function SurveyPageClient({ title, surveyType, description }: SurveyPageC
     const fetchSurveys = async () => {
       setIsLoading(true);
       try {
-        const query = `survey_type=eq.${surveyType}&order=year.desc,created_at.desc`;
-        const data = await supabaseFetch("surveys", query);
-
-        if (data) {
-          setSurveys(data as Survey[]);
-          
-          // Auto expand the most recent year
-          if (data.length > 0) {
-            setExpandedYears([data[0].year]);
-          }
+        const data = await fetchSurveysByType(surveyType);
+        setSurveys(data);
+        
+        // Auto expand the most recent year
+        if (data && data.length > 0) {
+          setExpandedYears([data[0].year]);
         }
       } catch (error) {
         console.error("Error fetching surveys:", error);
@@ -65,26 +61,51 @@ export function SurveyPageClient({ title, surveyType, description }: SurveyPageC
     );
   };
 
+  const handleOpenFullscreen = (fileUrl: string, title: string) => {
+    if (fileUrl.startsWith("data:")) {
+      const newWin = window.open();
+      if (newWin) {
+        newWin.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${title}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <style>
+                body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                img { max-width: 100%; height: auto; object-fit: contain; }
+              </style>
+            </head>
+            <body>
+              <img src="${fileUrl}" alt="${title}" />
+            </body>
+          </html>
+        `);
+        newWin.document.close();
+      }
+    } else {
+      window.open(fileUrl, "_blank");
+    }
+  };
+
   return (
     <>
       <Header />
       <main className="min-h-screen bg-slate-50 pt-28 pb-20">
-        <div className="container mx-auto px-4 max-w-4xl">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="mb-10 text-center max-w-3xl mx-auto"
         >
-          <div className="inline-flex items-center justify-center p-3 bg-blue-100 rounded-2xl mb-4 text-blue-600 shadow-sm">
-            <span className="material-symbols-outlined text-4xl">
-              {surveyType === "hskm" ? "how_to_vote" : "gavel"}
-            </span>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight mb-4">
+          <Badge variant="neutral" className="mb-3 px-3 py-1 bg-blue-50 text-blue-700 border-blue-200">
+            Dokumen Publikasi
+          </Badge>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-4">
             {title}
           </h1>
-          <p className="text-slate-600 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-slate-600 text-base leading-relaxed">
             {description}
           </p>
         </motion.div>
@@ -123,17 +144,19 @@ export function SurveyPageClient({ title, surveyType, description }: SurveyPageC
                 >
                   <button
                     onClick={() => toggleYear(year)}
-                    className="w-full px-6 py-5 flex items-center justify-between bg-white focus:outline-none focus:bg-slate-50 transition-colors"
+                    className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none bg-white hover:bg-slate-50/80 transition-colors"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-black text-lg border border-blue-100/50">
-                        {year}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                        <span className="material-symbols-outlined">calendar_today</span>
                       </div>
-                      <div className="text-left">
-                        <h3 className="font-bold text-slate-800 text-lg">Data Tahun {year}</h3>
-                        <p className="text-sm text-slate-500 font-medium mt-0.5">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-800">
+                          Tahun {year}
+                        </h3>
+                        <span className="text-xs text-slate-400 font-semibold">
                           {yearSurveys.length} Dokumen Survei
-                        </p>
+                        </span>
                       </div>
                     </div>
                     <div
@@ -267,15 +290,14 @@ export function SurveyPageClient({ title, surveyType, description }: SurveyPageC
 
                   {selectedSurvey.file_url && (
                     <div className="mt-6 flex justify-center">
-                      <a
-                        href={selectedSurvey.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 hover:-translate-y-0.5"
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFullscreen(selectedSurvey.file_url!, selectedSurvey.title)}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 hover:-translate-y-0.5 cursor-pointer"
                       >
                         <span className="material-symbols-outlined">open_in_new</span>
                         Buka Layar Penuh
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
